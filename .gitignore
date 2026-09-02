@@ -1,0 +1,5 @@
+# Never commit the ledger or a live queue: they carry absolute local paths.
+ledger.jsonl
+queue.jsonl
+__pycache__/
+*.pyc
