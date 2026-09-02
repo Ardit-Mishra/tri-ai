@@ -110,11 +110,35 @@ Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |---|---|---|
-| *(pending roadmap)* | — | Pending |
+| GRAPH-01 | Phase 3 | Pending |
+| GRAPH-02 | Phase 1 | Pending |
+| GRAPH-03 | Phase 3 | Pending |
+| GRAPH-04 | Phase 1 | Pending |
+| BOARD-01 | Phase 1 | Pending |
+| BOARD-02 | Phase 1 | Pending |
+| BOARD-03 | Phase 1 | Pending |
+| BOARD-04 | Phase 1 | Pending |
+| VERIFY-01 | Phase 2 | Pending |
+| VERIFY-02 | Phase 2 | Pending |
+| VERIFY-03 | Phase 3 | Pending |
+| VERIFY-04 | Phase 2 | Pending |
+| VERIFY-05 | Phase 2 | Pending |
+| EXEC-01 | Phase 3 | Pending |
+| EXEC-02 | Phase 2 | Pending |
+| EXEC-03 | Phase 2 | Pending |
+| EXEC-04 | Phase 2 | Pending |
+| TRIG-01 | Phase 2 | Pending |
+| TRIG-02 | Phase 2 | Pending |
+| TRIG-03 | Phase 2 | Pending |
+| TRIG-04 | Phase 5 | Pending |
+| OBS-01 | Phase 4 | Pending |
+| OBS-02 | Phase 5 | Pending |
+| OBS-03 | Phase 5 | Pending |
+| OBS-04 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 21 total
-- Mapped to phases: 0 ⚠️ (roadmap not yet created)
+- v1 requirements: 25 total (corrected from the summary count of 21 recorded when this file was first drafted — the itemized list below the header always contained 25 entries; verified by direct count during roadmap creation)
+- Mapped to phases: 25/25 ✓ (100% coverage, no orphans, no duplicates)
 
 ---
 *Requirements defined: 2026-09-02*
