@@ -22,7 +22,7 @@ only, per the measured ~16% (not Nx) concurrent-generation ceiling on this hardw
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Verified Board Substrate** - Add the verify_command column and prove atomic claim/lease/reclaim under real contention, reusing the existing kanban kernel
+- [x] **Phase 1: Verified Board Substrate** - Add the verify_command column and prove atomic claim/lease/reclaim under real contention, reusing the existing kanban kernel
 - [ ] **Phase 2: Verify-Gated Single-Worker Execution** - One worker claims, runs, and accepts/reverts subtasks strictly by exit code, assignable from CLI, queue file, or a durable schedule
 - [ ] **Phase 3: Planner + Bounded Concurrent Execution** - The strong model writes a real graph and exits; several workers execute it concurrently at a measured cap with proven per-branch failure isolation
 - [ ] **Phase 4: Read-Only Telegram Observability** - The board and full subtask output are inspectable from Telegram, no write capability yet
@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A task row created through the board API records target repo, prompt, verify_command, dependencies (via `task_links`), and expected artifacts — inspectable via a direct query against the board
   3. A test that spawns two concurrent claimants against the same ready task asserts exactly one claim succeeds (rowcount==1) and the other observes rowcount==0, run as an automated test with a pass/fail exit code
   4. A test that kills a worker mid-claim asserts the task becomes reclaimable within its lease TTL, and a second test where the "dead" worker is actually still alive asserts the reclaim defers instead of double-spawning a second worker on the same task
-**Plans**: TBD
+**Plans**: `.planning/phases/phase-1-plan.md` (complete — 19 tests, all criteria met)
 
 ### Phase 2: Verify-Gated Single-Worker Execution
 **Goal**: One worker claims subtasks from the board, executes them, and accepts or reverts strictly by verify-command exit code — including cross-edge artifact checks and adversarially-tested verify commands — targeting only read-only CPU/IO-bound chores, assignable from the CLI, a queue file, or a durable schedule.
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Verified Board Substrate | 0/TBD | Not started | - |
+| 1. Verified Board Substrate | 1/1 | Complete | 2026-09-08 |
 | 2. Verify-Gated Single-Worker Execution | 0/TBD | Not started | - |
 | 3. Planner + Bounded Concurrent Execution | 0/TBD | Not started | - |
 | 4. Read-Only Telegram Observability | 0/TBD | Not started | - |
