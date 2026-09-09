@@ -4,6 +4,7 @@ row records everything a worker needs to execute and judge it."""
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 import unittest
 from pathlib import Path
@@ -35,6 +36,52 @@ class VerifyColumnMigration(BoardTestCase):
         self.assertEqual(second, {n: False for n, _ in board.VERIFY_COLUMNS})
         self.assertEqual(third, {n: False for n, _ in board.VERIFY_COLUMNS})
         self.assertEqual(self.columns(), before)
+
+    def test_migrating_a_table_that_already_owns_the_name_raises(self):
+        # The real scenario: a future Hermes release ships its own
+        # verify_command with different semantics. add_column_if_missing
+        # swallows SQLite's "duplicate column name", so without the type guard
+        # migrate() would report success and we would then read and write a
+        # column that means something else - the board still working while
+        # verification quietly means nothing.
+        #
+        # Build a tasks table that already holds that name at the wrong type and
+        # run the real migrate() against it. This must raise, not proceed.
+        probe_path = self.tmp / "collision.db"
+        probe = sqlite3.connect(probe_path)
+        probe.row_factory = sqlite3.Row
+        self.addCleanup(probe.close)
+        probe.execute(
+            "CREATE TABLE tasks (id TEXT PRIMARY KEY, verify_command INTEGER)"
+        )
+        probe.commit()
+
+        with self.assertRaises(board.SchemaCollision) as caught:
+            board.migrate(probe)
+        self.assertIn("verify_command", str(caught.exception))
+
+        # The guard fired before writing: the foreign column is untouched, and
+        # none of our other columns were added to a table we do not own.
+        cols = board._column_types(probe, "tasks")
+        self.assertEqual(cols["verify_command"], "INTEGER")
+        self.assertNotIn("verify_timeout", cols)
+        self.assertNotIn("expected_artifacts", cols)
+
+    def test_a_declaration_that_disagrees_with_the_live_schema_raises(self):
+        # The same guard from the other side: our own table is correct, but the
+        # declaration changed under us (a retype in VERIFY_COLUMNS that nobody
+        # migrated). Also proves a rejected migration leaves nothing corrupted.
+        original = board.VERIFY_COLUMNS
+        board.VERIFY_COLUMNS = (("verify_command", "verify_command INTEGER"),)
+        try:
+            with self.assertRaises(board.SchemaCollision):
+                board.migrate(self.conn)
+        finally:
+            board.VERIFY_COLUMNS = original
+
+        self.assertEqual(
+            board.migrate(self.conn), {n: False for n, _ in board.VERIFY_COLUMNS}
+        )
 
     def test_kernel_migration_pass_does_not_drop_our_columns(self):
         # The Hermes install updates itself; the kernel re-runs its own schema

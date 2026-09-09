@@ -91,19 +91,69 @@ def kanban():
     return kanban_db
 
 
+class SchemaCollision(RuntimeError):
+    """A verify column exists on ``tasks`` but is not the column we expect."""
+
+
+def _column_types(conn: sqlite3.Connection, table: str) -> dict[str, str]:
+    """``{column_name: declared_type}`` for ``table``, types upper-cased."""
+    return {
+        row["name"]: (row["type"] or "").upper()
+        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+
+
 def migrate(conn: sqlite3.Connection) -> dict[str, bool]:
     """Add the verify columns to ``tasks``. Idempotent.
 
     Returns ``{column: added_by_this_call}``. A second call on the same
     database returns all-``False`` and raises nothing — that no-op is the
     property the migration is tested for.
+
+    Idempotency here has to mean more than "did not raise". The kernel's
+    ``add_column_if_missing`` swallows SQLite's ``duplicate column name``
+    error, so a column of the *same name but a different type* — added by a
+    future Hermes release, or by anything else touching this table — would be
+    silently accepted and then read as if it were ours. That is the failure
+    this project exists to prevent: nothing errors, the board keeps working,
+    and verification quietly means something else. So the declared type is
+    checked both before and after the additive pass, and a mismatch raises
+    ``SchemaCollision`` rather than proceeding.
     """
     kanban()  # ensures hermes_home() is on sys.path
     from hermes_cli.sqlite_util import add_column_if_missing
 
+    expected = {
+        column: ddl.split(None, 1)[1].strip().upper()
+        for column, ddl in VERIFY_COLUMNS
+    }
+
+    def assert_no_collision(stage: str) -> None:
+        present = _column_types(conn, "tasks")
+        for column, want in expected.items():
+            got = present.get(column)
+            if got is not None and got != want:
+                raise SchemaCollision(
+                    f"tasks.{column} is declared {got!r}, expected {want!r} "
+                    f"({stage}). Something else owns this column name — "
+                    f"do not write verify data through it."
+                )
+
+    assert_no_collision("before migrating")
+
     added: dict[str, bool] = {}
     for column, ddl in VERIFY_COLUMNS:
         added[column] = add_column_if_missing(conn, "tasks", column, ddl)
+
+    # Re-check after the pass: a column this call did *not* add could have been
+    # created concurrently by another migrator, and add_column_if_missing would
+    # have swallowed that race exactly as it swallows a legitimate no-op.
+    assert_no_collision("after migrating")
+    final = _column_types(conn, "tasks")
+    missing = [c for c in expected if c not in final]
+    if missing:
+        raise SchemaCollision(f"verify columns absent after migrating: {missing}")
+
     conn.commit()
     return added
 

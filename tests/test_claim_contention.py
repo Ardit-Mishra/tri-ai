@@ -23,15 +23,21 @@ class ConcurrentClaimIsExclusive(BoardTestCase):
         # Give the children time to boot and import before the deadline; the
         # point of the barrier is that they all reach claim_task together.
         start_at = time.time() + 6.0
-        procs = [
-            subprocess.Popen(
+        procs = []
+        for _ in range(claimants):
+            proc = subprocess.Popen(
                 [sys.executable, str(CHILD), str(self.db_path), task_id, f"{start_at}"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
             )
-            for _ in range(claimants)
-        ]
+            procs.append(proc)
+            # Registered at spawn time, not after the wait loop: if an assertion
+            # below fires on the first child, or communicate() times out, the
+            # remaining children are never waited on. They would outlive the
+            # test still holding a claim against a board the next test reuses,
+            # so one failure would cascade into unrelated ones.
+            self.addCleanup(self._reap, proc)
         results = []
         for p in procs:
             out, err = p.communicate(timeout=120)
@@ -40,6 +46,17 @@ class ConcurrentClaimIsExclusive(BoardTestCase):
         for r in results:
             self.assertNotIn("error", r, f"claimant raised: {r.get('error')}")
         return results
+
+    @staticmethod
+    def _reap(proc: subprocess.Popen) -> None:
+        """Make sure a claimant is dead. A no-op for one that already exited."""
+        if proc.poll() is not None:
+            return
+        try:
+            proc.kill()
+            proc.wait(timeout=10)
+        except Exception:
+            pass
 
     def make_ready_task(self, title: str) -> str:
         tid = board.create_task(
