@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="100%" role="img"
+     aria-label="A claimed task runs on a free model; the model's own report is discarded; a verify command's exit code decides whether the task is accepted or reverted.">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2ea043"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#cf3f3f"/>
+    </marker>
+  </defs>
+
+  <style>
+    .b  { fill: none; stroke: #8b949e; stroke-width: 1.5; rx: 6; }
+    .t  { font: 600 14px ui-sans-serif, -apple-system, "Segoe UI", sans-serif; fill: #8b949e; }
+    .s  { font: 400 12px ui-monospace, "SF Mono", Consolas, monospace; fill: #8b949e; }
+    .ln { stroke: #8b949e; stroke-width: 1.5; fill: none; }
+    .gt { fill: #2ea043; }  .gs { stroke: #2ea043; }
+    .rt { fill: #cf3f3f; }  .rs { stroke: #cf3f3f; }
+    .mut { opacity: .45; }
+  </style>
+
+  <!-- board -->
+  <rect class="b" x="10" y="112" width="132" height="58"/>
+  <text class="t" x="76" y="136" text-anchor="middle">board</text>
+  <text class="s" x="76" y="156" text-anchor="middle">task + verify cmd</text>
+
+  <line class="ln" x1="146" y1="141" x2="186" y2="141" marker-end="url(#a)"/>
+
+  <!-- worker -->
+  <rect class="b" x="190" y="112" width="132" height="58"/>
+  <text class="t" x="256" y="136" text-anchor="middle">worker</text>
+  <text class="s" x="256" y="156" text-anchor="middle">atomic claim</text>
+
+  <line class="ln" x1="326" y1="141" x2="366" y2="141" marker-end="url(#a)"/>
+
+  <!-- agent -->
+  <rect class="b" x="370" y="112" width="140" height="58"/>
+  <text class="t" x="440" y="136" text-anchor="middle">free model</text>
+  <text class="s" x="440" y="156" text-anchor="middle">does the work</text>
+
+  <!-- the discarded report -->
+  <g class="mut">
+    <line class="ln" x1="440" y1="108" x2="440" y2="72" marker-end="url(#a)"/>
+    <rect class="b" x="342" y="24" width="196" height="46"/>
+    <text class="s" x="440" y="45" text-anchor="middle">&#8220;done, it worked&#8221;</text>
+    <line class="ln" x1="366" y1="52" x2="514" y2="52"/>
+    <text class="s" x="556" y="49">never evidence</text>
+  </g>
+
+  <line class="ln" x1="514" y1="141" x2="554" y2="141" marker-end="url(#a)"/>
+
+  <!-- verify -->
+  <rect class="b" x="558" y="106" width="146" height="70"/>
+  <text class="t" x="631" y="132" text-anchor="middle">verify command</text>
+  <text class="s" x="631" y="152" text-anchor="middle">exit code decides</text>
+
+  <!-- accept -->
+  <path class="ln gs" d="M708,128 C744,128 744,74 776,74" marker-end="url(#ag)"/>
+  <text class="s gt" x="726" y="96">exit 0</text>
+  <text class="t gt" x="790" y="79">accept</text>
+
+  <!-- revert -->
+  <path class="ln rs" d="M708,154 C744,154 744,214 776,214" marker-end="url(#ar)"/>
+  <text class="s rt" x="722" y="200">exit &#8800; 0</text>
+  <text class="t rt" x="790" y="219">revert</text>
+
+  <text class="s" x="10" y="274">Every subtask carries its own oracle. If no command can prove it worked, it does not belong on the board.</text>
+</svg>
