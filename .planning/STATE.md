@@ -68,11 +68,23 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-08
-Stopped at: Phase 1 complete — `src/board.py`, `tests/` (22 tests, `tests/run.ps1` → OK),
-`.planning/phases/phase-1-plan.md`, including two defects found auditing it and fixed (non-atomic
-`create_task`; the `setdefault` board pin) and an honest note on where two tests are weaker than
-their criteria's wording. Next: plan Phase 2 (verify-gated single-worker execution).
-Note: the `gsd` plugin is not installed in the current Claude Code environment, so Phase 1 was
-planned and executed directly against the roadmap's success criteria rather than via `/gsd:plan-phase`.
+Last session: 2026-09-09
+Stopped at: **Phase 1 complete, reviewed, and published.** `github.com/Ardit-Mishra/tri-ai` is public,
+`main` is the default branch, MIT detected, and `evidence/ledger.jsonl` is publicly reachable —
+verified against the live URLs, not from a push report. Phase 1 is `23dbfb4`; `26fcf20` records the
+publication blocker's resolution. Working tree clean, synced with `origin/main`.
+
+Phase 1 carries two defects found by self-audit and fixed (non-atomic `create_task`; the `setdefault`
+board pin), one found by review and fixed (`migrate` silently accepting a same-named column of a
+different type), and an honest note in the plan doc on where two tests are weaker than their
+criteria's wording.
+
+Next: plan Phase 2 (verify-gated single-worker execution).
+
+Note: `~/.claude/skills/` was destroyed in the 2026-09-06 incident and is NOT in the `S5-claude-r3`
+archive — that archive stopped at `./profiles/`, before reaching `./skills/`. So the whole GSD suite
+(`gsd-plan-phase`, `gsd-execute-phase`, ~60 skills) and the custom `research-repo-grade` skill are
+gone. GSD is a marketplace plugin and can be reinstalled; `research-repo-grade` was custom and is not
+in `skills-lock.json`, so it is lost. Until GSD is reinstalled, phases are planned directly against
+the roadmap's success criteria rather than via `/gsd:plan-phase`.
 Resume file: None
