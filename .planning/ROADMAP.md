@@ -51,7 +51,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Every verify command shipped in v1's chore set (test suite, typecheck, build, dependency audit) has a recorded run showing it FAILS against deliberately broken input, before being trusted for real work
   4. A task submitted via laptop CLI, one appended to the queue file, and one triggered by a Windows Scheduled Task all execute through the identical claim→verify→ledger path and each produces a ledger entry with worker identity, model, verify exit code, and duration
   5. Grep/audit of the worker codepath confirms no call to `git push`, `git merge` into a protected branch, deploy tooling, or credential file access exists anywhere in the execution path
-**Plans**: TBD
+**Plans**: `.planning/phases/phase-2-plan.md` (planned, not started)
 
 ### Phase 3: Planner + Bounded Concurrent Execution
 **Goal**: A strong model decomposes one assigned task into a persisted graph via the board API and exits; several workers then claim and execute independent subtasks concurrently at a cap set from the measured concurrency data, and a failure in one branch is proven not to stall unrelated branches.

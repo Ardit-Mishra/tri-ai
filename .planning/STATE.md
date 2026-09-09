@@ -10,8 +10,8 @@ See: .planning/PROJECT.md (updated 2026-09-02)
 ## Current Position
 
 Phase: 2 of 5 (Verify-Gated Single-Worker Execution)
-Plan: Not yet planned
-Status: Ready to plan
+Plan: `.planning/phases/phase-2-plan.md`
+Status: Planned, awaiting review then execution
 Last activity: 2026-09-09 — Phase 1 complete and reviewed. `src/board.py` adapter + 22 tests; all
 four success criteria met (`tests/run.ps1` → 22 tests, OK), independently re-run twice by a second
 reviewer. Plan and findings in `.planning/phases/phase-1-plan.md`.

@@ -1,4 +1,14 @@
-# Tri-AI
+<h1>Tri-AI</h1>
+
+<p>
+  <strong>A delegated task is accepted or rejected by a verification command's exit code,<br>
+  never by the agent's own report.</strong>
+</p>
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Ledger](https://img.shields.io/badge/ledger-9%2F9%20verified-2ea043)](evidence/ledger.jsonl)
+![Marginal cost](https://img.shields.io/badge/marginal%20cost-%240-2ea043)
+![Roadmap](https://img.shields.io/badge/roadmap-phase%201%20of%205-8b949e)
 
 A three-node build system that lets one person ship production software from anywhere, at
 near-zero marginal cost, by routing every task to the cheapest machine and model that can
@@ -6,6 +16,8 @@ actually do it — and by refusing to accept any delegated work on the agent's w
 
 It is not an agent framework. It is a set of small, boring pieces wired so that a laptop in one
 country, a GPU desktop in another, and a phone can behave as one workshop.
+
+<img src="docs/img/verify-gate.svg" alt="A claimed task runs on a free model; the model's own report is discarded; a verify command's exit code decides whether the work is accepted or reverted." width="100%">
 
 ```
    phone ──Telegram──▶  desktop (always-on)  ◀──Tailscale SSH──  laptop
@@ -16,9 +28,6 @@ country, a GPU desktop in another, and a phone can behave as one workshop.
 ```
 
 ## The one idea
-
-> **A delegated task is accepted or rejected by a verification command's exit code, never by the
-> agent's own report.**
 
 This is not caution for its own sake. Observed on the same free model, the same day:
 
