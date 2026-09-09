@@ -1,5 +1,7 @@
-# Never commit the ledger or a live queue: they carry absolute local paths.
+# Never commit the live ledger or queue: they carry absolute local paths.
+# The redacted ledger in evidence/ is committed deliberately - see evidence/README.md.
 ledger.jsonl
 queue.jsonl
+!evidence/ledger.jsonl
 __pycache__/
 *.pyc

@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A task row created through the board API records target repo, prompt, verify_command, dependencies (via `task_links`), and expected artifacts — inspectable via a direct query against the board
   3. A test that spawns two concurrent claimants against the same ready task asserts exactly one claim succeeds (rowcount==1) and the other observes rowcount==0, run as an automated test with a pass/fail exit code
   4. A test that kills a worker mid-claim asserts the task becomes reclaimable within its lease TTL, and a second test where the "dead" worker is actually still alive asserts the reclaim defers instead of double-spawning a second worker on the same task
-**Plans**: `.planning/phases/phase-1-plan.md` (complete — 19 tests, all criteria met)
+**Plans**: `.planning/phases/phase-1-plan.md` (complete — 22 tests, all criteria met, independently re-run by a reviewer)
 
 ### Phase 2: Verify-Gated Single-Worker Execution
 **Goal**: One worker claims subtasks from the board, executes them, and accepts or reverts strictly by verify-command exit code — including cross-edge artifact checks and adversarially-tested verify commands — targeting only read-only CPU/IO-bound chores, assignable from the CLI, a queue file, or a durable schedule.

@@ -51,6 +51,10 @@ claim is not "I built an agent system" — it is "I know exactly which parts of 
 | Chat from a phone reaches the desktop | **working** — Hermes gateway on Telegram |
 | The premium CLI keeps working on a free model when quota runs out | **working** — `claude-free` / `cf` |
 | Routes are verified before they are trusted | **working** — route registry keyed by resolved model |
+| A task board that stores a verify command per node | **working** — `src/board.py`, 22 tests |
+| Atomic claim proven under real cross-process contention | **working** — `tests/test_claim_contention.py` |
+| A dead worker's task returns to the queue; a live one's does not | **working** — `tests/test_reclaim.py` |
+| A worker that claims from the board and runs the graph | **not built** — the substrate exists, nothing executes against it yet |
 | A message from the phone *executes* work and reports back | **not built** — capture writes to an inbox; nothing reads it back out |
 | `hermes cron` recurring jobs | **not used** — scheduling is Windows Task Scheduler today |
 | `hermes kanban` swarm (parallel workers → verifier) | **not wired** — board exists and is empty |
@@ -62,7 +66,12 @@ statement checkable rather than assertable.
 
 ## Evidence
 
-The ledger is the point. Latest full state:
+The ledger is the point, and it is in this repository: [`evidence/ledger.jsonl`](evidence/ledger.jsonl)
+— nine entries, exit codes and captured output intact, absolute paths redacted and nothing else
+changed. A project arguing that an agent's report is never evidence should not ask you to take its
+own headline number on trust. [`evidence/README.md`](evidence/README.md) shows how to check it.
+
+Latest full state:
 
 - **9 of 9** queued tasks passed across **6 repositories**
 - **~1,216 seconds** of agent time
@@ -100,6 +109,28 @@ Asked to count a 17-row list by eye, the same model answered 15, then 18. Given
 | [docs/OPERATING.md](docs/OPERATING.md) | the commands you actually type |
 | [docs/AUTONOMY.md](docs/AUTONOMY.md) | scheduling, continuity, and what is genuinely unattended |
 
+## Running the tests
+
+```powershell
+tests\run.ps1        # 22 tests; exit 0 pass, 1 fail
+```
+
+**They need a local Hermes Agent install**, because the board is that project's kanban kernel used
+as a library rather than a reimplementation of it — `src/board.py` imports `hermes_cli.kanban_db`
+and adds one thing the kernel has no concept of: a `verify_command` per task. Point
+`TRIAI_HERMES_HOME` at the checkout if it is not in the default location. There is no CI here for
+the same reason: the dependency is a local install, not a package.
+
+The kernel is used and never edited. That install replaces whole package trees when it updates, so
+an in-place patch would be reverted silently — and the failure mode is the bad kind, where the board
+keeps working while verification quietly stops. The migration therefore runs from this side, against
+this project's own board file, through the kernel's own `add_column_if_missing`.
+
+Several tests deliberately spawn real processes and kill them, because the properties under test —
+that exactly one of two concurrent claimants wins, and that a dead worker's lease is reclaimed while
+a live worker's is extended — are not observable in a single process. That is why the suite takes
+~20 seconds rather than ~2.
+
 ## Scope and safety
 
 Autonomous work runs on feature branches. It never pushes, never merges to a default branch,
@@ -107,3 +138,7 @@ never deploys, and never touches credentials. Every run is reviewable after the 
 
 This repository documents the architecture. It contains no hostnames, IP addresses, tokens or
 keys; where one is required the docs use a placeholder.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).

@@ -12,9 +12,9 @@ See: .planning/PROJECT.md (updated 2026-09-02)
 Phase: 2 of 5 (Verify-Gated Single-Worker Execution)
 Plan: Not yet planned
 Status: Ready to plan
-Last activity: 2026-09-08 — Phase 1 complete. `src/board.py` adapter + 19 tests; all four success
-criteria met (`tests/run.ps1` → 20 tests, OK). Plan and findings in
-`.planning/phases/phase-1-plan.md`.
+Last activity: 2026-09-09 — Phase 1 complete and reviewed. `src/board.py` adapter + 22 tests; all
+four success criteria met (`tests/run.ps1` → 22 tests, OK), independently re-run twice by a second
+reviewer. Plan and findings in `.planning/phases/phase-1-plan.md`.
 
 Progress: [██░░░░░░░░] 20%
 
@@ -32,7 +32,7 @@ Progress: [██░░░░░░░░] 20%
 | 1. Verified Board Substrate | 1 | 1 session | 1 session |
 
 **Recent Trend:**
-- Last 5 plans: Phase 1 (complete, 20 tests passing)
+- Last 5 plans: Phase 1 (complete, 22 tests passing)
 - Trend: -
 
 *Updated after each plan completion*
@@ -55,9 +55,12 @@ Recent decisions affecting current work:
 
 - Phase 2's worker must call `board.release_stale_claims`, never `kb.release_stale_claims` directly — going straight to the kernel reintroduces the Windows reclaim deferral (see Blockers). Add a grep check to Phase 2's criterion-5 audit step, beside the existing no-push/no-merge/no-credentials audit
 - Any new Tri-AI entry point must go through `board.kanban()`, which now *assigns* `HERMES_KANBAN_DB` rather than `setdefault`-ing it. A dispatcher-spawned worker inherits that variable pointing at the Hermes board, so `setdefault` silently kept the wrong board
+- Review is a separate seat: Claude writes, a second model reviews at the commit/branch level. Brief at `~/CODEX-REVIEWER-BRIEF.md`. It earns its keep — the first pass caught a test whose *name* claimed it proved a schema collision was refused while its body only inspected a throwaway table and never called `migrate()`. A test that asserts less than its name is the same class of failure as an agent reporting success it did not achieve, and self-review does not reliably catch it
 - The kernel exposes `signal_fn` on `reclaim_task` and `detect_stale_running` as well. Neither is used yet; both need the same wrapper when a phase reaches for them
 
 ### Blockers/Concerns
+
+- **Phase 1 remote push hard-stopped on 2026-09-09.** `origin` was configured as `https://github.com/Ardit-Mishra/tri-ai.git`, but `git push --set-upstream origin phase-1/verified-board-substrate` exited nonzero: `remote: Repository not found.` / `fatal: repository 'https://github.com/Ardit-Mishra/tri-ai.git/' not found`. Do not retry, rename, or alter the remote without Ardit's direction; Phase 2 remains paused because the requested ordering puts this safeguard first.
 
 - REQUIREMENTS.md's own summary line originally stated "21 total" v1 requirements; the actual itemized list contains 25. Corrected during roadmap creation — verify this doesn't indicate a requirement was silently dropped somewhere upstream if it resurfaces.
 - **On Windows the kanban kernel never reclaims a task whose worker is dead** (found and worked around in Phase 1). `_terminate_reclaimed_worker` reads "already gone" from a `ProcessLookupError`, which Windows' `os.kill` never raises — a dead PID gives `PermissionError` (WinError 5), one that never existed gives `OSError` (WinError 87), and both are read as "still alive", so every tick defers the reclaim forever. Measured against the kernel default: `0 reclaimed; status = running; events [..., 'reclaim_deferred']`. Load-bearing, because the always-on node is the Windows desktop and a stranded task looks busy rather than broken. Worked around in the adapter via the kernel's own `signal_fn` hook (`board.posix_semantics_signal`), not by editing the kernel; the guard is not weakened — a genuinely live worker is still signalled and still defers
@@ -66,7 +69,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-09-08
-Stopped at: Phase 1 complete — `src/board.py`, `tests/` (19 tests, `tests/run.ps1` → OK),
+Stopped at: Phase 1 complete — `src/board.py`, `tests/` (22 tests, `tests/run.ps1` → OK),
 `.planning/phases/phase-1-plan.md`, including two defects found auditing it and fixed (non-atomic
 `create_task`; the `setdefault` board pin) and an honest note on where two tests are weaker than
 their criteria's wording. Next: plan Phase 2 (verify-gated single-worker execution).

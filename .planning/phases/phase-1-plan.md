@@ -80,9 +80,12 @@ asserts both halves.
 
 ```
 $ tests/run.ps1
-Ran 20 tests in 18.9s
+Ran 22 tests
 OK
 ```
+
+Run twice, by a second reviewer rather than by the author, confirming no leaked worker processes or
+temp directories between runs.
 
 | criterion | proven by |
 |---|---|
