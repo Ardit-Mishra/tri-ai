@@ -321,15 +321,19 @@ def run_batch(
         ]
 
     results: list[WorkerResult | None] = [None] * len(tasks)
+    errors: list[Exception | None] = [None] * len(tasks)
 
     def _run(idx: int, task_id: str) -> None:
-        results[idx] = dispatch_one(
-            task_id,
-            launcher=launcher,
-            board_path=board_path,
-            ledger_path=ledger_path,
-            runs_root=runs_root,
-        )
+        try:
+            results[idx] = dispatch_one(
+                task_id,
+                launcher=launcher,
+                board_path=board_path,
+                ledger_path=ledger_path,
+                runs_root=runs_root,
+            )
+        except Exception as exc:
+            errors[idx] = exc
 
     threads = []
     for idx, task in enumerate(tasks):
@@ -338,5 +342,12 @@ def run_batch(
         t.start()
     for t in threads:
         t.join()
+
+    # Exceptions raised in a thread do not propagate through join(). Re-raise
+    # the first submission-order failure so dispatch() can never report an
+    # empty or partial batch as a successful run.
+    for error in errors:
+        if error is not None:
+            raise error
 
     return [r for r in results if r is not None]

@@ -328,6 +328,38 @@ class DispatchOneContractTest(unittest.TestCase):
             )
 
 
+class DispatchBatchContractTest(BoardTestCase):
+    def test_mismatched_launcher_result_aborts_public_concurrent_dispatch(self):
+        cap_cfg = self.tmp / "concurrency.json"
+        _write_concurrency(cap_cfg, cap=2)
+        for index in range(2):
+            workspace = self.tmp / f"workspace-{index}"
+            workspace.mkdir()
+            board.create_task(
+                self.conn,
+                title=f"task-{index}",
+                prompt="irrelevant",
+                verify_command="echo ok",
+                verify_timeout=30,
+                repo=workspace,
+            )
+        self.conn.close()
+
+        def wrong_launcher(_task_id: str) -> WorkerResult:
+            return WorkerResult(task_id="different-task", exit_code=0, pid=8)
+
+        # This must raise through the public, threaded dispatch path. Without
+        # run_batch's error channel, thread exceptions were lost and dispatch()
+        # returned an empty result whose all_passed property was vacuously true.
+        with self.assertRaisesRegex(ValueError, "different-task"):
+            dispatcher.dispatch(
+                launcher=wrong_launcher,
+                board_path=self.db_path,
+                concurrency_source=cap_cfg,
+                max_waves=1,
+            )
+
+
 class DispatchMockTest(BoardTestCase):
     """Dispatch tests using a mock launcher — no subprocesses."""
 
