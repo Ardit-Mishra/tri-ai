@@ -10,24 +10,29 @@ See: .planning/PROJECT.md (updated 2026-09-02)
 ## Current Position
 
 Phase: 3 of 5 (Planner + Bounded Concurrent Execution)
-Plan: `.planning/phases/phase-3-plan.md` (Slices 1–2 complete, Slice 3 pending)
-Status: Phase 2 complete; Phase 3 Slices 1–2 verified locally
-Last activity: 2026-09-10 — Phase 3 Slice 2 is complete in local commit (uncommitted yet,
-to be committed after STATE.md update). Adds `src/dispatcher.py` (~290 lines):
-cap-derived concurrent dispatcher with workspace partitioning, `board.ready_tasks()` as
-a board-level API, parallel wave dispatch via threading, and 28 tests covering cap
-derivation, group scheduling, workspace conflict detection, parallel-over-serial timing
-proof, same-repo serialization, unique-worktree concurrency, and subprocess PID
-verification. Safety audit extended with `DispatcherCannotBypassOrPush` class (no
-process creation, no raw git, no push/merge/deploy/credential in dispatcher). Full suite:
-**130 tests, exit 0, 117.646s** (`python tests/run.py`).
+Plan: `.planning/phases/phase-3-plan.md` (Slices 1–3 complete)
+Status: Phase 3 complete; all three Phase 3 slices verified locally
+Last activity: 2026-09-10 — Phase 3 Slice 3 is complete in local commits. Adds
+`tests/test_phase3_failure_isolation.py` (2 tests) proving linked-graph failure
+isolation through the REAL worker path (`worker.execute_task`): the failing
+parent's deliberate non-zero verify command is ledgered `verify_outcome='failed'`
+and follows the kernel's bounded retry/circuit-breaker state machine to
+`blocked`; the blocked descendant never becomes claimable (kernel demotes a
+ready child with undone parents to `todo` at claim time); independent siblings
+reach `done` in the same dispatcher run with valid worker/run ledger identities;
+and a deliberately broken dispatcher that stops at the first failed child makes
+the sibling-completion assertion fail (negative control). Also simplifies the
+dispatch loop in `src/dispatcher.py` (drop `dispatched_ids`; re-read the board
+each wave so reclaimed tasks reappear; add `max_waves` cap for tests). Full
+suite: **132 tests, exit 0, 117.560s** (`python tests/run.py`).
 
-Slice 1 (`a86f331`): planner graph writer — validate-first, transactional, workspace-aware.
-98 tests at commit. Slice 2: dispatcher + concurrency tests — the cap-derived concurrent
-executor with workspace partitioning. 130 tests at commit. Next atomic step is Phase 3
-Slice 3 only: linked-graph failure isolation and full ledger assertions.
+Slice 1 (`a86f331`): planner graph writer — validate-first, transactional,
+workspace-aware. 98 tests at commit. Slice 2 (`fa2bb52`): cap-derived
+concurrent dispatcher with workspace partitioning — 130 tests at commit. Slice 3
+(pending commit): linked-graph failure isolation — 132 tests at commit. Phase 3
+is complete and the next step is independent commit-level review before Phase 4.
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100% (Phase 3)
 
 ## Performance Metrics
 
@@ -64,6 +69,9 @@ Recent decisions affecting current work:
 - Phase 1: `board.create_task` refuses a task with no verify command at write time, before any row exists, AND writes the row and its verify columns in one transaction. Rejecting early is only half the property: the kernel's `create_task` commits on its own, so a second transaction for the verify columns left a window where the row was visible as `ready` with `verify_command` NULL and a polling worker could claim an unverifiable task. Proven by failure injection, not assumed. This is Phase 3's criterion 2 landing early because it is the natural shape of the write API, not a separate feature
 - Phase 2: **idempotency-key re-submission is a full no-op, never a partial update.** The kernel's `create_task` returns the existing row id for a duplicate key; `board.create_task` previously re-wrote only the three verify columns onto it, so a re-run of a queue line whose verify/timeout/artifacts changed refreshed the gate while title, prompt, workspace and `max_runtime_seconds` stayed stale — a fresh oracle bolted onto an old workspace, reported as success. Caught by the assign/chores cross-reviewer and confirmed by reproduction. The fix detects a pre-existing key inside the same `write_txn` (IMMEDIATE, so no interleaving writer) and skips the verify-column UPDATE. To change a task, delete and re-assign.
 - Phase 2: **a claim must carry the worker's own pid, or the 15-minute TTL reclaims a live run.** Tri-AI claims with `host:pid` but never set the kernel's `worker_pid`; the kernel's live-worker extension branch (`release_stale_claims`: truthy `worker_pid` + `_pid_alive`) therefore never fired, and once `DEFAULT_CLAIM_TTL_SECONDS` (15m) elapsed a claim whose agent was still running (default 30m) was reclaimed to `ready` and a second worker spawned a second agent on the same repo. Caught by the worker/ledger cross-reviewer with a precise reproduction. Fixed by registering the worker's own pid after claim (`kb._set_worker_pid`, the same private-seam precedent as `board.posix_semantics_signal`); the dead/crashed/quarantine paths still reclaim because the pid is genuinely gone after exit.
+- Phase 3 Slice 3: **the kernel owns the parent gate — the dispatcher/board never re-checks it.** `kanban_db.claim_task` is the single enforcement point: a claim on a task with an undone parent demotes it `ready -> todo` with a `claim_rejected` event and returns `None`, and unparented tasks land `ready` while parented ones land `todo` until `recompute_ready` promotes them when every parent is `done`. So a linked-graph failure test builds the DAG through `task_links` and asserts on the real claim/complete/reclaim lifecycle rather than re-implementing scheduling. Verified against the kernel source, not assumed.
+- Phase 3 Slice 3: **the failure-isolation test drives the REAL worker path, not a bespoke failure simulator.** The launcher claims the dispatched task via `kb.claim_task`, then runs `worker.execute_task` (claim -> precheck -> upstream gate -> agent -> verify -> accept/revert -> ledger) with only `executor.run_agent` swapped, so the "deliberate non-zero verify command" genuinely exits 7 through `executor.run_verify` and the retry/circuit-breaker is the kernel's own `_record_task_failure` (limit 2 -> `blocked` + `gave_up`). This is why the test is credible where a mock-outcome launcher would not be.
+- Phase 3 Slice 3: **the dispatcher must re-read the board between waves, not track dispatched IDs** — a reclaimed (failed-then-retried) task reappears in `ready_tasks()` and would be invisible to a `dispatched_ids` set. The Slice 3 test's `5 results (root + 2 failing-parent + 2 siblings)` in one run is proof the re-read drives the retry. This is the second scheduling-loop correction (after `run_batch` threading) that Slice 3 surfaced; both were needed only because the earlier slices did not exercise failure.
 
 ### Pending Todos
 
@@ -71,6 +79,8 @@ Recent decisions affecting current work:
 - Any new Tri-AI entry point must go through `board.kanban()`, which now *assigns* `HERMES_KANBAN_DB` rather than `setdefault`-ing it. A dispatcher-spawned worker inherits that variable pointing at the Hermes board, so `setdefault` silently kept the wrong board
 - Review is a separate seat: Claude writes, a second model reviews at the commit/branch level. Brief at `~/CODEX-REVIEWER-BRIEF.md`. It earns its keep — the first pass caught a test whose *name* claimed it proved a schema collision was refused while its body only inspected a throwaway table and never called `migrate()`. A test that asserts less than its name is the same class of failure as an agent reporting success it did not achieve, and self-review does not reliably catch it
 - The kernel exposes `signal_fn` on `reclaim_task` and `detect_stale_running` as well. Neither is used yet; both need the same wrapper when a phase reaches for them
+- Phase 3 is complete ONLY after an independent commit-level review passes. Review the three Phase 3 commits (`a86f331` planner, `fa2bb52` dispatcher, the Slice 3 commit) against the plan's Completion Gate and the four roadmap criteria before Phase 4 begins. Do not start Phase 4 on the strength of a self-green run alone.
+- Phase 4 is read-only Telegram observability. The dispatcher's `--ledger`/`--runs-dir` and the failure-isolation ledger rows are the raw material it will consume; the Slice 3 test's ledger assertions are the shape contract it should reuse.
 
 ### Blockers/Concerns
 
@@ -97,42 +107,42 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-09-10
-Phase 3 Slice 2 complete. Branch `phase-2/worker-assign`. Commit pending (uncommitted changes).
+Phase 3 COMPLETE — Slices 1-3 verified. Branch `phase-2/worker-assign`. Slice 3 commit (pending commit).
 
-**Slice 2 changed files:**
-- `src/dispatcher.py` — NEW. Cap-derived concurrent dispatcher (~290 lines): `read_cap()`,
-  `partition_groups()`, `filter_running()`, `dispatch_one()`, `dispatch()`, `run_batch()`,
-  `WorkerResult`, `DispatchResult`.
-- `src/board.py` — added `ready_tasks()` (board-level API for ready task selection with
-  `workspace_kind` and `branch_name`).
-- `src/worker.py` — `ready_tasks()` now delegates to `board.ready_tasks()`.
-- `tests/test_phase3_concurrency.py` — NEW. 28 tests: `ReadCapTest` (9), `PartitionGroupsTest` (5),
-  `FilterRunningTest` (3), `DispatchMockTest` (4), `TimingProofTest` (2), `SameRepoPartitionTest` (3),
-  `SubprocessDispatchTest` (2).
-- `tests/test_safety_boundary.py` — `dispatcher.py` added to `CLOSURE_MODULES`; new
-  `DispatcherCannotBypassOrPush` class (4 tests: no process creation, no raw git, no push/merge/
-  deploy/credential, launcher-only worker invocation).
+**Slice 3 changed files:**
+- `src/dispatcher.py` — MODIFIED. Dispatch loop simplified for retry support: drop `dispatched_ids`;
+  re-read `board.ready_tasks()` fresh each wave so reclaimed (failed-then-retried) tasks reappear
+  naturally; add `max_waves` test bound. No new process/git surface (safety audit unchanged).
+- `tests/test_phase3_failure_isolation.py` — NEW. 2 tests. Builds the Slice 3 DAG through real
+  `task_links`, dispatches one run (`root` -> failing-parent/blocked-descendant + two siblings), and
+  proves the failing parent's deliberate non-zero verify command is ledgered `verify_outcome='failed'`
+  and trips the kernel circuit breaker (`blocked` + `gave_up` after 2), the descendant stays
+  unclaimable (kernel demotes ready child with undone parent to `todo` at claim), siblings reach
+  `done` in the same run with valid worker/run ledger identities, and a deliberately broken
+  dispatcher (stops at first failed child) makes the sibling-completion assertion fail.
 
-**Test result:** `python tests/run.py` → **130 tests, exit 0, 117.646s** (2026-09-10).
-Focused concurrency suite: **28 tests, exit 0, 16.92s**.
+**Test result:** `python tests/run.py` → **132 tests, exit 0, 117.560s** (2026-09-10).
+Focused slice-suite: `test_phase3_concurrency` + `test_phase3_failure_isolation` +
+`test_safety_boundary` → **66 tests, exit 0, 25.766s**.
 
-**Key design decisions (Slice 2):**
-- Cap derived from `.planning/research/concurrency_results.json` (currently 4). Fail loudly on
-  malformed/missing file or override exceeding measured cap.
-- `run_batch()` uses threading for concurrent dispatch within a wave — tasks within a wave genuinely
-  overlap in wall-clock time, proving the parallel-over-serial timing predicate.
-- `dispatch()` tracks `dispatched_ids` to prevent re-dispatch when re-reading `ready_tasks()` between
-  waves. `running_keys` cleared after each wave (workers have exited by then).
-- Mock launchers mark tasks as done on the board after invocation, so the dispatch loop's inter-wave
-  re-read sees correct state.
-- Safety: dispatcher never calls subprocess, os.system, or any PROCESS_ATTRS directly. Process
-  creation is the launcher's responsibility.
+**Key design decisions (Slice 3):**
+- The failure test drives `worker.execute_task` (the real claim -> precheck -> gate -> agent -> verify
+  -> accept/revert -> ledger path) with only `executor.run_agent` swapped; the verify command is a real
+  `python -c "import sys; sys.exit(7)"`, so the ledger genuinely records `verify_exit=7`.
+- `board.create_task(parents=[...])` creates the real `task_links`; the kernel's `claim_task` is the
+  single parent-gate enforcement point (demote ready child with undone parents to `todo` + return
+  `None`) and `complete_task` runs `recompute_ready` to promote siblings when root finishes — the
+  dispatcher's wave re-read picks them up, which is how one dispatch run does root, children, and the
+  failing-parent retry (`5 results`).
+- `failing_parent` gets `priority=100` in the negative test so `ready_tasks()` orders it first and the
+  broken dispatcher deterministically stops at it before any sibling is launched.
 
+**Slice 2 commit:** `fa2bb52` — cap-derived concurrent dispatcher + workspace partitioning. 130 tests.
 **Slice 1 commit:** `a86f331` — planner graph writer. 98 tests, exit 0, 104.808s.
 **Phase 2 commit:** `ea44258` — worker/ledger/assign/chores. 89 tests, exit 0, 93.951s.
 
-Next: Phase 3 Slice 3 only — linked-graph failure isolation and full ledger assertions. Do not begin
-until Slice 2 is independently reviewed.
+Next: independent commit-level review of Phase 3's three commits before Phase 4. Phase 4 is read-only
+Telegram observability (see roadmap); do not begin it until the review has passed.
 
 Phase 1 carries two defects found by self-audit and fixed (non-atomic `create_task`; the `setdefault`
 board pin), one found by review and fixed (`migrate` silently accepting a same-named column of a

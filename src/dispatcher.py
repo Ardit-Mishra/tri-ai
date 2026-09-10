@@ -239,6 +239,7 @@ def dispatch(
     concurrency_source: Path | str | None = None,
     ledger_path: Path | str | None = None,
     runs_root: Path | str | None = None,
+    max_waves: int | None = None,
 ) -> DispatchResult:
     """Dispatch all ready tasks through a bounded process pool.
 
@@ -247,12 +248,16 @@ def dispatch(
     3. Partition by workspace key and filter out workspace conflicts.
     4. Schedule waves up to the cap: each wave takes one task from each
        serial group, dispatches them, and collects results before the next.
-    5. Re-read ready tasks between waves (new tasks may have become ready
-       after parent completion), excluding already-dispatched IDs.
+    5. Re-read ready tasks between waves — newly-promoted children join the
+       pool, and reclaimed (failed-then-retried) tasks reappear naturally
+       because ``ready_tasks()`` reflects live board state.
 
     The dispatcher does **not** retry, quarantine, or write ledger entries.
     The Phase 2 worker owns all of that.  The dispatcher only waits for its
     worker processes to exit and reports their exit status.
+
+    ``max_waves`` caps the number of waves for testing.  ``None`` (default)
+    means no limit — run until the board has no ready tasks.
     """
     cap = read_cap(
         concurrency_source or DEFAULT_CAP_SOURCE,
@@ -261,52 +266,41 @@ def dispatch(
     bp = Path(board_path).resolve()
     conn = board.connect(bp)
     result = DispatchResult()
-    dispatched_ids: set[str] = set()
 
     try:
-        ready = board.ready_tasks(conn)
-        groups = partition_groups(ready)
-        running_keys: set[str] = set()
+        wave_index = 0
+        while max_waves is None or wave_index < max_waves:
+            # Re-read ready tasks from the board each wave.  This naturally
+            # picks up: (a) newly-promoted children whose parents completed,
+            # and (b) tasks reclaimed to ready after a failed verify attempt.
+            ready = board.ready_tasks(conn)
+            groups = partition_groups(ready)
+            running_keys: set[str] = set()
 
-        # Schedule one task from each group per wave, respecting the cap.
-        while any(groups):
-            # Collect one task per group, filter workspace conflicts.
             wave_tasks: list[dict[str, Any]] = []
-            next_groups: list[list[dict[str, Any]]] = []
             for group in groups:
                 if not group:
                     continue
-                task = group.pop(0)
+                task = group[0]
                 key = task.get("workspace_key") or board.workspace_key(
                     task.get("workspace_path") or ""
                 )
                 if key not in running_keys:
                     wave_tasks.append(task)
                     running_keys.add(key)
-                if group:
-                    next_groups.append(group)
-            groups = next_groups
 
             if not wave_tasks:
                 break
 
             # Respect the cap: take at most `cap` tasks per wave.
             batch = wave_tasks[:cap]
-            for t in batch:
-                dispatched_ids.add(t["id"])
             wave_result = run_batch(
                 batch, launcher=launcher, board_path=bp,
                 ledger_path=ledger_path, runs_root=runs_root,
             )
             result.results.extend(wave_result)
+            wave_index += 1
 
-            # After each wave, re-read ready tasks — completing parents may
-            # have promoted children.  Exclude already-dispatched IDs and
-            # rebuild workspace groups from the newly-ready pool.
-            running_keys.clear()
-            new_ready = board.ready_tasks(conn)
-            fresh = [t for t in new_ready if t["id"] not in dispatched_ids]
-            groups = partition_groups(fresh)
     finally:
         try:
             conn.close()

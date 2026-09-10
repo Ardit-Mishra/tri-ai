@@ -54,15 +54,19 @@ second worker on one repository.
 
 ## Current Checkpoint
 
-Phase 3 Slice 2 is complete locally (uncommitted on `phase-2/worker-assign`),
-verified by `python tests/run.py`: 130 tests, exit 0, 117.646s on 2026-09-10.
-Slice 1 (`a86f331`): planner graph writer, 98 tests. Slice 2 adds
-`src/dispatcher.py` (cap-derived concurrent dispatcher with workspace
-partitioning), `board.ready_tasks()`, and `tests/test_phase3_concurrency.py`
-(28 tests). Safety audit extended with `DispatcherCannotBypassOrPush`. The
-next atomic step is **Slice 3 only**: linked-graph failure isolation and full
-ledger assertions. Do not begin Slice 3 until Slice 2 is independently
-reviewed.
+Phase 3 is COMPLETE locally on `phase-2/worker-assign`, verified by
+`python tests/run.py`: 132 tests, exit 0, 117.560s on 2026-09-10.
+Slice 1 (`a86f331`): planner graph writer, 98 tests. Slice 2 (`fa2bb52`):
+cap-derived concurrent dispatcher with workspace partitioning,
+`board.ready_tasks()`, `tests/test_phase3_concurrency.py` (28 tests), and
+`DispatcherCannotBypassOrPush` safety audit, 130 tests. Slice 3 (pending
+commit): linked-graph failure isolation — `src/dispatcher.py` dispatch loop
+simplified (re-read the board each wave; no `dispatched_ids`; `max_waves`
+bound) and `tests/test_phase3_failure_isolation.py` (2 tests) driving the
+real worker path through the kernel's own circuit breaker, parent gate, and
+ledger. The next atomic step is **independent commit-level review of the three
+Phase 3 commits** against the Completion Gate before Phase 4 (read-only
+Telegram observability). Do not begin Phase 4 until that review passes.
 
 ## Safe Fan-Out
 
@@ -113,10 +117,12 @@ can fail for a named deliberate break before implementation begins.
 Start a new Claude session from `C:\Users\ardit\tri-ai` with:
 
 > Read `.planning/AUTONOMOUS-RUNBOOK.md`, `.planning/STATE.md`, and
-> `.planning/phases/phase-3-plan.md` in full. You are the Phase 3 lead. First
-> run the canonical-checkout gate. The investigation and plan are complete;
-> implement Slice 2 only, and do not begin Slice 3 until Slice 2 is fully
-> verified and independently reviewed. Work locally;
+> `.planning/phases/phase-4-plan.md` (if present, else the roadmap in
+> `.planning/PROJECT.md`) in full. You are the Phase 4 lead. First run the
+> canonical-checkout gate, then independently review the three Phase 3 commits
+> (`a86f331`, `fa2bb52`, and the Slice 3 commit) against the plan's Completion
+> Gate and the four roadmap criteria. Do not begin Phase 4 (read-only Telegram
+> observability) until that review passes. Work locally;
 > never push, merge, deploy, create remotes, or read credentials. Update state
 > after every verified slice. If context or usage runs low, write the exact
 > completed evidence, current commit, failing command, and next atomic step to
