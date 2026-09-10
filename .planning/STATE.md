@@ -5,25 +5,29 @@
 See: .planning/PROJECT.md (updated 2026-09-02)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Phase 3 — Concurrency (next)
+**Current focus:** Phase 4 — Read-Only Telegram Observability (Slice 1 review correction)
 
 ## Current Position
 
-Phase: 3 of 5 (Planner + Bounded Concurrent Execution)
-Plan: `.planning/phases/phase-3-plan.md` (Slices 1–3 complete)
-Status: Phase 3 complete and independently reviewed; ready for Phase 4
-Last activity: 2026-09-10 — Phase 4 Slice 1 completed in local commit `24bf5e7`
-(`Fix dispatcher launcher contract`). `src/dispatcher.py` no longer builds an
-unused child environment or claims to provide one; the launcher owns process
-creation and environment, and `dispatch_one` rejects a result for any task ID
-other than the one it requested. Removed dead `filter_running` and its isolated
-tests. The deliberately wrong launcher test proves the new result-ID gate can
-fail. Focused command: `python -m unittest tests.test_phase3_concurrency
-tests.test_safety_boundary` — 63 tests, exit 0, 18.627s. Full command:
-`python tests/run.py` — 131 tests, exit 0, 115.138s. Changed only
+Phase: 4 of 5 (Read-Only Telegram Observability)
+Plan: `.planning/phases/phase-4-plan.md` (Slice 1 corrected; independent review pending)
+Status: Phase 3 is complete and independently reviewed. Do not start Phase 4
+Slice 2 until the Slice 1 correction is independently reviewed.
+Last activity: 2026-09-10 — independent review of `24bf5e7` found a P1
+false-success path: a `dispatch_one` contract error raised inside `run_batch`'s
+thread was printed and lost, so public `dispatch()` returned an empty result
+whose `all_passed` property was vacuously true. Commit `2369613`
+(`Propagate concurrent dispatcher failures`) records the correction:
+`run_batch` records and re-raises worker-thread errors in submission order;
+`DispatchBatchContractTest` drives two independent board tasks through public
+concurrent `dispatch()` with a deliberately mismatched launcher and asserts
+`ValueError`. Focused command: `python -m unittest tests.test_phase3_concurrency
+tests.test_safety_boundary` -- 64 tests, exit 0, 18.893s. Full command:
+`python tests/run.py` -- 132 tests, exit 0, 135.695s. Changed only
 `src/dispatcher.py` and `tests/test_phase3_concurrency.py`; prior-session
-Phase 4 planning artifacts remain unstaged. Next atomic step: independent
-review of Slice 1, then Phase 4 Slice 2 worktree creation. Independent Phase 3 review completed. All four
+Phase 4 planning artifacts remain unstaged. Next atomic step: obtain an
+independent review of `2369613` before beginning Slice 2 worktree creation.
+Independent Phase 3 review completed. All four
 roadmap criteria verified, all five Completion Gate commands pass (132 tests,
 exit 0, 109.816s). Four non-blocking findings recorded in
 `.planning/reviews/phase-3-review.md`: dead env vars in `dispatch_one` (F1),
@@ -49,7 +53,7 @@ concurrent dispatcher with workspace partitioning — 130 tests at commit. Slice
 (`76dc2c6`): linked-graph failure isolation — 132 tests at commit. Phase 3
 is complete and the next step is independent commit-level review before Phase 4.
 
-Progress: [██████████] 100% (Phase 3)
+Progress: [██████████] Phase 3 complete; Phase 4 Slice 1 under review
 
 ## Performance Metrics
 
@@ -97,7 +101,7 @@ Recent decisions affecting current work:
 - Review is a separate seat: Claude writes, a second model reviews at the commit/branch level. Brief at `~/CODEX-REVIEWER-BRIEF.md`. It earns its keep — the first pass caught a test whose *name* claimed it proved a schema collision was refused while its body only inspected a throwaway table and never called `migrate()`. A test that asserts less than its name is the same class of failure as an agent reporting success it did not achieve, and self-review does not reliably catch it
 - The kernel exposes `signal_fn` on `reclaim_task` and `detect_stale_running` as well. Neither is used yet; both need the same wrapper when a phase reaches for them
 - Phase 3 review: **DONE 2026-09-10** — passed, 4 non-blocking findings, recorded at `.planning/reviews/phase-3-review.md` (commit `12288a7`).
-- Phase 4 is read-only Telegram observability. Drawn up at `.planning/phases/phase-4-plan.md` (draft for review, no slice started) with companion slices from `.planning/research/proposed-gaps.md` (#7 `dispatch_one` env contract, #2 worktree creation, #1 error classification, then read-only Telegram). The dispatcher's `--ledger`/`--runs-dir` and the failure-isolation ledger rows are the raw material it will consume; the Slice 3 test's ledger assertions are the shape contract it should reuse.
+- Phase 4 is read-only Telegram observability. Its companion Slice 1 (`dispatch_one` env contract, gap #7) removed the dead launcher env dict and `filter_running`, but independent review found and the local working tree corrects the concurrent exception-propagation hole recorded in Current Position. Slice 2 (worktree creation, gap #2), Slice 3 (error classification, gap #1), and the Telegram read surface have not started. The dispatcher's `--ledger`/`--runs-dir` and the failure-isolation ledger rows are the raw material the read surface will consume; the Slice 3 test's ledger assertions are the shape contract it should reuse.
 - Blueprint gap capture: `.planning/research/proposed-gaps.md` records all seven honest gaps + the partial control-plane item, each mapped to current state (verified file refs) and a decision (slice-worthy → which phase, or hypothesis → which probe gates it). Nothing marked slice-worthy has started; ranked next actions are #7 → #2 → #1 → Phase 4 Telegram reads → Phase 5 writes/#3 ingestion/#8 dashboard → probes for #4/#5 → #6 design-reject-as-auto-merge.
 
 ### Blockers/Concerns

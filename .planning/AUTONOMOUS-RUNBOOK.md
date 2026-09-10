@@ -36,42 +36,32 @@ Phase 2 is complete locally on `phase-2/worker-assign`. The post-review suite
 passed 89 tests, exit 0, in 93.951 seconds on 2026-09-10. It is deliberately
 unpushed. Do not revisit it except for a concrete regression.
 
-## Phase 3 Objective
+## Phase 4 Objective
 
-Build **Planner + Bounded Concurrent Execution** against the four roadmap
-criteria:
+Build **Read-Only Telegram Observability** in four reviewed slices:
 
-1. The planner persists a task graph through the board API and exits.
-2. The board rejects planner-written tasks without `verify_command` at write
-   time.
-3. Independent CPU/IO chores run faster with a measured worker cap, with every
-   attempt represented in the ledger.
-4. A failed branch does not stall unrelated branches.
-
-The Phase 2 `dir` workspace design is single-worker only. Phase 3 must use
-per-subtask worktrees or another proven repo partition before it starts a
-second worker on one repository.
+1. Correct the `dispatch_one` launcher contract and remove dead dispatcher
+   code; an invalid launcher result must abort public concurrent dispatch.
+2. Create isolated worktrees for same-repository concurrent tasks.
+3. Classify environment failures separately from logic failures without
+   weakening ledger evidence or the circuit breaker.
+4. Render board and ledger evidence through a Telegram read surface with no
+   remote mutation path.
 
 ## Current Checkpoint
 
-Phase 3 is COMPLETE locally on `phase-2/worker-assign`, verified by
-`python tests/run.py`: 132 tests, exit 0, 117.560s on 2026-09-10.
-Slice 1 (`a86f331`): planner graph writer, 98 tests. Slice 2 (`fa2bb52`):
-cap-derived concurrent dispatcher with workspace partitioning,
-`board.ready_tasks()`, `tests/test_phase3_concurrency.py` (28 tests), and
-`DispatcherCannotBypassOrPush` safety audit, 130 tests. Slice 3 (`76dc2c6`):
-linked-graph failure isolation — `src/dispatcher.py` dispatch loop
-simplified (re-read the board each wave; no `dispatched_ids`; `max_waves`
-bound) and `tests/test_phase3_failure_isolation.py` (2 tests) driving the
-real worker path through the kernel's own circuit breaker, parent gate, and
-ledger. The independent commit-level review of the three Phase 3 commits has
-**PASSED** (`.planning/reviews/phase-3-review.md`, 2026-09-10): all four
-roadmap criteria verified, all five Completion Gate commands exit 0, four
-non-blocking findings (dead env vars in `dispatch_one`, unused
-`filter_running`, overly broad safety-boundary process-detection test,
-historical commit message only). The next atomic step is **Phase 4 (read-only
-Telegram observability)**; do not begin implementation until this session
-passes the canonical-checkout gate and reads STATE.md.
+Phase 3 is COMPLETE locally on `phase-2/worker-assign`; its independent review
+passed at `.planning/reviews/phase-3-review.md`. Phase 4 Slice 1 correction is
+committed locally as `2369613`: independent review found that a
+`dispatch_one` error inside a `run_batch` thread was lost, allowing public
+`dispatch()` to report an empty batch as `all_passed`. The correction stores
+thread errors and re-raises them after joining; a public two-task concurrent
+negative test proves the failure crosses the batch boundary. Verification:
+`python -m unittest tests.test_phase3_concurrency tests.test_safety_boundary`
+-- 64 tests, exit 0, 18.893s; `python tests/run.py` -- 132 tests, exit 0,
+135.695s. Obtain independent review of `2369613`, and only then begin Slice 2
+worktree creation. Do not stage, revert, or overwrite the
+pre-existing Phase 4 planning artifacts listed by `git status`.
 
 ## Safe Fan-Out
 
@@ -108,26 +98,24 @@ can fail for a named deliberate break before implementation begins.
 
 ## Implementation Order
 
-1. Commit the Phase 2 baseline locally if it is not already clean.
-2. Write and review the Phase 3 plan from the four reports.
-3. Implement planner persistence and its reject-at-write-time tests.
-4. Implement worktree/partitioned worker execution and the measured-cap
-   harness. Do not guess the cap.
-5. Add the failed-branch isolation test and full ledger assertions.
-6. Run the full suite, update `STATE.md` and this runbook checkpoint, then
-   commit locally. Stop for review before moving to Phase 4.
+1. Commit the verified Slice 1 correction locally, staging only its source,
+   test, and continuity documentation.
+2. Obtain an independent review focused on the public concurrent exception
+   path; do not start Slice 2 until it passes.
+3. Implement one remaining Phase 4 slice at a time in plan order.
+4. Run the full suite, update `STATE.md` and this runbook checkpoint, then
+   commit locally and stop for independent review before the next slice.
 
 ## Usage-Limit Handoff Prompt
 
 Start a new Claude session from `C:\Users\ardit\tri-ai` with:
 
 > Read `.planning/AUTONOMOUS-RUNBOOK.md`, `.planning/STATE.md`, and
-> `.planning/phases/phase-4-plan.md` (if present, else the roadmap in
-> `.planning/PROJECT.md`) in full. You are the Phase 4 lead. First run the
-> canonical-checkout gate, then independently review the three Phase 3 commits
-> (`a86f331`, `fa2bb52`, and the Slice 3 commit) against the plan's Completion
-> Gate and the four roadmap criteria. Do not begin Phase 4 (read-only Telegram
-> observability) until that review passes. Work locally;
+> `.planning/phases/phase-4-plan.md`, and `.planning/research/proposed-gaps.md`
+> in full. You are the Phase 4 lead. First run the canonical-checkout gate,
+> then inspect `git status`: preserve the pre-existing Phase 4 planning
+> artifacts. Independently review `2369613` and its public concurrent dispatch
+> failure path. Do not begin Slice 2 until that review passes. Work locally;
 > never push, merge, deploy, create remotes, or read credentials. Update state
 > after every verified slice. If context or usage runs low, write the exact
 > completed evidence, current commit, failing command, and next atomic step to
