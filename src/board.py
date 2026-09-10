@@ -354,7 +354,7 @@ def record_worktree(
     kb = kanban()
     source = str(Path(source_path).resolve())
     target = str(Path(target_path).resolve())
-    with kb.write_txn(conn):
+    with kb.write_txn(conn, allow_nested=True):
         existing = conn.execute(
             "SELECT source_path, target_path, branch_name FROM triai_worktrees "
             "WHERE task_id = ?",

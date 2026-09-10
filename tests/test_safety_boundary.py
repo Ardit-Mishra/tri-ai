@@ -59,6 +59,7 @@ PENDING_MODULES = frozenset()
 PROCESS_GATEWAYS = frozenset({
     ("executor", "git"),
     ("executor", "materialize_worktree"),
+    ("executor", "verify_worktree"),
     ("executor", "spawn_contained"),
 })
 
