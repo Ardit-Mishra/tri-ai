@@ -119,6 +119,44 @@ def git(argv: Sequence[str], *, cwd: Path | str, timeout: int = 120) -> tuple[in
 _SAFE_BRANCH = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
 
 
+def verify_worktree(
+    source: Path | str,
+    target: Path | str,
+    branch_name: str,
+    *,
+    timeout: int = 120,
+) -> bool:
+    """Prove ``target`` is this source's linked checkout on this branch."""
+    source_path = Path(source).resolve()
+    target_path = Path(target).resolve()
+    if not source_path.is_dir() or not target_path.is_dir() or not _SAFE_BRANCH.fullmatch(branch_name):
+        return False
+    proc = subprocess.run(
+        ["git", "-C", str(source_path), "worktree", "list", "--porcelain"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+    )
+    if proc.returncode != 0:
+        return False
+    current_path: Path | None = None
+    current_branch: str | None = None
+    for line in (proc.stdout or "").splitlines() + [""]:
+        if line.startswith("worktree "):
+            current_path = Path(line.removeprefix("worktree ")).resolve()
+            current_branch = None
+        elif line.startswith("branch refs/heads/"):
+            current_branch = line.removeprefix("branch refs/heads/")
+        elif not line and current_path is not None:
+            if current_path == target_path and current_branch == branch_name:
+                return True
+            current_path = None
+            current_branch = None
+    return False
+
+
 def materialize_worktree(
     source: Path | str,
     target: Path | str,
@@ -155,7 +193,7 @@ def materialize_worktree(
         timeout=timeout,
     )
     output = (proc.stdout or "") + (proc.stderr or "")
-    if proc.returncode != 0 or not (target_path / ".git").exists():
+    if proc.returncode != 0 or not verify_worktree(source_path, target_path, branch_name):
         raise WorktreeError(
             f"git worktree add failed for {target_path} ({branch_name}): {output.strip()}"
         )
