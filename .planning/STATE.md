@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-09-02)
 ## Current Position
 
 Phase: 4 of 5 (Read-Only Telegram Observability)
-Plan: `.planning/phases/phase-4-plan.md` (Slice 1 corrected; independent review pending)
-Status: Phase 3 is complete and independently reviewed. Do not start Phase 4
-Slice 2 until the Slice 1 correction is independently reviewed.
+Plan: `.planning/phases/phase-4-plan.md` (Slice 1 accepted; Slice 2 next)
+Status: Phase 3 is complete and independently reviewed. Phase 4 Slice 1 is
+accepted after independent review; Slice 2 worktree creation is the next step.
 Last activity: 2026-09-10 — independent review of `24bf5e7` found a P1
 false-success path: a `dispatch_one` contract error raised inside `run_batch`'s
 thread was printed and lost, so public `dispatch()` returned an empty result
@@ -25,9 +25,14 @@ concurrent `dispatch()` with a deliberately mismatched launcher and asserts
 tests.test_safety_boundary` -- 64 tests, exit 0, 18.893s. Full command:
 `python tests/run.py` -- 132 tests, exit 0, 135.695s. Changed only
 `src/dispatcher.py` and `tests/test_phase3_concurrency.py`; prior-session
-Phase 4 planning artifacts remain unstaged. Next atomic step: obtain an
-independent review of `2369613` before beginning Slice 2 worktree creation.
-Independent Phase 3 review completed. All four
+Phase 4 planning artifacts remain unstaged. Independent review thread
+`01a08b5e-5472-7a52-a7b3-523e96857d98` found no blocking findings in
+`2369613`: public `dispatch()` now propagates normal launcher exceptions, the
+two-task negative test would fail against the old thread-error swallowing path,
+and no API/concurrency regression was found. Its focused command passed 64
+tests, exit 0, 24.119s (existing ResourceWarnings only). Next atomic step:
+Phase 4 Slice 2 -- worktree creation, starting with read-only kernel/API
+mapping and a reviewable test plan. Independent Phase 3 review completed. All four
 roadmap criteria verified, all five Completion Gate commands pass (132 tests,
 exit 0, 109.816s). Four non-blocking findings recorded in
 `.planning/reviews/phase-3-review.md`: dead env vars in `dispatch_one` (F1),
