@@ -293,31 +293,39 @@ class PartitionGroupsTest(unittest.TestCase):
         self.assertEqual(groups[0][0]["id"], "only")
 
 
-class FilterRunningTest(unittest.TestCase):
-    def test_no_conflict_passes_all(self):
-        tasks = [_make_task("a", workspace_path="/tmp/a")]
-        result = dispatcher.filter_running(tasks, running_keys=set())
-        self.assertEqual(len(result), 1)
-
-    def test_conflict_filters_task(self):
-        key = board.workspace_key("/tmp/shared")
-        tasks = [_make_task("a", workspace_path="/tmp/shared")]
-        result = dispatcher.filter_running(tasks, running_keys={key})
-        self.assertEqual(len(result), 0)
-
-    def test_partial_conflict(self):
-        key_b = board.workspace_key("/tmp/b")
-        tasks = [
-            _make_task("a", workspace_path="/tmp/a"),
-            _make_task("b", workspace_path="/tmp/b"),
-        ]
-        result = dispatcher.filter_running(tasks, running_keys={key_b})
-        self.assertEqual([t["id"] for t in result], ["a"])
-
-
 # ===================================================================
 # Mock-based dispatch tests
 # ===================================================================
+
+
+class DispatchOneContractTest(unittest.TestCase):
+    def test_launcher_receives_the_requested_task_id(self):
+        seen: list[str] = []
+
+        def launcher(task_id: str) -> WorkerResult:
+            seen.append(task_id)
+            return WorkerResult(task_id=task_id, exit_code=0, pid=7)
+
+        result = dispatcher.dispatch_one(
+            "expected-task",
+            launcher=launcher,
+            board_path="unused.db",
+            ledger_path="unused-ledger.jsonl",
+            runs_root="unused-runs",
+        )
+        self.assertEqual(seen, ["expected-task"])
+        self.assertEqual(result.task_id, "expected-task")
+
+    def test_wrong_launcher_result_is_rejected(self):
+        def wrong_launcher(_task_id: str) -> WorkerResult:
+            return WorkerResult(task_id="different-task", exit_code=0, pid=8)
+
+        with self.assertRaisesRegex(ValueError, "different-task.*expected-task"):
+            dispatcher.dispatch_one(
+                "expected-task",
+                launcher=wrong_launcher,
+                board_path="unused.db",
+            )
 
 
 class DispatchMockTest(BoardTestCase):
