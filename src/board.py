@@ -183,6 +183,9 @@ def create_task(
     verify_timeout: Optional[int] = None,
     expected_artifacts: Iterable[str] = (),
     parents: Iterable[str] = (),
+    workspace_kind: Optional[str] = None,
+    workspace_path: Optional[Path | str] = None,
+    branch_name: Optional[str] = None,
     **kernel_kwargs: Any,
 ) -> str:
     """Create a verify-gated task row and return its id.
@@ -191,8 +194,10 @@ def create_task(
     ``ValueError`` — never discovered later at claim or run time. That is the
     whole point: an unverifiable task does not belong on the board.
 
-    ``repo`` is recorded through the kernel's own workspace fields
-    (``workspace_kind='dir'`` + ``workspace_path``), not a parallel column.
+    ``repo`` is the Phase 2 shorthand for a ``dir`` workspace. Graph writers
+    can instead provide an explicit kernel workspace kind/path and, for a
+    worktree, branch. Both forms are deliberately narrow arguments rather than
+    planner input flowing through arbitrary kernel keyword arguments.
     """
     kb = kanban()
     if not (verify_command or "").strip():
@@ -204,7 +209,29 @@ def create_task(
         raise ValueError("verify_timeout must be a positive number of seconds")
 
     artifacts = [str(a) for a in expected_artifacts]
-    if repo is not None:
+    if repo is not None and (
+        workspace_kind is not None or workspace_path is not None or branch_name is not None
+    ):
+        raise ValueError("repo cannot be combined with explicit workspace fields")
+    if workspace_kind is None and (workspace_path is not None or branch_name is not None):
+        raise ValueError("workspace_kind is required with explicit workspace fields")
+    if workspace_kind is not None:
+        if workspace_kind not in {"dir", "worktree", "scratch"}:
+            raise ValueError(f"unsupported workspace_kind: {workspace_kind!r}")
+        if workspace_path is None:
+            raise ValueError("workspace_path is required with workspace_kind")
+        path = Path(workspace_path)
+        if not path.is_absolute():
+            raise ValueError("workspace_path must be absolute")
+        if branch_name and workspace_kind != "worktree":
+            raise ValueError("branch_name is only valid for worktree workspaces")
+        if workspace_kind == "worktree" and not (branch_name or "").strip():
+            raise ValueError("branch_name is required for worktree workspaces")
+        kernel_kwargs["workspace_kind"] = workspace_kind
+        kernel_kwargs["workspace_path"] = str(path)
+        if branch_name:
+            kernel_kwargs["branch_name"] = str(branch_name)
+    elif repo is not None:
         kernel_kwargs.setdefault("workspace_kind", "dir")
         kernel_kwargs.setdefault("workspace_path", str(repo))
 
@@ -214,7 +241,7 @@ def create_task(
     # an unverifiable task, claimable by any worker polling at that instant.
     # create_task opts into savepoint nesting (write_txn(conn, allow_nested=True))
     # precisely so graph builders can compose under one outer commit.
-    with kb.write_txn(conn):
+    with kb.write_txn(conn, allow_nested=True):
         # The kernel's own duplicate guard returns the EXISTING task id when a
         # non-archived row already carries this idempotency_key (kanban_db.py
         # create_task fast path) — a re-submission, not an insert. Detect it
