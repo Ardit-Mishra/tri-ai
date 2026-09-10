@@ -5,7 +5,7 @@ no slice started. This plan captures the Phase 4 milestone and the companion wor
 `research/proposed-gaps.md` that attaches to it. **Review this plan and the gaps file before any
 Phase 4 implementation; do not begin until you have.**
 **Requirement:** the roadmap's "board observable from Telegram" — read-only view first
-(FEATURES.md:108, v1 MVP).
+(`.planning/research/FEATURES.md` v1 list, Telegram read-only entry).
 **Depends on:** Phase 3 (`12288a7`, 132 tests, exit 0 — review passed)
 **Drives:** Phase 5 (Telegram write control + inbox→execute ingestion).
 
@@ -31,8 +31,11 @@ people will actually trust* before any mutation is reachable remotely.
   bypass audits).
 - $0 marginal cost: local models only, no metered API. Telegram read must not create accounts
   (`PROJECT.md`, Out of Scope).
-- A verifier is accepted only on exit 0. The worker/ledger semantics are untouched in this phase so
-  far as they exist.
+- A verifier is accepted only on exit 0. The claim → precheck → gate → agent → verify → accept/
+  revert path and the ledger *shape* are unchanged in this phase. Slice 3 is the one deliberate
+  refinement: it adjusts *which failure classes mutate graph status* — every attempt still gets
+  its ledger line (criterion 3, "every attempt represented in the ledger"), only the
+  breaker/status effect is reclassified.
 
 ## Slice 1 — `dispatch_one` env contract + `filter_running` (gap #7)
 
@@ -41,9 +44,9 @@ tiny. `src/dispatcher.py:205-211` builds an env dict that never reaches the laun
 promises a wiring nothing honors. `filter_running` (`src/dispatcher.py:128`) is dead code
 (definition + tests only, never called by `dispatch()`).
 
-**Proof:** either deliver the env to the launcher (signature that actually hands it over, or an
-`os.environ` context manager scoped to the invocation) and assert the child inherits it; or delete
-the dead code and the misleading docstring. `filter_running` is wired in or removed. Add a
+**Proof:** delete the dead env dict and the misleading docstring — the launcher is a subprocess and
+inherits `os.environ` already, so the explicit dict is redundant. Remove `filter_running` (tested but
+never called by `dispatch()`; wiring it in adds complexity for no proven benefit). Add a
 deliberately-wrong launcher assertion so the contract is proven able to fail (the
 safety-boundary "a gate that cannot fail is not a gate" lesson). Full suite stays green.
 
@@ -71,12 +74,13 @@ fails" break (task stays ready, skipped, not mis-serialized).
 ## Slice 3 — Error classification: environment vs. logic (gap #1)
 
 The circuit breaker (2 consecutive failures → `blocked`, `src/worker.py:485`) exists and stays.
-This slice adds the bucket: an environment-class failure (OOM, package-mirror time-out, network)
-backs off **without** recording against the node; a logic-class failure (assertion, syntax) is the
-only thing that records and trips the breaker. Re-visit `FEATURES.md:23`'s anti-backoff note — it
-concerns protecting a shared external service, which is a different claim from not confusing two
-failure classes, and the plan must say so explicitly rather than silently override a documented
-decision.
+This is the first change to what counts as a "failure" against a node since the circuit breaker
+shipped in Phase 2. This slice adds the bucket: an environment-class failure (OOM, package-mirror
+time-out, network) backs off **without** recording against the node; a logic-class failure
+(assertion, syntax) is the only thing that records and trips the breaker. Re-visit
+`.planning/research/FEATURES.md`'s anti-backoff note — it concerns protecting a shared external
+service, which is a different claim from not confusing two failure classes, and the plan must say
+so explicitly rather than silently override a documented decision.
 
 **Proof:** a deliberate-break matrix, not a measurement: for each environment failure (spawn error,
 timeout, a stubbed mirror that returns non-zero with a retryable stderr pattern) assert the graph
@@ -105,11 +109,34 @@ evidence rather than a summary.
 
 ## Phase 5 (preview, not started)
 
+- **Memory subsystem — episodic + procedural (gap #9):** SQLite run index + markdown summaries
+  (compiled truth + timeline), rules engine with citation validation, skill files. Foundation for
+  everything after Phase 4. Design at `.planning/research/memory-subsystem-design.md`.
 - **Telegram write control (#8's control half):** retry/cancel/pause, reachable and deliberately
-  gated on the primitives being proven in Phase 4/5. The current-state dashboard itself is ranked
-  later still.
+  gated on the primitives being proven in Phase 4/5.
 - **Telegram inbox→execute (#3):** closes the `PROJECT.md:77-78` documented gap. After read-only
   proves the view.
+
+## Phase 6 (preview, not started)
+
+- **Memory subsystem — semantic + self-evolution:** knowledge graph extraction (zero LLM calls),
+  post-mortem reflection, failure-driven rule creation, pattern crystallization.
+- **JARVIS dashboard:** terminal TUI + local web visualization — the neural network view of the
+  running graph. Reads board + ledger + memory system status. Never writes.
+
+## Phase 7 (preview, not started)
+
+- **Planner integration:** planner loads learned patterns and suggests macro templates. Gated on
+  the pattern crystallization being proven reliable.
+- **Distributed delegation — daemon foundation (gap #10):** tri-agent daemon on the desktop,
+  HTTP API for remote workers, workspace sync via git archive. Design at
+  `.planning/research/distributed-delegation-design.md`.
+
+## Phase 8 (preview, not started)
+
+- **Distributed delegation — remote workers + offload:** laptop daemon (proxy), offload detection
+  (VRAM/timeout/OOM triggers), heartbeat protocol, offload ledger entries.
+- **Phone controller:** Telegram commands for multi-node task creation targeting hardware tiers.
 
 ## Completion Gate (Phase 4)
 

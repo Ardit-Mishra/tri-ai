@@ -10,7 +10,8 @@ the phase-4 plan (`phases/phase-4-plan.md`) and its successors are where slice w
 ## How to read this
 
 Each entry: **current state** (exact file/line refs, only what I verified by reading),
-**the gap**, **decision** (slice-worthy → which phase, or hypothesis → what probe gates it),
+**the gap**, **decision** (slice-worthy → which phase, hypothesis → what probe gates it, or
+design decision → recorded, no slice),
 **why**. A probe must be a named command that can fail for a named deliberate break, per the
 project's methodology — a "we should look into this" sentence is not a probe.
 
@@ -22,9 +23,9 @@ project's methodology — a "we should look into this" sentence is not a probe.
 then the kernel circuit breaker (2 consecutive failures) → `blocked` (`src/worker.py:485`).
 `executor` already lexically separates spawn-error vs timeout vs exit ≠ 0, but none of that
 reclassifies state or adjusts retry policy.
-`FEATURES.md:23` actively argues against exponential backoff: "solves a shared-external-service
-problem this system doesn't have". That is a *different* claim than the gap here — backoff for a
-shared API is not env-vs-logic bucketing of mine.
+`.planning/research/FEATURES.md` actively argues against exponential backoff: "solves a shared-
+external-service problem this system doesn't have". That is a *different* claim than the gap here —
+backoff for a shared API is not env-vs-logic bucketing of mine.
 `PITFALLS.md:152-168` caps retries (2–3) and wants backoff so an unattended overnight run is never
 burned on an unfixable node; that already shipped as the circuit breaker.
 
@@ -33,8 +34,8 @@ assertion. Today both trip the circuit breaker identically. The blueprint's sens
 the non-zero exits, give environment-class failures an exponential backoff that does **not** touch
 graph status, and let only logic-class failures record against the node.
 
-**Decision:** **slice-worthy → Phase 4 companion slice.** Re-visit `FEATURES.md:23`'s anti-backoff
-stance when writing it — it is about protecting a shared service, not about not confusing two
+**Decision:** **slice-worthy → Phase 4 companion slice.** Re-visit `.planning/research/FEATURES.md`'s
+anti-backoff stance when writing it — it is about protecting a shared service, not about not confusing two
 failure classes. Probe-free: the classifier is deterministic (exit code + stderr patterns +
 outcome kind already in `executor`), so a proving command is a deliberate-break test matrix, not a
 measurement.
@@ -148,12 +149,64 @@ exists.
 
 ---
 
+## 9. Agent Memory & Self-Evolution Subsystem
+
+**Current state:** nothing. Workers execute tasks with no memory of past runs. The ledger
+captures what happened but nothing learns from it. The planner builds graphs from scratch every
+time. No episodic index, no knowledge graph, no procedural rules, no self-evolution.
+
+**The gap:** Tri-AI's execution loop is stateless across runs. A worker that failed 5 minutes
+ago on a task with exit 7 will attempt the same thing again with no awareness of the failure. The
+planner has no access to historical patterns. The operator has no way to inject learned lessons
+into worker execution.
+
+**Decision:** **slice-worthy → Phase 5 companion (episodic + procedural), Phase 5C (semantic),
+Phase 6 (JARVIS dashboard + evolution loop), Phase 7 (planner integration).** Full design at
+`.planning/research/memory-subsystem-design.md`. 3-tier memory stack (episodic/semantic/
+procedural) with zero LLM calls, zero VRAM overhead, all CPU file I/O. JARVIS dashboard is the
+visual neural network view the operator requested. Self-evolution is failure-driven rule creation
+with citation validation.
+
+**Why:** the memory system is the foundation for everything after Phase 4. Without it, the
+dashboard shows data but nothing learns from it, the planner repeats patterns that already failed,
+and the operator cannot inject lessons without editing code. With it, every failure produces a
+rule, every successful pattern crystallizes into a macro, and the dashboard shows the brain
+learning in real time.
+
+
+## 10. Distributed Hardware Delegation & Offloading Protocol
+
+**Current state:** all execution happens on the desktop. The laptop writes task graphs and
+monitors via Telegram but never executes. The desktop's RTX 3060 is the sole compute node.
+Tailscale mesh is provisioned (PROJECT.md) but unused for task execution.
+
+**The gap:** the laptop's 11 Ollama models sit idle. Lightweight tasks (markdown, parsing,
+simple verification) could run on the laptop, freeing the desktop for heavy inference. If the
+laptop hits a resource ceiling (OOM, timeout), the task should automatically offload to the
+desktop.
+
+**Decision:** **slice-worthy → Phase 7 (daemon foundation + remote protocol + offload
+detection).** Full design at `.planning/research/distributed-delegation-design.md`. The board
+stays on the desktop; a thin HTTP daemon exposes board operations to remote workers. Workspace
+sync via git archive over HTTP. Offload triggers: VRAM saturation, generation timeout, OOM.
+The phone remains controller-only (Telegram).
+
+**Why:** single-point-of-failure is the gap. If the desktop is off, nothing runs. With
+delegation, the laptop can execute lightweight tasks independently and offload heavy ones when
+the desktop is available. The daemon pattern also opens the door to future nodes (another
+desktop, a cloud instance) without changing the board.
+
+---
+
 ## Ranked next actions (no slices started)
 
-1. **#7 `dispatch_one` contract + `filter_running`** — fix first: unblocks the real launcher, tiny.
+1. **#7 `dispatch_one` contract + `filter_running`** — fix first: removes a latent lie in the docstring and dead code, tiny.
 2. **#2 worktree creation** — the biggest unshipped promise; unblocks same-repo concurrency.
-3. **#1 error classification** — re-examine `FEATURES.md:23`; deterministic classifier, no probe.
-4. **#3 Telegram execute side** — Phase 5, after read-only Phase 4 proves the primitives.
-5. **#8 telemetry dashboard** — after Phase 4/5 evidence.
-6. **#4 model routing, #5 RAG** — probes gate each; #5's is the more expensive/doubful bet.
-7. **#6 graph healing** — design rejected as auto-merge; human-in-loop only, no current slate.
+3. **#1 error classification** — re-examine `.planning/research/FEATURES.md`'s anti-backoff note; deterministic classifier, no probe.
+4. **#9 memory subsystem (episodic + procedural)** — foundation for everything after Phase 4; design at `.planning/research/memory-subsystem-design.md`.
+5. **#3 Telegram execute side** — Phase 5, after read-only Phase 4 proves the primitives.
+6. **#8 JARVIS dashboard + #9 semantic memory** — visual neural network view + knowledge graph; depends on episodic memory.
+7. **#9 self-evolution loop + planner integration** — failure-driven rules + macro crystallization; depends on procedural + semantic memory.
+8. **#10 distributed delegation** — daemon foundation + remote protocol + offload detection; design at `.planning/research/distributed-delegation-design.md`.
+9. **#4 model routing, #5 RAG** — probes gate each; #5's is the more expensive/doubtful bet.
+10. **#6 graph healing** — design rejected as auto-merge; human-in-loop only, no current slate.
