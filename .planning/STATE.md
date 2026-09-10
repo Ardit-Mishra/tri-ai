@@ -11,8 +11,14 @@ See: .planning/PROJECT.md (updated 2026-09-02)
 
 Phase: 3 of 5 (Planner + Bounded Concurrent Execution)
 Plan: `.planning/phases/phase-3-plan.md` (Slices 1–3 complete)
-Status: Phase 3 complete; all three Phase 3 slices verified locally
-Last activity: 2026-09-10 — Phase 3 Slice 3 is complete in local commits. Adds
+Status: Phase 3 complete and independently reviewed; ready for Phase 4
+Last activity: 2026-09-10 — Independent Phase 3 review completed. All four
+roadmap criteria verified, all five Completion Gate commands pass (132 tests,
+exit 0, 109.816s). Four non-blocking findings recorded in
+`.planning/reviews/phase-3-review.md`: dead env vars in `dispatch_one` (F1),
+unused `filter_running` (F2), overly broad safety-boundary process detection
+(F3), Slice 2 commit message references removed `dispatched_ids` (F4). Phase 3
+Slice 3 is complete in local commits. Adds
 `tests/test_phase3_failure_isolation.py` (2 tests) proving linked-graph failure
 isolation through the REAL worker path (`worker.execute_task`): the failing
 parent's deliberate non-zero verify command is ledgered `verify_outcome='failed'`
@@ -107,7 +113,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-09-10
-Phase 3 COMPLETE — Slices 1-3 verified. Branch `phase-2/worker-assign`. Slice 3 commit `76dc2c6`.
+Phase 3 COMPLETE and independently reviewed — Slices 1-3 verified, review
+passed with 4 non-blocking findings. Branch `phase-2/worker-assign`. Slice 3
+commit `76dc2c6`. Review recorded in `.planning/reviews/phase-3-review.md`.
 
 **Slice 3 changed files:**
 - `src/dispatcher.py` — MODIFIED. Dispatch loop simplified for retry support: drop `dispatched_ids`;
@@ -141,8 +149,8 @@ Focused slice-suite: `test_phase3_concurrency` + `test_phase3_failure_isolation`
 **Slice 1 commit:** `a86f331` — planner graph writer. 98 tests, exit 0, 104.808s.
 **Phase 2 commit:** `ea44258` — worker/ledger/assign/chores. 89 tests, exit 0, 93.951s.
 
-Next: independent commit-level review of Phase 3's three commits before Phase 4. Phase 4 is read-only
-Telegram observability (see roadmap); do not begin it until the review has passed.
+Next: Phase 4 — read-only Telegram observability (see roadmap). Phase 3 review
+has passed (`.planning/reviews/phase-3-review.md`).
 
 Phase 1 carries two defects found by self-audit and fixed (non-atomic `create_task`; the `setdefault`
 board pin), one found by review and fixed (`migrate` silently accepting a same-named column of a
@@ -159,7 +167,7 @@ Omniroute Claude session created a separate temporary clone under
 clone as a handoff source. Every autonomous session must pass the path gate in
 `.planning/AUTONOMOUS-RUNBOOK.md` before modifying anything.
 
-Next: execute `.planning/AUTONOMOUS-RUNBOOK.md` for Phase 3.
+Next: execute `.planning/AUTONOMOUS-RUNBOOK.md` for Phase 4.
 
 Note: `~/.claude/skills/` was destroyed in the 2026-09-06 incident and is NOT in the `S5-claude-r3`
 archive — that archive stopped at `./profiles/`, before reaching `./skills/`. So the whole GSD suite

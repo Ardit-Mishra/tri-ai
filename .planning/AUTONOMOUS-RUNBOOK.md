@@ -64,9 +64,14 @@ linked-graph failure isolation — `src/dispatcher.py` dispatch loop
 simplified (re-read the board each wave; no `dispatched_ids`; `max_waves`
 bound) and `tests/test_phase3_failure_isolation.py` (2 tests) driving the
 real worker path through the kernel's own circuit breaker, parent gate, and
-ledger. The next atomic step is **independent commit-level review of the three
-Phase 3 commits** against the Completion Gate before Phase 4 (read-only
-Telegram observability). Do not begin Phase 4 until that review passes.
+ledger. The independent commit-level review of the three Phase 3 commits has
+**PASSED** (`.planning/reviews/phase-3-review.md`, 2026-09-10): all four
+roadmap criteria verified, all five Completion Gate commands exit 0, four
+non-blocking findings (dead env vars in `dispatch_one`, unused
+`filter_running`, overly broad safety-boundary process-detection test,
+historical commit message only). The next atomic step is **Phase 4 (read-only
+Telegram observability)**; do not begin implementation until this session
+passes the canonical-checkout gate and reads STATE.md.
 
 ## Safe Fan-Out
 
