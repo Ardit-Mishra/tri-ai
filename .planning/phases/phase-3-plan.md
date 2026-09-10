@@ -1,6 +1,6 @@
 # Phase 3 Plan - Planner + Bounded Concurrent Execution
 
-**Status:** planned - implementation has not started
+**Status:** in progress - Slice 1 complete in `a86f331`; Slice 2 next
 **Requirements:** GRAPH-01, GRAPH-03, EXEC-01, VERIFY-03
 **Depends on:** Phase 2 (`4b37f4a`, 89 tests, exit 0)
 

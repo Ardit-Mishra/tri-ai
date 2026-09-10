@@ -54,13 +54,14 @@ second worker on one repository.
 
 ## Current Checkpoint
 
-Phase 3 is planned at `.planning/phases/phase-3-plan.md`; implementation has
-not started. Three read-only investigations supplied the plan: a Hermes kernel
-map, a strict planner-contract review, and a concurrency/worktree test design.
-The next atomic step is **Slice 1 only**: implement the transactional Tri-AI
-planner graph writer and its adversarial tests, then run the full suite and
-commit locally. Do not start the dispatcher until that commit has independent
-review.
+Phase 3 Slice 1 is complete locally in `a86f331` (`Add transactional Phase 3
+graph planner`), independently reviewed and verified by `python tests/run.py`:
+98 tests, exit 0, 104.808s on 2026-09-10. Three read-only investigations
+supplied the plan: a Hermes kernel map, a strict planner-contract review, and a
+concurrency/worktree test design. The next atomic step is **Slice 2 only**:
+implement the cap-derived dispatcher and workspace-partition tests. Do not
+start linked-graph failure isolation until Slice 2 is fully verified and
+independently reviewed.
 
 ## Safe Fan-Out
 
@@ -103,7 +104,7 @@ Start a new Claude session from `C:\Users\ardit\tri-ai` with:
 > Read `.planning/AUTONOMOUS-RUNBOOK.md`, `.planning/STATE.md`, and
 > `.planning/phases/phase-3-plan.md` in full. You are the Phase 3 lead. First
 > run the canonical-checkout gate. The investigation and plan are complete;
-> implement Slice 1 only, and do not begin Slice 2 until Slice 1 is fully
+> implement Slice 2 only, and do not begin Slice 3 until Slice 2 is fully
 > verified and independently reviewed. Work locally;
 > never push, merge, deploy, create remotes, or read credentials. Update state
 > after every verified slice. If context or usage runs low, write the exact
