@@ -215,6 +215,26 @@ def create_task(
     # create_task opts into savepoint nesting (write_txn(conn, allow_nested=True))
     # precisely so graph builders can compose under one outer commit.
     with kb.write_txn(conn):
+        # The kernel's own duplicate guard returns the EXISTING task id when a
+        # non-archived row already carries this idempotency_key (kanban_db.py
+        # create_task fast path) — a re-submission, not an insert. Detect it
+        # here, inside the same write lock, so this call knows whether it
+        # created the row: the verify columns must not be re-written onto an
+        # existing task, because a re-run of a queue line whose verify /
+        # verify_timeout / expected_artifacts changed would then refresh ONLY
+        # those three columns while title, prompt, workspace and
+        # max_runtime_seconds stay stale — a fresh oracle bolted onto an old
+        # workspace, reported as success. That split-state is the exact
+        # mismatched-gate hazard this project exists to catch. Idempotency is
+        # a no-op, not a partial update: to change a task, delete it and
+        # re-assign. (write_txn is IMMEDIATE, so no concurrent writer can
+        # interleave a same-key row between this lookup and create_task.)
+        idem_key = kernel_kwargs.get("idempotency_key")
+        already_present = idem_key is not None and conn.execute(
+            "SELECT 1 FROM tasks WHERE idempotency_key = ? "
+            "AND status != 'archived' LIMIT 1",
+            (idem_key,),
+        ).fetchone() is not None
         task_id = kb.create_task(
             conn,
             title=title,
@@ -222,16 +242,17 @@ def create_task(
             parents=list(parents),
             **kernel_kwargs,
         )
-        conn.execute(
-            "UPDATE tasks SET verify_command = ?, verify_timeout = ?, "
-            "expected_artifacts = ? WHERE id = ?",
-            (
-                verify_command,
-                int(verify_timeout) if verify_timeout is not None else None,
-                json.dumps(artifacts),
-                task_id,
-            ),
-        )
+        if not already_present:
+            conn.execute(
+                "UPDATE tasks SET verify_command = ?, verify_timeout = ?, "
+                "expected_artifacts = ? WHERE id = ?",
+                (
+                    verify_command,
+                    int(verify_timeout) if verify_timeout is not None else None,
+                    json.dumps(artifacts),
+                    task_id,
+                ),
+            )
     return task_id
 
 
