@@ -38,7 +38,7 @@ import executor  # noqa: E402
 
 # The audited closure: every module on the execution path.
 CLOSURE_MODULES = (
-    "executor.py", "board.py", "worker.py", "ledger.py", "assign.py", "chores.py",
+    "executor.py", "board.py", "worktrees.py", "worker.py", "ledger.py", "assign.py", "chores.py",
     "planner.py", "dispatcher.py",
 )
 
@@ -58,6 +58,7 @@ PENDING_MODULES = frozenset()
 # subprocesses, so terminating a tree is no longer itself process creation.
 PROCESS_GATEWAYS = frozenset({
     ("executor", "git"),
+    ("executor", "materialize_worktree"),
     ("executor", "spawn_contained"),
 })
 

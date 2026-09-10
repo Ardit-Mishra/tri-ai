@@ -49,13 +49,11 @@ Non-negotiables (the safety-boundary test asserts the first two structurally):
    still dirty afterwards, the workspace is quarantined and the worker stops:
    the repo is in an unknown state.
 
-Expected-branch note (a pinned decision, not an open question): the kernel's
-``branch_name`` column is only valid for ``worktree`` workspaces, so the board
-cannot hold an expected branch for Tri-AI's ``dir`` workspaces in this wave.
-The worker therefore calls ``executor.precheck(conn, repo)`` with
-``expected_branch=None``; the quarantine guard and the clean-tree guard are
-still active. The branch guard is a documented gap. The repo's actual branch
-at precheck time is recorded in the ledger for provenance.
+Expected-branch note: the kernel's ``branch_name`` column is only valid for
+``worktree`` workspaces. The worker enforces it for task-owned worktrees; dir
+workspaces continue to precheck with no expected branch. The quarantine and
+clean-tree guards remain active for both, and the observed branch is recorded
+in the ledger for provenance.
 
 What this module does NOT claim: that an agent it launches cannot push. A YOLO
 child can reach anything this user can. The safety boundary is about *this
@@ -77,6 +75,7 @@ from typing import Any, Optional, Sequence
 import board  # noqa: F401  (closure module; all kernel access via board.kanban())
 import executor
 import ledger
+import worktrees
 
 # Exit codes. 3 is reserved for a quarantine stop so a Windows Scheduled Task
 # can tell "the worker found the workspace unsafe" apart from "all clear".
@@ -194,7 +193,7 @@ def execute_task(
         )
 
     # --- precheck: quarantine, then clean tree (branch guard is off — see note)
-    pre = executor.precheck(conn, repo, expected_branch=None)
+    pre = executor.precheck(conn, repo, expected_branch=claimed.branch_name or None)
     branch = pre.branch
     if not pre.ok:
         if pre.reason.startswith("workspace quarantined"):
@@ -631,6 +630,7 @@ def _write_log(path: Path | str, text: str) -> None:
 def run_once(
     conn,
     *,
+    task_id: Optional[str] = None,
     ledger_path: Optional[Path | str] = None,
     runs_root: Optional[Path | str] = None,
 ) -> Optional[Attempt]:
@@ -641,11 +641,20 @@ def run_once(
     goes through ``board.release_stale_claims``.
     """
     board.release_stale_claims(conn)              # THE wrapper, never the kernel's
-    task_id = pick_ready_task(conn)
-    if task_id is None:
+    selected_id: Optional[str] = None
+    for ready in board.ready_tasks(conn):
+        if task_id is not None and ready["id"] != task_id:
+            continue
+        resolution = worktrees.resolve_task(conn, ready)
+        if resolution.ready:
+            selected_id = str(resolution.task["id"])
+            break
+        if task_id is not None:
+            return None
+    if selected_id is None:
         return None
     kb = board.kanban()
-    claimed = kb.claim_task(conn, task_id, claimer=ledger.worker_id())
+    claimed = kb.claim_task(conn, selected_id, claimer=ledger.worker_id())
     if claimed is None:
         return None
     # Register this worker's OWN pid as the claim's worker_pid (a private
@@ -675,6 +684,7 @@ def run(
     conn,
     *,
     once: bool = False,
+    task_id: Optional[str] = None,
     max_tasks: Optional[int] = None,
     ledger_path: Optional[Path | str] = None,
     runs_root: Optional[Path | str] = None,
@@ -688,7 +698,12 @@ def run(
     """
     summary = WorkerSummary()
     while True:
-        attempt = run_once(conn, ledger_path=ledger_path, runs_root=runs_root)
+        attempt = run_once(
+            conn,
+            task_id=task_id,
+            ledger_path=ledger_path,
+            runs_root=runs_root,
+        )
         if attempt is None:
             break
         summary.outcomes.append(attempt.outcome)
@@ -753,6 +768,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     parser.add_argument("--once", action="store_true",
                         help="run at most one task then exit")
+    parser.add_argument("--task-id", default=None,
+                        help="claim only this ready task, after workspace resolution")
     parser.add_argument("--max-tasks", type=int, default=None,
                         help="run at most N tasks this invocation")
     parser.add_argument("--dry-run", action="store_true",
@@ -792,6 +809,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         summary = run(
             conn,
             once=args.once,
+            task_id=args.task_id,
             max_tasks=args.max_tasks,
             ledger_path=lp,
             runs_root=rr,
