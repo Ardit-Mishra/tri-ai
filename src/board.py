@@ -31,6 +31,7 @@ import json
 import os
 import sqlite3
 import sys
+import time
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional
 
@@ -153,6 +154,11 @@ def migrate(conn: sqlite3.Connection) -> dict[str, bool]:
     missing = [c for c in expected if c not in final]
     if missing:
         raise SchemaCollision(f"verify columns absent after migrating: {missing}")
+
+    # Tri-AI's own table, not the kernel's — created here rather than by an
+    # ALTER, so no collision check applies. CREATE TABLE IF NOT EXISTS is
+    # idempotent on the same terms as the column adds above.
+    conn.execute(QUARANTINE_DDL)
 
     conn.commit()
     return added
@@ -290,3 +296,116 @@ def release_stale_claims(conn: sqlite3.Connection, *, signal_fn=None) -> int:
     return kb.release_stale_claims(
         conn, signal_fn=signal_fn if signal_fn is not None else posix_semantics_signal
     )
+
+
+# ---------------------------------------------------------------------------
+# Workspace quarantine
+# ---------------------------------------------------------------------------
+#
+# When a verify command times out and its process tree survives the kill, the
+# worker must stop — but stopping is not enough on its own. The worker's claim
+# expires, ``release_stale_claims`` correctly reclaims the task to ``ready``
+# (that is Phase 1 working exactly as designed), and the next worker runs
+# against the same repository with the same unaccounted-for writer still in it.
+#
+# So the stop is recorded somewhere reclaim cannot reach: a row keyed by the
+# resolved workspace path. Every worker checks it before claiming; only an
+# operator clears it. Safety state has to be at least as durable as the
+# mechanism that undoes it.
+
+QUARANTINE_DDL = """
+CREATE TABLE IF NOT EXISTS triai_quarantine (
+    workspace   TEXT PRIMARY KEY,
+    task_id     TEXT NOT NULL,
+    run_id      INTEGER,
+    reason      TEXT NOT NULL,
+    detail      TEXT,
+    created_at  INTEGER NOT NULL
+)
+"""
+
+
+def workspace_key(path: Path | str) -> str:
+    r"""Canonical key for a workspace path.
+
+    Resolved through symlinks and case-normalised, so ``C:\Repos\X``,
+    ``c:/repos/x`` and a symlink to either are one workspace and cannot be
+    used to sidestep a quarantine.
+    """
+    return os.path.normcase(os.path.realpath(str(path)))
+
+
+def quarantine_workspace(
+    conn: sqlite3.Connection,
+    workspace: Path | str,
+    *,
+    task_id: str,
+    reason: str,
+    run_id: Optional[int] = None,
+    detail: Optional[dict[str, Any]] = None,
+) -> str:
+    """Mark a workspace unusable until an operator clears it. Idempotent.
+
+    Returns the key written. Re-quarantining an already-quarantined workspace
+    keeps the *first* record: the original reason is the one that matters, and
+    a later, vaguer report must not overwrite it.
+    """
+    kb = kanban()
+    key = workspace_key(workspace)
+    with kb.write_txn(conn):
+        conn.execute(
+            "INSERT OR IGNORE INTO triai_quarantine "
+            "(workspace, task_id, run_id, reason, detail, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                key,
+                task_id,
+                run_id,
+                reason,
+                json.dumps(detail or {}),
+                int(time.time()),
+            ),
+        )
+    return key
+
+
+def is_quarantined(
+    conn: sqlite3.Connection, workspace: Path | str
+) -> Optional[dict[str, Any]]:
+    """The quarantine record for ``workspace``, or ``None`` if it is usable."""
+    row = conn.execute(
+        "SELECT * FROM triai_quarantine WHERE workspace = ?",
+        (workspace_key(workspace),),
+    ).fetchone()
+    if row is None:
+        return None
+    out = dict(row)
+    out["detail"] = json.loads(out["detail"]) if out["detail"] else {}
+    return out
+
+
+def list_quarantines(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every quarantined workspace, newest first."""
+    rows = conn.execute(
+        "SELECT * FROM triai_quarantine ORDER BY created_at DESC"
+    ).fetchall()
+    out = []
+    for row in rows:
+        rec = dict(row)
+        rec["detail"] = json.loads(rec["detail"]) if rec["detail"] else {}
+        out.append(rec)
+    return out
+
+
+def clear_quarantine(conn: sqlite3.Connection, workspace: Path | str) -> bool:
+    """Release a workspace. Operator action only — never called by a worker.
+
+    Returns True if a record was removed.
+    """
+    kb = kanban()
+    with kb.write_txn(conn):
+        cur = conn.execute(
+            "DELETE FROM triai_quarantine WHERE workspace = ?",
+            (workspace_key(workspace),),
+        )
+    return cur.rowcount > 0

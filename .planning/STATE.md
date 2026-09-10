@@ -60,6 +60,20 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
+- **Independent verification caught a false green on 2026-09-09 (Phase 2 slice 1).** The author ran
+  the suite and reported 51 tests passing; the reviewer ran the same suite on the same machine and
+  got exit 1 — `test_a_delayed_writer_spawned_by_the_verifier_never_writes` failed with
+  `tree_survived=True`. The defect was real and the author's green run was the misleading one:
+  `_kill_tree` returned success whenever the shell parent had already exited, and verified only that
+  the *root* pid was gone rather than the tree. `taskkill /F /T` walks a parent-child map that a
+  detached grandchild is not on. Reproduced directly: the old logic reports "tree gone: True" while
+  the orphan writes 8s later. Replaced with a Windows **Job Object** (ctypes/kernel32) — children
+  join at creation, `TerminateJobObject` kills the set atomically, and the job is queried afterwards
+  for survivors, so "we killed it" becomes evidence rather than an assertion. Two lessons worth
+  keeping: a timing-dependent test can pass for the author and fail for a reviewer on the same
+  machine, so a single green run is not verification; and this is the second Windows
+  process-lifetime assumption to be wrong here, after Phase 1's reclaim defect.
+
 - **Phase 1 publication resolved on 2026-09-09.** The URL and GitHub permissions were correct; `Ardit-Mishra/tri-ai` simply had never been created. `gh repo create Ardit-Mishra/tri-ai --public` created an empty repository, then `git push -u origin main` published `23dbfb4`. GitHub API verification proved `evidence/ledger.jsonl` is public, detected `license=MIT`, and reported `main` as the default branch at `23dbfb4`. The two earlier hard-stops were correct: pushing cannot create a GitHub repository, and no URL or credential change was needed.
 
 - REQUIREMENTS.md's own summary line originally stated "21 total" v1 requirements; the actual itemized list contains 25. Corrected during roadmap creation — verify this doesn't indicate a requirement was silently dropped somewhere upstream if it resurfaces.
