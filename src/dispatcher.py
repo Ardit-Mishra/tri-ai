@@ -125,26 +125,6 @@ def partition_groups(
     return groups
 
 
-def filter_running(
-    ready: list[dict[str, Any]],
-    running_keys: set[str],
-) -> list[dict[str, Any]]:
-    """Remove tasks whose workspace conflicts with a running worker.
-
-    A task is skipped (left ``ready``) when its workspace key appears in
-    ``running_keys`` — the dispatcher must not start a second worker on the
-    same repo.  The task remains claimable by a future dispatch cycle.
-    """
-    out = []
-    for task in ready:
-        key = task.get("workspace_key") or board.workspace_key(
-            task.get("workspace_path") or ""
-        )
-        if key not in running_keys:
-            out.append(task)
-    return out
-
-
 # ---------------------------------------------------------------------------
 # Worker launcher
 # ---------------------------------------------------------------------------
@@ -198,17 +178,17 @@ def dispatch_one(
 ) -> WorkerResult:
     """Dispatch exactly one task through the launcher.
 
-    Sets ``TRIAI_BOARD_DB`` so the worker subprocess resolves to the same
-    board, then invokes the launcher which is responsible for spawning the
-    worker process and returning its result.
+    The launcher owns process creation and its environment. This function only
+    invokes it and verifies that the returned result belongs to the requested
+    task; a mismatched result would make the dispatcher report false evidence.
     """
-    env = os.environ.copy()
-    env["TRIAI_BOARD_DB"] = str(Path(board_path).resolve())
-    if ledger_path is not None:
-        env["TRIAI_LEDGER"] = str(Path(ledger_path).resolve())
-    if runs_root is not None:
-        env["TRIAI_RUNS_DIR"] = str(Path(runs_root).resolve())
-    return launcher(task_id)
+    del board_path, ledger_path, runs_root
+    result = launcher(task_id)
+    if result.task_id != task_id:
+        raise ValueError(
+            f"launcher returned result for {result.task_id!r}, expected {task_id!r}"
+        )
+    return result
 
 
 # ---------------------------------------------------------------------------
