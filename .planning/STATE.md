@@ -31,8 +31,12 @@ Phase 4 planning artifacts remain unstaged. Independent review thread
 two-task negative test would fail against the old thread-error swallowing path,
 and no API/concurrency regression was found. Its focused command passed 64
 tests, exit 0, 24.119s (existing ResourceWarnings only). Next atomic step:
-Phase 4 Slice 2 -- worktree creation, starting with read-only kernel/API
-mapping and a reviewable test plan. Independent Phase 3 review completed. All four
+Phase 4 Slice 2 -- test-first, task-owned worktree materialization before
+claim. Read-only mapping is complete (review threads
+`01a08b61-ecd5-7463-91a0-e03e124f8920` and
+`01a08b61-f8fb-76f0-8713-1c102adbf0e7`); implementation must preserve the
+original repository and leave a creation failure ready/unclaimed with no
+agent invocation. Independent Phase 3 review completed. All four
 roadmap criteria verified, all five Completion Gate commands pass (132 tests,
 exit 0, 109.816s). Four non-blocking findings recorded in
 `.planning/reviews/phase-3-review.md`: dead env vars in `dispatch_one` (F1),
@@ -101,6 +105,19 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
+- Phase 4 Slice 2 mapping found a plan/house-rule conflict: the draft says
+  failed-worktree recovery uses `git worktree remove --force`, but the project
+  hard-stop rule preserves failure evidence and forbids automated tidy-up
+  deletion. Slice 2 therefore creates only a board-recorded, task-owned
+  worktree and preserves it after any failed execution; removal is a future
+  explicit operator action, not a worker action. Do not call Hermes'
+  private worktree resolver: its post-claim failure path records a task failure,
+  which contradicts Slice 2's required ready/unclaimed skip. The real worker
+  also lacks a task-ID CLI argument, so the dispatcher-selected task must be
+  threaded to a `--task-id` worker path before concurrent subprocess execution
+  can be claimed correct. Evidence: read-only reports in threads
+  `01a08b61-ecd5-7463-91a0-e03e124f8920` and
+  `01a08b61-f8fb-76f0-8713-1c102adbf0e7`, 2026-09-10.
 - Phase 2's worker must call `board.release_stale_claims`, never `kb.release_stale_claims` directly — going straight to the kernel reintroduces the Windows reclaim deferral (see Blockers). Add a grep check to Phase 2's criterion-5 audit step, beside the existing no-push/no-merge/no-credentials audit
 - Any new Tri-AI entry point must go through `board.kanban()`, which now *assigns* `HERMES_KANBAN_DB` rather than `setdefault`-ing it. A dispatcher-spawned worker inherits that variable pointing at the Hermes board, so `setdefault` silently kept the wrong board
 - Review is a separate seat: Claude writes, a second model reviews at the commit/branch level. Brief at `~/CODEX-REVIEWER-BRIEF.md`. It earns its keep — the first pass caught a test whose *name* claimed it proved a schema collision was refused while its body only inspected a throwaway table and never called `migrate()`. A test that asserts less than its name is the same class of failure as an agent reporting success it did not achieve, and self-review does not reliably catch it
