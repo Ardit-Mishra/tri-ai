@@ -59,8 +59,8 @@ Phase 3 is COMPLETE locally on `phase-2/worker-assign`, verified by
 Slice 1 (`a86f331`): planner graph writer, 98 tests. Slice 2 (`fa2bb52`):
 cap-derived concurrent dispatcher with workspace partitioning,
 `board.ready_tasks()`, `tests/test_phase3_concurrency.py` (28 tests), and
-`DispatcherCannotBypassOrPush` safety audit, 130 tests. Slice 3 (pending
-commit): linked-graph failure isolation — `src/dispatcher.py` dispatch loop
+`DispatcherCannotBypassOrPush` safety audit, 130 tests. Slice 3 (`76dc2c6`):
+linked-graph failure isolation — `src/dispatcher.py` dispatch loop
 simplified (re-read the board each wave; no `dispatched_ids`; `max_waves`
 bound) and `tests/test_phase3_failure_isolation.py` (2 tests) driving the
 real worker path through the kernel's own circuit breaker, parent gate, and

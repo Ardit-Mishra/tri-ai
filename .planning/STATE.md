@@ -29,7 +29,7 @@ suite: **132 tests, exit 0, 117.560s** (`python tests/run.py`).
 Slice 1 (`a86f331`): planner graph writer — validate-first, transactional,
 workspace-aware. 98 tests at commit. Slice 2 (`fa2bb52`): cap-derived
 concurrent dispatcher with workspace partitioning — 130 tests at commit. Slice 3
-(pending commit): linked-graph failure isolation — 132 tests at commit. Phase 3
+(`76dc2c6`): linked-graph failure isolation — 132 tests at commit. Phase 3
 is complete and the next step is independent commit-level review before Phase 4.
 
 Progress: [██████████] 100% (Phase 3)
@@ -107,7 +107,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-09-10
-Phase 3 COMPLETE — Slices 1-3 verified. Branch `phase-2/worker-assign`. Slice 3 commit (pending commit).
+Phase 3 COMPLETE — Slices 1-3 verified. Branch `phase-2/worker-assign`. Slice 3 commit `76dc2c6`.
 
 **Slice 3 changed files:**
 - `src/dispatcher.py` — MODIFIED. Dispatch loop simplified for retry support: drop `dispatched_ids`;
