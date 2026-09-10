@@ -341,6 +341,24 @@ class WorkerVerifyGate(BoardTestCase):
         self.assertEqual(sorted(statuses), ["done", "ready"],
                          f"exactly one task may leave the invocation as done, got {statuses}")
 
+    def test_failed_task_retries_once_then_the_kernel_circuit_breaker_blocks_it(self):
+        """Known-state failures are retryable, but never an unbounded loop."""
+        repo = self._make_repo()
+        tid = self._make_task(repo, title="known bad task", verify="python check.py")
+        failed = executor.VerifyResult("failed", 2, "not acceptable\n", 0.3)
+
+        with self._patch_runners(self._agent(0), failed) as (ra, rv):
+            summary = worker.run(
+                self.conn, max_tasks=3, ledger_path=self.ledger, runs_root=self.runs,
+            )
+
+        self.assertEqual(summary.outcomes, ["failed", "failed"])
+        self.assertEqual(self.task_row(tid)["status"], "blocked")
+        self.assertIn("gave_up", self.event_kinds(tid))
+        self.assertEqual(ra.call_count, 2)
+        self.assertEqual(rv.call_count, 2)
+        self.assertEqual(len(ledger.read_entries(self.ledger)), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

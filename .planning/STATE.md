@@ -9,15 +9,15 @@ See: .planning/PROJECT.md (updated 2026-09-02)
 
 ## Current Position
 
-Phase: 2 of 5 (Verify-Gated Single-Worker Execution)
-Plan: `.planning/phases/phase-2-plan.md`
-Status: Complete; all five success criteria discharged
-Last activity: 2026-09-10 — Phase 2 built, cross-reviewed, and verified. Worker/ledger/assign/
-chores modules landed; three criterion test files added; two genuine BLOCKERs surfaced by the
-independent cross-reviewers and fixed (idempotency half-apply; TTL double-spawn). Full suite 86/86
-green under the Hermes interpreter (`tests/run.ps1`); real end-to-end run passed with a complete
-ledger entry carrying model/provider read back from `--usage-file`. Two new tests landed for the
-originally-planned `test_worker_verify_gate.py` / `test_triggers.py`.
+Phase: 3 of 5 (Planner + Bounded Concurrent Execution)
+Plan: not written — start from `.planning/AUTONOMOUS-RUNBOOK.md`
+Status: Phase 2 complete; Phase 3 next
+Last activity: 2026-09-10 — Phase 2 was built, cross-reviewed, and verified. Worker/ledger/assign/
+chores modules landed; the Job Object containment and the exact process-gateway audit replaced the
+first unsafe timeout design. The scheduled trigger has an explicit assignment-exit gate. Full suite:
+**89 tests, exit 0** (`tests/run.ps1`); real end-to-end runs captured a complete ledger entry with
+model/provider read from `--usage-file` and a reverted failure with a recoverable stash. The bounded
+retry test proves two ledgered failures trip the kernel circuit breaker rather than looping.
 
 Progress: [████░░░░░░] 40%
 
@@ -36,7 +36,7 @@ Progress: [████░░░░░░] 40%
 | 2. Verify-Gated Single-Worker Execution | 1 | 1 session | 1 session |
 
 **Recent Trend:**
-- Phase 1 (22 tests) → Phase 2 (86 tests cumulative)
+- Phase 1 (22 tests) → Phase 2 (89 tests cumulative)
 - Trend: ↑
 
 *Updated after each plan completion*
@@ -89,11 +89,14 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-09-10
-Stopped at: **Phase 2 complete, reviewed, and ready to commit.** Branch `phase-2/worker-assign`,
-unpushed. Full suite 86/86 green under the Hermes interpreter. Two real E2E runs complete:
+Stopped at: **Phase 2 complete locally; begin Phase 3 planning.** Claude committed the main Phase 2
+implementation on `phase-2/worker-assign` (`f964973`, `ea44258`). The follow-on commit contains the
+cross-review corrections: an explicit assignment-exit gate for the Windows schedule, three genuine
+trigger-to-worker-to-ledger tests, and the bounded retry/circuit-breaker proof. Phase 2 is still
+unpushed; no remote action is authorized by this state record. Full suite: **89 tests, exit 0**
+(2026-09-10; 93.951s). Two real E2E runs complete:
 a passing task (ledger entry with model/provider, board `done`) and a failing task (ledger
 `outcome: failed`, `git status --porcelain` empty, `git stash list` shows `triai-revert:` entry).
-Two BLOCKERs found and fixed during the cross-review pass.
 
 Phase 1 carries two defects found by self-audit and fixed (non-atomic `create_task`; the `setdefault`
 board pin), one found by review and fixed (`migrate` silently accepting a same-named column of a
@@ -103,7 +106,14 @@ Phase 2 landed: worker (`src/worker.py`), assign (`src/assign.py`), ledger (`src
 chores (`src/chores.py`), three criterion test files, calibration infrastructure, and two BLOCKER
 fixes in `src/board.py` (idempotency no-op) and `src/worker.py` (worker_pid registration).
 
-Next: commit Phase 2, then plan Phase 3.
+**Canonical-checkout guard:** `C:\Users\ardit\tri-ai` is the authoritative Tri-AI checkout. An
+Omniroute Claude session created a separate temporary clone under
+`C:\Users\ardit\AppData\Local\Temp\claude\...\scratchpad\p0a\tri-ai` on unrelated branch
+`phase0a/safe-execution`, with untracked execution-backend files. Do not merge, delete, or use that
+clone as a handoff source. Every autonomous session must pass the path gate in
+`.planning/AUTONOMOUS-RUNBOOK.md` before modifying anything.
+
+Next: execute `.planning/AUTONOMOUS-RUNBOOK.md` for Phase 3.
 
 Note: `~/.claude/skills/` was destroyed in the 2026-09-06 incident and is NOT in the `S5-claude-r3`
 archive — that archive stopped at `./profiles/`, before reaching `./skills/`. So the whole GSD suite

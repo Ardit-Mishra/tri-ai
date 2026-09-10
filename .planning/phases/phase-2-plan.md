@@ -1,6 +1,6 @@
 # Phase 2 Plan — Verify-Gated Single-Worker Execution
 
-**Status:** planned, not started
+**Status:** complete — 89 tests, exit 0
 **Requirements:** VERIFY-01, VERIFY-02, VERIFY-04, VERIFY-05, EXEC-02, EXEC-03, EXEC-04,
 TRIG-01, TRIG-02, TRIG-03
 **Depends on:** Phase 1 (`23dbfb4`)
@@ -121,7 +121,12 @@ the ledger records `null` and a `model_source` of `"unavailable"` — never a gu
 ### `src/worker.py` — the loop
 
 `board.release_stale_claims(conn)` → select a ready task → `kb.claim_task` → `executor` →
-`kb.complete_task` on verify exit 0, else revert and fail → ledger → release → repeat.
+`kb.complete_task` on verify exit 0, else revert and record the failed attempt → ledger → release
+→ repeat. A cleanly reverted ordinary verifier failure returns to `ready` for a **bounded fresh
+claim**. The kernel records every run and trips its per-task failure circuit breaker (default: two
+failed attempts), leaving the task `blocked` rather than allowing an unbounded loop. A hard-stop is
+reserved for an unsafe or unknown workspace state: surviving process tree, failed revert, or dirty
+post-revert assertion.
 Flags: `--once`, `--max-tasks N`, `--dry-run`.
 
 **It must call `board.release_stale_claims`, never `kanban_db.release_stale_claims`.** Going direct
@@ -138,14 +143,17 @@ claim→verify→ledger path is identical by construction rather than by convent
 - **TRIG-01** laptop CLI — `python -m assign --repo … --prompt … --verify …`
 - **TRIG-02** queue file — `--from-queue queue.jsonl`, reusing `run_queue.py`'s existing JSONL
   format and its `load_queue()` parser (`run_queue.py:88`), including the `//` comment convention
-- **TRIG-03** schedule — `scripts/register-triai-task.ps1` registers a Windows Scheduled Task that
-  runs **`assign --from-queue chores/nightly.jsonl`, then `worker --max-tasks N`**
+- **TRIG-03** schedule — `scripts/register-triai-task.ps1` registers one Windows Scheduled Task
+  action, `scripts/run-triai-scheduled.ps1`, which runs **`assign --from-queue chores/nightly.jsonl`
+  and only then `worker --max-tasks N` when assignment exits 0**.
 
 TRIG-03 needs that first step spelled out, because "run the worker on a schedule" is *not* a
 trigger: a worker claims work that already exists, it never creates any. Scheduling only the worker
 would mean the scheduled path never calls `assign()` at all, and criterion 4's identical-path claim
 would be false for one of its three cases. Assignment on a schedule is the requirement; running the
-worker afterwards is the operational convenience that makes it useful unattended.
+worker afterwards is the operational convenience that makes it useful unattended. Task Scheduler
+guarantees ordering for multiple actions, not this required failure gate, so the runner makes the
+exit-code condition explicit.
 
 ### `src/chores.py` + `scripts/calibrate_verify.py` — VERIFY-05
 
@@ -200,8 +208,9 @@ kills the shell, not its descendants — on Windows the grandchildren survive. A
 spawns a writer can therefore "time out", keep writing, and race the revert and the next claim,
 producing corruption that looks like nothing went wrong. So the timeout path is:
 
-1. Spawn the verify command in its **own process group / job object**, not as a bare shell child.
-2. On timeout, terminate the **entire tree** (`taskkill /F /T /PID` on Windows) and reap it.
+1. Spawn the verify command in a Windows **Job Object** before it can execute (the primary process
+   starts suspended, joins the job, then resumes), not as a bare shell child.
+2. On timeout, terminate the Job Object atomically and enumerate it for survivors.
 3. Confirm the tree is actually gone. **If it is not, quarantine the workspace durably, then stop**
    — do not stash, do not claim anything else. A repo with a live unknown writer in it is not a
    state to keep working in.
@@ -300,24 +309,23 @@ and worktrees are Phase 3. `clean` was dropped as a straight contradiction: an e
 `git clean -fd` and, when the revert changed to a stash, the capability was left behind. That is the
 argument for an allowlist over prose in one line.
 
-**Three named gateways, and only three.** The audit rule "dynamically built commands fail" cannot
-coexist with `sh(cmd, shell=True)` inherited from `run_queue.py` and with running an
-operator-authored `verify_command` — as written it would have failed against its own `run_verify`,
-or needed an `sh()` exemption broad enough to void the property. So process creation is confined to
-exactly three functions, each with a stated contract:
+**Two process-creation gateways, and only two.** The audit rule "dynamically built commands fail"
+cannot coexist with `sh(cmd, shell=True)` inherited from `run_queue.py` and with running an
+operator-authored `verify_command`. The implementation narrows process creation to two functions:
 
 | gateway | contract |
 |---|---|
 | `executor.git(argv)` | exact-form table above; argv list; **no shell** |
-| `executor.run_agent(task)` | one fixed Hermes launcher; argv list; **no shell** |
-| `executor.run_verify(task)` | **deliberately unconstrained**, `shell=True` — the operator wrote this command and constraining it would defeat the design |
+| `executor.spawn_contained(command, **kwargs)` | the only child-process creator; attaches every child to its Job Object before it runs |
 
-The third is the single exemption, and it is named rather than incidental. That is the honest shape:
-the worker's own reach is provably narrow; the verify command's is deliberately not.
+`run_agent()` supplies fixed Hermes argv to `spawn_contained()` with no shell. `run_verify()` supplies
+the operator-authored command with `shell=True`; it is the single shell exemption, named separately
+because the verify command is deliberately unconstrained. The worker's own reach is provably narrow;
+the verify command's is deliberately not.
 
 **An AST audit over an explicit closure.** `tests/test_safety_boundary.py` parses `executor`,
 `worker`, `ledger`, `assign`, `chores`, `board` and asserts that no `subprocess.*`, `os.system` or
-`os.popen` call site exists anywhere in that set **outside the three gateway functions**. It also
+`os.popen` call site exists anywhere in that set **outside the two process-creation gateways**. It also
 rejects, within the closure, the shapes that would let a call escape the check: aliasing a process
 function to another name, `getattr`-dispatch, `functools.partial` over one, dict-dispatched process
 functions, star imports, and dynamic `__import__` / `importlib`. Without those rejections
@@ -368,16 +376,16 @@ Every row is an exit code, not a judgement.
 
 | # | criterion | proven by |
 |---|---|---|
-| 1 | pass → done; fail → revert before the next claim | `tests/test_worker_verify_gate.py`, both paths: a **passing** task reaches `done` on the board and writes a ledger entry with `verify_exit=0`; a **failing** task that edits a tracked file *and* creates an untracked one leaves `git status --porcelain` empty and the board row failed, verified *before* a second subtask claims that repo, with the stash recoverable |
+| 1 | pass → done; fail → revert before the next claim | `tests/test_worker_verify_gate.py`, both paths: a **passing** task reaches `done` on the board and writes a ledger entry with `verify_exit=0`; a **failing** task that edits a tracked file *and* creates an untracked one leaves `git status --porcelain` empty before the fresh retry claim, with the stash recoverable. A separate loop test proves the kernel records two failed attempts then blocks the task through its circuit breaker |
 | 2 | missing/empty upstream artifact fails its own verify | `tests/test_upstream_artifacts.py`: missing case, empty-file case, and **escape cases** — absolute path, `..` traversal, and a symlink pointing outside the parent workspace at a real non-empty file — each asserting the agent was **never invoked** |
 | 3 | every shipped verify command proven to fail on broken input | `scripts/calibrate_verify.py` run; `docs/verify-calibration.json` committed, showing a recorded non-zero exit per command in the table above — five commands, five distinct breaks |
-| 4 | three triggers, identical path, complete ledger entry | `tests/test_triggers.py`: CLI, queue file, and the scheduled task's `assign` step each call `assign()` and produce a board row, then route through `executor.execute`; each ledger entry carries worker identity, `model` + `provider` read back from `--usage-file`, verify exit code, and duration |
+| 4 | three triggers, identical path, complete ledger entry | `tests/test_triggers.py`: CLI, queue file, and the scheduled runner's queue action each produce a board row and execute it through `worker.run_once`; every resulting ledger entry carries worker identity, `model` + `provider`, verify exit code, and duration. The scheduled runner test also proves a non-zero assignment exit prevents worker startup |
 | 5 | the **worker codepath** contains no push, merge, deploy or credential access | `tests/test_safety_boundary.py` — scoped source audit (excluding prompt constants), the ordinary-route adversarial push test, and an assertion that the worker calls `board.release_stale_claims` and never the kernel's. Scope limit recorded in the test file: this does **not** prove a YOLO agent cannot push by other means |
 
 ## Verification
 
 ```
-tests\run.ps1        # Phase 1's 22 plus the five above; exit 0
+tests\run.ps1        # full suite; exit 0
 ```
 
 Plus a real end-to-end run against one repo's test-suite chore, assigned all three ways, producing
@@ -441,9 +449,10 @@ A fourth round broke the replacements again:
   `branch` also spells `branch -D`. Now an exact-argv table of five forms.
 - The AST rule contradicted its own implementation: `sh(shell=True)` and the operator-authored
   verify command are both dynamic, so the audit would have failed `run_verify` or exempted `sh()`
-  broadly enough to void the property. Resolved with three named gateways, the verify launcher being
-  the single deliberate exemption, plus rejection of the aliasing/`getattr`/`partial`/dict-dispatch
-  shapes that would otherwise let a call slip the check.
+  broadly enough to void the property. It first resolved to three named gateways, the verify
+  launcher being the single deliberate exemption, plus rejection of the aliasing/`getattr`/`partial`/
+  dict-dispatch shapes that would otherwise let a call slip the check. The final Job Object
+  implementation narrowed actual process creation further to `git()` and `spawn_contained()`.
 - "Killed" did not mean stopped: `shell=True` + `timeout` kills the shell, not the Windows child
   tree, so a timed-out verifier could keep writing during the revert. Now a process-tree kill with a
   hard-stop if the tree survives, and a test that spawns a delayed writer to prove it.
@@ -467,6 +476,16 @@ A third round before that broke three:
 Every item across all three rounds was found by review, not by the author. Several would have
 shipped as silent failures rather than errors — a hanging gate, a grep that passes on prohibition
 text, a recovery reference to a stash that was never created.
+
+The commit-level review found one further operational failure and corrected it before handoff:
+
+- A failed verifier returning to `ready` is intentional when the revert establishes a known-clean
+  workspace: it is a new, fully recorded claim and is bounded by the kernel's circuit breaker.
+  The review adds a loop test proving exactly two failed attempts occur at the default limit, then a
+  `gave_up` event blocks the task. Unsafe or ambiguous states still quarantine and hard-stop.
+- The scheduled task used two sequential actions and assumed a failed `assign` would suppress the
+  worker action. The registration now schedules one runner that checks assignment's exit code before
+  launching the worker; both its syntax and the control-flow ordering are tested.
 
 ## Explicitly not in this phase
 
