@@ -68,6 +68,16 @@ independently reviewed.
 Fan out only read-only investigation first. Do not let multiple agents edit the
 same checkout.
 
+### Coordination Protocol
+
+Subagents do not share transient chat context. The lead is their coordinator:
+give each subagent one read-only question, collect its evidence, and record the
+decision, file/line references, command result, and next atomic step in
+`STATE.md` before assigning the next writable slice. Every subagent must read
+`STATE.md`, this runbook, and the active phase plan before it starts; every
+later subagent therefore sees the earlier findings through the repository, not
+through an assumed live conversation. Only the lead edits production code.
+
 1. **Kernel mapper:** identify the exact read-only Hermes board APIs for graph
    creation, parent links, worktree lifecycle, claim, completion, failure, and
    cancellation. Return file/line evidence and no code.
