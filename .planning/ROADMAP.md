@@ -62,7 +62,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A planner-authored subtask with no verify_command is rejected by the board's write API at insertion (a non-zero exit / raised error at write time), never discovered later at claim or run time
   3. A batch of independent CPU/IO-bound chores run through N concurrent workers (N set from `concurrency_results.json`, not guessed) completes in measurably less wall-clock time than the same batch run through one worker, with the ledger showing every worker's entries
   4. A deliberately-failed subtask (bad verify command or killed worker) in one branch of a concurrent run shows as failed in the ledger/board, while sibling subtasks with no dependency on it reach `done` in the same run
-**Plans**: TBD
+**Plans**: `.planning/phases/phase-3-plan.md` (planned — implementation has not started)
 
 ### Phase 4: Read-Only Telegram Observability
 **Goal**: The board and ledger are inspectable from Telegram — what is queued, claimed, running, passed, or failed — including full output on any subtask, with no write capability yet.
@@ -92,7 +92,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Verified Board Substrate | 1/1 | Complete | 2026-09-08 |
-| 2. Verify-Gated Single-Worker Execution | 0/TBD | Not started | - |
-| 3. Planner + Bounded Concurrent Execution | 0/TBD | Not started | - |
+| 2. Verify-Gated Single-Worker Execution | 1/1 | Complete | 2026-09-10 |
+| 3. Planner + Bounded Concurrent Execution | 1/1 | Planned | - |
 | 4. Read-Only Telegram Observability | 0/TBD | Not started | - |
 | 5. Telegram Control Actions | 0/TBD | Not started | - |

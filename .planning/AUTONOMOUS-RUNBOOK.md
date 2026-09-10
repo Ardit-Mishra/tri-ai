@@ -52,6 +52,16 @@ The Phase 2 `dir` workspace design is single-worker only. Phase 3 must use
 per-subtask worktrees or another proven repo partition before it starts a
 second worker on one repository.
 
+## Current Checkpoint
+
+Phase 3 is planned at `.planning/phases/phase-3-plan.md`; implementation has
+not started. Three read-only investigations supplied the plan: a Hermes kernel
+map, a strict planner-contract review, and a concurrency/worktree test design.
+The next atomic step is **Slice 1 only**: implement the transactional Tri-AI
+planner graph writer and its adversarial tests, then run the full suite and
+commit locally. Do not start the dispatcher until that commit has independent
+review.
+
 ## Safe Fan-Out
 
 Fan out only read-only investigation first. Do not let multiple agents edit the
@@ -90,11 +100,11 @@ can fail for a named deliberate break before implementation begins.
 
 Start a new Claude session from `C:\Users\ardit\tri-ai` with:
 
-> Read `.planning/AUTONOMOUS-RUNBOOK.md` and `.planning/STATE.md` in full.
-> You are the Phase 3 lead. First run the canonical-checkout gate. Fan out the
-> four read-only investigations listed in the runbook, synthesize their reports
-> into `.planning/phases/phase-3-plan.md`, and implement only after every
-> roadmap criterion has a failing-capable verification command. Work locally;
+> Read `.planning/AUTONOMOUS-RUNBOOK.md`, `.planning/STATE.md`, and
+> `.planning/phases/phase-3-plan.md` in full. You are the Phase 3 lead. First
+> run the canonical-checkout gate. The investigation and plan are complete;
+> implement Slice 1 only, and do not begin Slice 2 until Slice 1 is fully
+> verified and independently reviewed. Work locally;
 > never push, merge, deploy, create remotes, or read credentials. Update state
 > after every verified slice. If context or usage runs low, write the exact
 > completed evidence, current commit, failing command, and next atomic step to

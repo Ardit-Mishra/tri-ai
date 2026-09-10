@@ -10,9 +10,13 @@ See: .planning/PROJECT.md (updated 2026-09-02)
 ## Current Position
 
 Phase: 3 of 5 (Planner + Bounded Concurrent Execution)
-Plan: not written — start from `.planning/AUTONOMOUS-RUNBOOK.md`
-Status: Phase 2 complete; Phase 3 next
-Last activity: 2026-09-10 — Phase 2 was built, cross-reviewed, and verified. Worker/ledger/assign/
+Plan: `.planning/phases/phase-3-plan.md` (planned, implementation not started)
+Status: Phase 2 complete; Phase 3 planned from three read-only evidence packets
+Last activity: 2026-09-10 — Phase 3 planning completed after separate kernel, planner-contract, and
+concurrency-design investigations. The plan requires a Tri-AI-owned transactional graph writer,
+a dispatcher with a cap derived from `research/concurrency_results.json`, workspace partitioning,
+and a linked-DAG sibling-survival test. No Phase 3 production source exists yet. Phase 2 was built,
+cross-reviewed, and verified. Worker/ledger/assign/
 chores modules landed; the Job Object containment and the exact process-gateway audit replaced the
 first unsafe timeout design. The scheduled trigger has an explicit assignment-exit gate. Full suite:
 **89 tests, exit 0** (`tests/run.ps1`); real end-to-end runs captured a complete ledger entry with
