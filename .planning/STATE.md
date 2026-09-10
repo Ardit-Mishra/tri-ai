@@ -32,11 +32,18 @@ two-task negative test would fail against the old thread-error swallowing path,
 and no API/concurrency regression was found. Its focused command passed 64
 tests, exit 0, 24.119s (existing ResourceWarnings only). Next atomic step:
 Phase 4 Slice 2 -- test-first, task-owned worktree materialization before
-claim. Read-only mapping is complete (review threads
-`01a08b61-ecd5-7463-91a0-e03e124f8920` and
-`01a08b61-f8fb-76f0-8713-1c102adbf0e7`); implementation must preserve the
-original repository and leave a creation failure ready/unclaimed with no
-agent invocation. Independent Phase 3 review completed. All four
+claim is implemented locally in `a71ff9e` (`Materialize task-owned worktrees
+before claim`) and awaits independent review. It adds `src/worktrees.py`, a
+board-owned `triai_worktrees` record, an audited creation-only executor gateway,
+dispatcher pre-resolution, and `worker --task-id`; it does not add any removal
+command. Tests prove two same-repo siblings receive different real worktrees
+and checked-out branches before overlapping launch; a dirty source or injected
+creation failure leaves the task ready/unclaimed and never invokes the agent;
+the named worker resolves before claim. Focused command: `python -m unittest
+tests.test_worktree_materialization tests.test_safety_boundary` -- 41 tests,
+exit 0, 5.928s. Full command: `python tests/run.py` -- 137 tests, exit 0,
+120.283s. Next atomic step: independent review of `a71ff9e`; do not start
+Slice 3 until it passes. Independent Phase 3 review completed. All four
 roadmap criteria verified, all five Completion Gate commands pass (132 tests,
 exit 0, 109.816s). Four non-blocking findings recorded in
 `.planning/reviews/phase-3-review.md`: dead env vars in `dispatch_one` (F1),
