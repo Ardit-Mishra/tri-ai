@@ -12,7 +12,18 @@ See: .planning/PROJECT.md (updated 2026-09-02)
 Phase: 3 of 5 (Planner + Bounded Concurrent Execution)
 Plan: `.planning/phases/phase-3-plan.md` (Slices 1–3 complete)
 Status: Phase 3 complete and independently reviewed; ready for Phase 4
-Last activity: 2026-09-10 — Independent Phase 3 review completed. All four
+Last activity: 2026-09-10 — Phase 4 Slice 1 completed in local commit `24bf5e7`
+(`Fix dispatcher launcher contract`). `src/dispatcher.py` no longer builds an
+unused child environment or claims to provide one; the launcher owns process
+creation and environment, and `dispatch_one` rejects a result for any task ID
+other than the one it requested. Removed dead `filter_running` and its isolated
+tests. The deliberately wrong launcher test proves the new result-ID gate can
+fail. Focused command: `python -m unittest tests.test_phase3_concurrency
+tests.test_safety_boundary` — 63 tests, exit 0, 18.627s. Full command:
+`python tests/run.py` — 131 tests, exit 0, 115.138s. Changed only
+`src/dispatcher.py` and `tests/test_phase3_concurrency.py`; prior-session
+Phase 4 planning artifacts remain unstaged. Next atomic step: independent
+review of Slice 1, then Phase 4 Slice 2 worktree creation. Independent Phase 3 review completed. All four
 roadmap criteria verified, all five Completion Gate commands pass (132 tests,
 exit 0, 109.816s). Four non-blocking findings recorded in
 `.planning/reviews/phase-3-review.md`: dead env vars in `dispatch_one` (F1),
