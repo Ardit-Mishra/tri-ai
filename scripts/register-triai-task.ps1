@@ -3,13 +3,11 @@
 # WHY ASSIGN COMES FIRST (TRIG-03):
 # A worker CLAIMS work that already exists; it never creates any. Scheduling
 # only the worker would mean the scheduled path never calls `assign()` at all -
-# not a trigger. So the registered task's first action is
-#   python src\assign.py --from-queue <nightly queue>
-# and its second is
-#   python src\worker.py --max-tasks N
-# Task Scheduler executes a task's actions sequentially and, on a non-zero exit
-# from an action, marks the task failed and does not run the next one. A failed
-# assign therefore never starts a worker - which is the safe outcome.
+# not a trigger. The registered action invokes run-triai-scheduled.ps1, which
+# runs python src\assign.py --from-queue <nightly queue> and starts
+# python src\worker.py --max-tasks N only when assignment exits 0. The
+# conditional belongs in that runner, rather than in an assumption about how
+# Task Scheduler handles a failed action.
 #
 # The worker's CLI is pinned to the plan's shape `python src\worker.py
 # --max-tasks N`. worker.py is built alongside this phase by a teammate; this
@@ -45,10 +43,12 @@ if (-not $NightlyQueue) {
 }
 $Assign = Join-Path $RepoRoot 'src\assign.py'
 $Worker = Join-Path $RepoRoot 'src\worker.py'
+$Runner = Join-Path $PSScriptRoot 'run-triai-scheduled.ps1'
 
 foreach ($needed in @(
     @{ Kind = 'interpreter';    Path = $Python },
     @{ Kind = 'assign script';  Path = $Assign },
+    @{ Kind = 'scheduled runner'; Path = $Runner },
     @{ Kind = 'nightly queue';  Path = $NightlyQueue }
 )) {
     if (-not (Test-Path $needed.Path)) {
@@ -59,7 +59,9 @@ if (-not (Test-Path $Worker)) {
     throw "missing worker script: $Worker (worker.py is not built yet; register once the teammate lands it)"
 }
 
-# One task, two ordered actions: assign, then worker.
+# One scheduled action calls a runner that gates worker startup on assignment's
+# exit code. Task Scheduler can sequence separate actions, but the condition
+# belongs in our runner rather than in an assumption about its failure policy.
 $Trigger     = New-ScheduledTaskTrigger -Daily -At $StartTime
 $Settings    = New-ScheduledTaskSettingsSet -StartWhenAvailable `
                   -MultipleInstances IgnoreNew `
@@ -67,22 +69,18 @@ $Settings    = New-ScheduledTaskSettingsSet -StartWhenAvailable `
 $Principal   = New-ScheduledTaskPrincipal -UserId $env:USERNAME `
                   -LogonType Interactive -RunLevel Limited
 
-# -Execute takes the interpreter; -Argument holds everything after it. Paths
-# carry spaces, so each is double-quoted.
-$AssignAction = New-ScheduledTaskAction -Execute $Python `
-                   -Argument ('"{0}" --from-queue "{1}"' -f $Assign, $NightlyQueue)
-$WorkerAction = New-ScheduledTaskAction -Execute $Python `
-                   -Argument ('"{0}" --max-tasks {1}' -f $Worker, $MaxTasks)
+$PowerShell = (Get-Command powershell.exe -ErrorAction Stop).Source
+$RunnerAction = New-ScheduledTaskAction -Execute $PowerShell `
+    -Argument ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -Python "{1}" -NightlyQueue "{2}" -MaxTasks "{3}"' -f $Runner, $Python, $NightlyQueue, $MaxTasks)
 
-Write-Host ("Registering '{0}' with actions in this exact order (assign BEFORE worker):" -f $TaskName) -ForegroundColor Cyan
-Write-Host ("  1) & '{0}' '{1}' --from-queue '{2}'" -f $Python, $Assign, $NightlyQueue)
-Write-Host ("  2) & '{0}' '{1}' --max-tasks {2}" -f $Python, $Worker, $MaxTasks)
+Write-Host ("Registering '{0}' with assignment gated before the worker:" -f $TaskName) -ForegroundColor Cyan
+Write-Host ("  & '{0}' -File '{1}' -Python '{2}' -NightlyQueue '{3}' -MaxTasks '{4}'" -f $PowerShell, $Runner, $Python, $NightlyQueue, $MaxTasks)
 Write-Host ("  daily at {0}; runs when the machine is available; one instance at a time" -f $StartTime)
 
 $Description = "Tri-AI nightly (TRIG-03): assign the queue FIRST - a worker claims work, it never creates it - then run the worker for up to {0} tasks. Verify commands decide pass/fail, never the agent's report." -f $MaxTasks
 
 Register-ScheduledTask -TaskName $TaskName `
-    -Action $AssignAction, $WorkerAction `
+    -Action $RunnerAction `
     -Trigger $Trigger `
     -Settings $Settings `
     -Principal $Principal `

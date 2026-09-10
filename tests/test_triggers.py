@@ -1,4 +1,4 @@
-"""Criterion 4 (TRIG-01/02/03): the three assignment triggers write ONE row shape.
+"""Criterion 4 (TRIG-01/02/03): the three assignment triggers converge.
 
 Every task that reaches the board goes through board.create_task — the single
 write path — so the claim, execution and ledger path downstream is identical by
@@ -25,6 +25,7 @@ import os
 import subprocess
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 from typing import Any
 
@@ -35,8 +36,13 @@ from support import BoardTestCase  # noqa: E402
 
 import assign  # noqa: E402
 import board  # noqa: E402
+import executor  # noqa: E402
+import ledger  # noqa: E402
+import worker  # noqa: E402
 
 ASSIGN_PY = Path(__file__).resolve().parents[1] / "src" / "assign.py"
+SCHEDULE_PS1 = Path(__file__).resolve().parents[1] / "scripts" / "register-triai-task.ps1"
+SCHEDULE_RUNNER_PS1 = Path(__file__).resolve().parents[1] / "scripts" / "run-triai-scheduled.ps1"
 
 TITLE = "shared task"
 PROMPT = "make a file"
@@ -56,6 +62,15 @@ class TheThreeTriggersWriteOneRowShape(BoardTestCase):
         self.repo = self.tmp / "workspace"
         self.repo.mkdir()
         (self.repo / "readme.md").write_text("# workspace\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"],
+                       cwd=self.repo, check=True)
+        subprocess.run(["git", "config", "user.name", "TriAI Test"],
+                       cwd=self.repo, check=True)
+        subprocess.run(["git", "add", "."], cwd=self.repo, check=True)
+        subprocess.run(["git", "commit", "-qm", "baseline"], cwd=self.repo, check=True)
+        self.ledger = self.tmp / "ledger.jsonl"
+        self.runs = self.tmp / "runs"
 
     def _routing(self, task_id: str) -> tuple[Any, ...]:
         row = self.task_row(task_id)
@@ -155,6 +170,86 @@ class TheThreeTriggersWriteOneRowShape(BoardTestCase):
         ids = {self._via_direct_assign(), self._via_cli(), self._via_queue()}
         self.assertEqual(len(ids), 3,
                          "three trigger invocations must create three distinct tasks")
+
+    def test_each_trigger_reaches_the_worker_and_writes_complete_ledger_evidence(self):
+        """CLI, queue, and the scheduler's queue action share one full path."""
+        trigger_tasks = (
+            ("direct", self._via_direct_assign),
+            ("cli", self._via_cli),
+            # The scheduled task's first action is exactly this queue trigger;
+            # its registration and action order are pinned separately below.
+            ("scheduled_queue", self._via_queue),
+        )
+        task_ids = []
+        agent = executor.AgentResult(
+            0, "agent ran\n", 0.1,
+            model="test-model", provider="test-provider", model_source="usage_file",
+        )
+        verify = executor.VerifyResult("passed", 0, "verify passed\n", 0.2)
+
+        with mock.patch.object(executor, "run_agent", return_value=agent), \
+             mock.patch.object(executor, "run_verify", return_value=verify):
+            for trigger, submit in trigger_tasks:
+                task_id = submit()
+                task_ids.append(task_id)
+                attempt = worker.run_once(
+                    self.conn, ledger_path=self.ledger, runs_root=self.runs,
+                )
+                self.assertIsNotNone(attempt, trigger)
+                self.assertEqual(attempt.outcome, "passed", trigger)
+                self.assertEqual(self.task_row(task_id)["status"], "done", trigger)
+
+        entries = ledger.read_entries(self.ledger)
+        self.assertEqual(len(entries), 3)
+        self.assertEqual({entry["task_id"] for entry in entries}, set(task_ids))
+        for entry in entries:
+            self.assertTrue(entry["worker"])
+            self.assertEqual(entry["model"], "test-model")
+            self.assertEqual(entry["provider"], "test-provider")
+            self.assertEqual(entry["model_source"], "usage_file")
+            self.assertEqual(entry["verify_exit"], 0)
+            self.assertIsInstance(entry["seconds"], float)
+
+    def test_schedule_gates_worker_startup_on_assignment_exit_code(self):
+        """TRIG-03 cannot launch a worker when the queue import fails."""
+        registration = SCHEDULE_PS1.read_text(encoding="utf-8")
+        runner = SCHEDULE_RUNNER_PS1.read_text(encoding="utf-8")
+        self.assertIn("$RunnerAction = New-ScheduledTaskAction", registration)
+        self.assertIn("-Action $RunnerAction", registration)
+        self.assertIn("run-triai-scheduled.ps1", registration)
+
+        assign = runner.index("& $Python $Assign --from-queue $NightlyQueue")
+        gate = runner.index("if ($LASTEXITCODE -ne 0)")
+        worker_start = runner.index("& $Python $Worker --max-tasks $MaxTasks")
+        self.assertLess(assign, gate)
+        self.assertLess(gate, worker_start)
+
+        # Execute the real runner with a stand-in interpreter. Its assign.py
+        # invocation exits 17; its worker.py invocation would leave a marker.
+        # This proves the exit-code gate rather than merely recognizing its
+        # spelling in the script.
+        marker = self.tmp / "worker-started.txt"
+        shim = self.tmp / "fake-python.cmd"
+        shim.write_text(
+            "@echo off\r\n"
+            "if /I \"%~n1\"==\"assign\" exit /b 17\r\n"
+            "echo worker > \"%TRIAI_TEST_MARKER%\"\r\n"
+            "exit /b 0\r\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [
+                "powershell.exe", "-NoProfile", "-NonInteractive",
+                "-ExecutionPolicy", "Bypass", "-File", str(SCHEDULE_RUNNER_PS1),
+                "-Python", str(shim), "-NightlyQueue", str(self._queue_file()),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=dict(os.environ, TRIAI_TEST_MARKER=str(marker)),
+        )
+        self.assertEqual(proc.returncode, 17, proc.stderr)
+        self.assertFalse(marker.exists(), "worker ran despite failed assignment")
 
     # -- the queue trigger's idempotency contract ------------------------
 

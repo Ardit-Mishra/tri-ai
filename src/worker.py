@@ -60,7 +60,8 @@ at precheck time is recorded in the ledger for provenance.
 What this module does NOT claim: that an agent it launches cannot push. A YOLO
 child can reach anything this user can. The safety boundary is about *this
 module's* execution path — its own code creates no process and runs no shell;
-see `src/executor.py` for the three named gateways.
+see `src/executor.py` for the two process-creation gateways and the one
+deliberate verify-shell exemption.
 """
 
 from __future__ import annotations
