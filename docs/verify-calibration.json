@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-10T00:47:43+00:00",
+  "interpreter": "C:\\Python314\\python.exe",
+  "calibration_window_seconds": 120.0,
+  "timeout_policy": "timeout_chosen_seconds = max(round(observed_runtime_seconds * 20), 120), capped at 3600. Fixtures are deliberately minimal so the floor decides for fast ones; a real repo runs longer.",
+  "shipped_chore_count": 5,
+  "chores": {
+    "pytest-suite": {
+      "name": "pytest-suite",
+      "verify_command": "python -m pytest -q",
+      "tool_present": true,
+      "runs_at_all": true,
+      "runs_at_all_exit": 0,
+      "breaks_on_deliberate": true,
+      "breaks_on_deliberate_exit": 1,
+      "observed_runtime_seconds": 0.57,
+      "timeout_chosen_seconds": 120,
+      "calibrated": true,
+      "deferral_reason": null,
+      "note": null
+    },
+    "tsc-typecheck": {
+      "name": "tsc-typecheck",
+      "verify_command": "tsc --noEmit",
+      "tool_present": false,
+      "runs_at_all": true,
+      "runs_at_all_exit": 0,
+      "breaks_on_deliberate": true,
+      "breaks_on_deliberate_exit": 2,
+      "observed_runtime_seconds": 1.37,
+      "timeout_chosen_seconds": 120,
+      "calibrated": true,
+      "deferral_reason": null,
+      "note": "no global tsc: typescript installed into the fixture via npm and its node_modules/.bin prepended to PATH, matching a repo/operator setup where tsc resolves"
+    },
+    "build": {
+      "name": "build",
+      "verify_command": "npm run build",
+      "tool_present": true,
+      "runs_at_all": true,
+      "runs_at_all_exit": 0,
+      "breaks_on_deliberate": true,
+      "breaks_on_deliberate_exit": 1,
+      "observed_runtime_seconds": 0.465,
+      "timeout_chosen_seconds": 120,
+      "calibrated": true,
+      "deferral_reason": null,
+      "note": null
+    },
+    "npm-audit-advisory": {
+      "name": "npm-audit-advisory",
+      "verify_command": "npm audit --audit-level=high",
+      "tool_present": true,
+      "runs_at_all": true,
+      "runs_at_all_exit": 0,
+      "breaks_on_deliberate": true,
+      "breaks_on_deliberate_exit": 1,
+      "observed_runtime_seconds": 0.922,
+      "timeout_chosen_seconds": 120,
+      "calibrated": true,
+      "deferral_reason": null,
+      "note": "npm audit consulted the npm registry (reachable during calibration)"
+    },
+    "uv-pip-check-compat": {
+      "name": "uv-pip-check-compat",
+      "verify_command": "uv pip check",
+      "tool_present": true,
+      "runs_at_all": true,
+      "runs_at_all_exit": 0,
+      "breaks_on_deliberate": true,
+      "breaks_on_deliberate_exit": 1,
+      "observed_runtime_seconds": 0.599,
+      "timeout_chosen_seconds": 120,
+      "calibrated": true,
+      "deferral_reason": null,
+      "note": "uv pip check needs VIRTUAL_ENV pointing at the environment; set here as an operator would"
+    }
+  }
+}

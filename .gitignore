@@ -5,3 +5,9 @@ queue.jsonl
 !evidence/ledger.jsonl
 __pycache__/
 *.pyc
+
+# Phase 2 worker/ledger runtime state (worker.py / ledger.py):
+# per-attempt output trees (runs/<task_id>/<run_id>/{agent,verify,usage}) and
+# a repo-local ledger, when TRIAI_RUNS_DIR / TRIAI_LEDGER point inside the repo.
+triai-runs/
+triai-ledger.jsonl

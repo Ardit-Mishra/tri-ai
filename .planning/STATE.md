@@ -5,35 +5,39 @@
 See: .planning/PROJECT.md (updated 2026-09-02)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Phase 2 — Verify-Gated Single-Worker Execution
+**Current focus:** Phase 3 — Concurrency (next)
 
 ## Current Position
 
 Phase: 2 of 5 (Verify-Gated Single-Worker Execution)
 Plan: `.planning/phases/phase-2-plan.md`
-Status: Planned, awaiting review then execution
-Last activity: 2026-09-09 — Phase 1 complete and reviewed. `src/board.py` adapter + 22 tests; all
-four success criteria met (`tests/run.ps1` → 22 tests, OK), independently re-run twice by a second
-reviewer. Plan and findings in `.planning/phases/phase-1-plan.md`.
+Status: Complete; all five success criteria discharged
+Last activity: 2026-09-10 — Phase 2 built, cross-reviewed, and verified. Worker/ledger/assign/
+chores modules landed; three criterion test files added; two genuine BLOCKERs surfaced by the
+independent cross-reviewers and fixed (idempotency half-apply; TTL double-spawn). Full suite 86/86
+green under the Hermes interpreter (`tests/run.ps1`); real end-to-end run passed with a complete
+ledger entry carrying model/provider read back from `--usage-file`. Two new tests landed for the
+originally-planned `test_worker_verify_gate.py` / `test_triggers.py`.
 
-Progress: [██░░░░░░░░] 20%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
+- Total plans completed: 2
 - Average duration: 1 session
-- Total execution time: 1 session
+- Total execution time: 2 sessions
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Verified Board Substrate | 1 | 1 session | 1 session |
+| 2. Verify-Gated Single-Worker Execution | 1 | 1 session | 1 session |
 
 **Recent Trend:**
-- Last 5 plans: Phase 1 (complete, 22 tests passing)
-- Trend: -
+- Phase 1 (22 tests) → Phase 2 (86 tests cumulative)
+- Trend: ↑
 
 *Updated after each plan completion*
 
@@ -50,6 +54,8 @@ Recent decisions affecting current work:
 - Phase 1: the kanban kernel is *used, never edited*. The Hermes install replaces whole package trees when it updates (every package has a `*.hermes-update-staging` sibling), so an in-place patch to `kanban_db.py` would be silently reverted — and the failure mode is invisible: the board keeps working while verification quietly stops. The additive migration runs from `src/board.py` against Tri-AI's own board file, through the kernel's own `add_column_if_missing`. Safe because the kernel's migration pass is purely additive and `tasks` is not in its `_REBUILD_SPECS` drift-rebuild list — both asserted by tests, not assumed
 - Phase 1: three columns added, not one — `verify_command`, `verify_timeout`, `expected_artifacts` (JSON). Target repo needed no column: the kernel's `workspace_kind='dir'` + `workspace_path` already means exactly that
 - Phase 1: `board.create_task` refuses a task with no verify command at write time, before any row exists, AND writes the row and its verify columns in one transaction. Rejecting early is only half the property: the kernel's `create_task` commits on its own, so a second transaction for the verify columns left a window where the row was visible as `ready` with `verify_command` NULL and a polling worker could claim an unverifiable task. Proven by failure injection, not assumed. This is Phase 3's criterion 2 landing early because it is the natural shape of the write API, not a separate feature
+- Phase 2: **idempotency-key re-submission is a full no-op, never a partial update.** The kernel's `create_task` returns the existing row id for a duplicate key; `board.create_task` previously re-wrote only the three verify columns onto it, so a re-run of a queue line whose verify/timeout/artifacts changed refreshed the gate while title, prompt, workspace and `max_runtime_seconds` stayed stale — a fresh oracle bolted onto an old workspace, reported as success. Caught by the assign/chores cross-reviewer and confirmed by reproduction. The fix detects a pre-existing key inside the same `write_txn` (IMMEDIATE, so no interleaving writer) and skips the verify-column UPDATE. To change a task, delete and re-assign.
+- Phase 2: **a claim must carry the worker's own pid, or the 15-minute TTL reclaims a live run.** Tri-AI claims with `host:pid` but never set the kernel's `worker_pid`; the kernel's live-worker extension branch (`release_stale_claims`: truthy `worker_pid` + `_pid_alive`) therefore never fired, and once `DEFAULT_CLAIM_TTL_SECONDS` (15m) elapsed a claim whose agent was still running (default 30m) was reclaimed to `ready` and a second worker spawned a second agent on the same repo. Caught by the worker/ledger cross-reviewer with a precise reproduction. Fixed by registering the worker's own pid after claim (`kb._set_worker_pid`, the same private-seam precedent as `board.posix_semantics_signal`); the dead/crashed/quarantine paths still reclaim because the pid is genuinely gone after exit.
 
 ### Pending Todos
 
@@ -82,18 +88,22 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-09
-Stopped at: **Phase 1 complete, reviewed, and published.** `github.com/Ardit-Mishra/tri-ai` is public,
-`main` is the default branch, MIT detected, and `evidence/ledger.jsonl` is publicly reachable —
-verified against the live URLs, not from a push report. Phase 1 is `23dbfb4`; `26fcf20` records the
-publication blocker's resolution. Working tree clean, synced with `origin/main`.
+Last session: 2026-09-10
+Stopped at: **Phase 2 complete, reviewed, and ready to commit.** Branch `phase-2/worker-assign`,
+unpushed. Full suite 86/86 green under the Hermes interpreter. Two real E2E runs complete:
+a passing task (ledger entry with model/provider, board `done`) and a failing task (ledger
+`outcome: failed`, `git status --porcelain` empty, `git stash list` shows `triai-revert:` entry).
+Two BLOCKERs found and fixed during the cross-review pass.
 
 Phase 1 carries two defects found by self-audit and fixed (non-atomic `create_task`; the `setdefault`
 board pin), one found by review and fixed (`migrate` silently accepting a same-named column of a
-different type), and an honest note in the plan doc on where two tests are weaker than their
-criteria's wording.
+different type).
 
-Next: plan Phase 2 (verify-gated single-worker execution).
+Phase 2 landed: worker (`src/worker.py`), assign (`src/assign.py`), ledger (`src/ledger.py`),
+chores (`src/chores.py`), three criterion test files, calibration infrastructure, and two BLOCKER
+fixes in `src/board.py` (idempotency no-op) and `src/worker.py` (worker_pid registration).
+
+Next: commit Phase 2, then plan Phase 3.
 
 Note: `~/.claude/skills/` was destroyed in the 2026-09-06 incident and is NOT in the `S5-claude-r3`
 archive — that archive stopped at `./profiles/`, before reaching `./skills/`. So the whole GSD suite

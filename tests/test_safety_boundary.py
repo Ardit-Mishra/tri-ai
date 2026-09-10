@@ -45,7 +45,7 @@ CLOSURE_MODULES = (
 # is visible in source instead of hidden behind a silent skip. This must be
 # empty when Phase 2 is complete; `test_pending_modules_are_declared` fails if a
 # module appears here that has since been written.
-PENDING_MODULES = frozenset({"worker.py", "ledger.py", "assign.py", "chores.py"})
+PENDING_MODULES = frozenset()
 
 # Process creation is confined to these (module, function) pairs.
 #
@@ -435,6 +435,83 @@ class TheAuditItselfCanFail(unittest.TestCase):
         )
 
 
+class ReclaimGoesThroughTheBoard(unittest.TestCase):
+    """Criterion 5, the Phase-1 Windows-reclaim guard, applied to the worker.
+
+    ``board.release_stale_claims`` exists because the kernel's own version never
+    reclaims a claim whose worker is dead on Windows (a dead PID raises
+    ``PermissionError``, which the kernel reads as "still alive"), and the worker
+    registered the plan's gate: call the board wrapper, never the kernel. A
+    counter-statement in prose would be an assertion with no oracle — this is
+    the AST check the plan asked for, beside the process-creation audit.
+    """
+
+    def _release_stale_claims_nodes(self, tree: ast.AST) -> list[tuple[int, str]]:
+        """Every ``release_stale_claims`` reference as ``(lineno, module)``.
+
+        ``module`` is the root namespace the attribute is resolved against:
+        ``board`` for ``board.release_stale_claims``, the literal source name
+        otherwise, and the virtual name ``<bare>`` for a bare
+        ``release_stale_claims(...)`` call (a from-import, which cannot be
+        resolved to a module and is refused outright).
+        """
+        refs: list[tuple[int, str]] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                f = node.func
+                if isinstance(f, ast.Attribute) and f.attr == "release_stale_claims":
+                    base = f.value
+                    if isinstance(base, ast.Name):
+                        refs.append((node.lineno, base.id))
+                    else:
+                        refs.append((node.lineno, "<attribute>"))
+                elif isinstance(f, ast.Name) and f.id == "release_stale_claims":
+                    refs.append((node.lineno, "<bare>"))
+            elif isinstance(node, ast.Attribute) and node.attr == "release_stale_claims":
+                # A reference that is not a call — e.g. a from-import target or
+                # a re-bound name. Also refused: only the board's function may
+                # be named at all.
+                base = node.value
+                if isinstance(base, ast.Name):
+                    refs.append((node.lineno, base.id))
+                else:
+                    refs.append((node.lineno, "<attribute>"))
+        return refs
+
+    def test_every_release_stale_claims_use_is_board_resolved(self):
+        for path in CLOSURE_MODULES:
+            full = SRC / path
+            if not full.exists():
+                continue
+            refs = self._release_stale_claims_nodes(ast.parse(
+                full.read_text(encoding="utf-8"), filename=str(full)))
+            for lineno, module in refs:
+                # board.py is the OWNER of the wrapper: inside it, the kernel
+                # call `kb.release_stale_claims` (with the platform-correct
+                # signal_fn) is the seam itself and is expected. Every other
+                # module may reach release_stale_claims only through `board`.
+                if path == "board.py":
+                    continue
+                self.assertEqual(
+                    module, "board",
+                    f"{path}:{lineno}: release_stale_claims reached as {module!r}, "
+                    "not board.release_stale_claims. Going straight to the kernel "
+                    "reintroduces the Windows reclaim deferral — a dead worker's "
+                    "claim then never returns to ready (STATE.md Blocker).",
+                )
+
+    def test_the_worker_actually_calls_it(self):
+        """The worker must not merely satisfy the shape — it must invoke it."""
+        worker = (SRC / "worker.py").read_text(encoding="utf-8")
+        refs = self._release_stale_claims_nodes(ast.parse(worker, filename="worker.py"))
+        self.assertTrue(
+            any(m == "board" for _, m in refs),
+            "worker.py never calls board.release_stale_claims — the stale-claim "
+            "recovery that guards the two-workers hazard is absent on its first "
+            "run.",
+        )
+
+
 class GitAllowlist(unittest.TestCase):
     def test_the_five_needed_forms_are_allowed(self):
         for form in (
@@ -464,6 +541,73 @@ class GitAllowlist(unittest.TestCase):
     def test_a_refused_form_raises_before_spawning(self):
         with self.assertRaises(executor.DisallowedGitCommand):
             executor.git(["push", "origin", "main"], cwd=".")
+
+
+class TheOrdinaryPushRouteIsClosed(unittest.TestCase):
+    """The agent's own shell is the only place a push could happen, so the
+    environment it inherits is scrubbed: credential variables removed and
+    prompts disabled. This proves the ORDINARY route cannot silently succeed —
+    a regression in the scrubbing (a credential var leaking through, or
+    ``GIT_TERMINAL_PROMPT`` re-enabled) is caught here. It is deliberately not
+    a containment claim: executor.agent_env's docstring and the plan say a
+    determined agent can reach what the operator can (STATE.md, criterion 5
+    scope). The fixture isolates git's own config so no outside store can
+    supply credentials.
+    """
+
+    def test_agent_env_carries_no_credential_variables(self):
+        env = executor.agent_env()
+        leaked = [n for n in executor.CREDENTIAL_ENV_NAMES if n in env]
+        self.assertEqual(
+            leaked, [],
+            f"credential environment leaked into the agent child: {leaked}",
+        )
+        self.assertEqual(env.get("GIT_TERMINAL_PROMPT"), "0",
+                         "git prompts must stay disabled so a missing credential "
+                         "fails fast instead of hanging the worker")
+
+    def test_git_push_under_the_scrubbed_env_fails_cleanly(self):
+        # A real git push under agent_env(), against a remote that cannot
+        # authenticate. GIT_TERMINAL_PROMPT=0 turns the credential inquiry into
+        # a fast nonzero exit rather than a hang; a false "success" here would
+        # mean the scrubbing no longer stands between a YOLO shell and a push.
+        import subprocess, tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory(prefix="triai-nopush-") as td:
+            home = Path(td)
+            cwd = home / "repo"
+            cwd.mkdir()
+            env = dict(executor.agent_env())
+            env["HOME"] = str(home)
+            env["USERPROFILE"] = str(home)
+            env["GIT_CONFIG_GLOBAL"] = str(home / "gitconfig")
+            core = subprocess.run(
+                ["git", "-C", str(cwd), "init", "-q"], env=env,
+                capture_output=True, text=True, timeout=60,
+            )
+            self.assertEqual(core.returncode, 0, core.stderr)
+            (cwd / "f.txt").write_text("x", encoding="utf-8")
+            subprocess.run(
+                ["git", "-C", str(cwd), "add", "f.txt"], env=env,
+                capture_output=True, text=True, timeout=60,
+            )
+            subprocess.run(
+                ["git", "-C", str(cwd), "-c", "user.email=t@t",
+                 "-c", "user.name=t", "commit", "-qm", "seed"], env=env,
+                capture_output=True, text=True, timeout=60,
+            )
+            pushed = subprocess.run(
+                ["git", "-C", str(cwd), "push",
+                 "https://example.invalid/tri-ai-push-test.git", "HEAD:refs/heads/main"],
+                env=env, capture_output=True, text=True, timeout=90,
+            )
+            self.assertNotEqual(
+                pushed.returncode, 0,
+                f"git push succeeded under the scrubbed env: "
+                f"{pushed.stdout or pushed.stderr!r}. The ordinary route is "
+                "no longer closed.",
+            )
 
 
 if __name__ == "__main__":
