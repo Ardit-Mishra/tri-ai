@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
 import board
+import worktrees
 
 # ---------------------------------------------------------------------------
 # Cap derivation from measured concurrency
@@ -144,7 +145,7 @@ def _worker_argv(
     """
     src = str(Path(__file__).resolve().parent)
     argv = [sys.executable, os.path.join(src, "worker.py"), "--once",
-            "--board", str(board_path)]
+            "--task-id", task_id, "--board", str(board_path)]
     if ledger_path is not None:
         argv += ["--ledger", str(ledger_path)]
     if runs_root is not None:
@@ -201,10 +202,11 @@ class DispatchResult:
     """Aggregate outcome of one dispatch() invocation."""
 
     results: list[WorkerResult] = field(default_factory=list)
+    skipped: list[dict[str, str]] = field(default_factory=list)
 
     @property
     def all_passed(self) -> bool:
-        return all(r.exit_code == 0 for r in self.results)
+        return not self.skipped and all(r.exit_code == 0 for r in self.results)
 
     @property
     def pids(self) -> set[int]:
@@ -254,6 +256,21 @@ def dispatch(
             # picks up: (a) newly-promoted children whose parents completed,
             # and (b) tasks reclaimed to ready after a failed verify attempt.
             ready = board.ready_tasks(conn)
+            materialized: list[dict[str, Any]] = []
+            for task in ready:
+                resolution = worktrees.resolve_task(conn, task)
+                if resolution.ready:
+                    materialized.append(resolution.task)
+                else:
+                    skip = {
+                        "task_id": str(task["id"]),
+                        "reason": resolution.reason or "unknown",
+                    }
+                    if skip not in result.skipped:
+                        result.skipped.append(skip)
+            ready = materialized
+            if not ready:
+                break
             groups = partition_groups(ready)
             running_keys: set[str] = set()
 

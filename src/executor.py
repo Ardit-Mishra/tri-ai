@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -84,6 +85,10 @@ class DisallowedGitCommand(RuntimeError):
     """A git form not on the allowlist. Raised before any process is spawned."""
 
 
+class WorktreeError(RuntimeError):
+    """A linked checkout could not be proven created and isolated."""
+
+
 def _git_form_allowed(argv: Sequence[str]) -> bool:
     form = tuple(argv)
     if form in GIT_ALLOWED_FORMS:
@@ -109,6 +114,51 @@ def git(argv: Sequence[str], *, cwd: Path | str, timeout: int = 120) -> tuple[in
         timeout=timeout,
     )
     return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+
+
+_SAFE_BRANCH = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
+
+
+def materialize_worktree(
+    source: Path | str,
+    target: Path | str,
+    branch_name: str,
+    *,
+    timeout: int = 120,
+) -> None:
+    """Create one linked checkout without deletion or network access.
+
+    Kept separate from ``git()`` so its exact precheck/revert allowlist never
+    expands into a generic worktree capability. Failure preserves every
+    artifact for inspection; no cleanup command is issued here.
+    """
+    source_path = Path(source).resolve()
+    raw_target = Path(target)
+    target_path = raw_target.resolve()
+    if not source_path.is_dir() or not (source_path / ".git").exists():
+        raise WorktreeError(f"source is not a git checkout: {source_path}")
+    if not raw_target.is_absolute() or target_path.exists():
+        raise WorktreeError(f"worktree target must be a new absolute path: {target_path}")
+    if source_path == target_path or source_path in target_path.parents:
+        raise WorktreeError("worktree target may not be inside the source checkout")
+    if not _SAFE_BRANCH.fullmatch(branch_name) or branch_name.startswith("-"):
+        raise WorktreeError(f"unsafe worktree branch name: {branch_name!r}")
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    proc = subprocess.run(
+        ["git", "-C", str(source_path), "worktree", "add", "-b", branch_name,
+         str(target_path), "HEAD"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    if proc.returncode != 0 or not (target_path / ".git").exists():
+        raise WorktreeError(
+            f"git worktree add failed for {target_path} ({branch_name}): {output.strip()}"
+        )
 
 
 # ---------------------------------------------------------------------------

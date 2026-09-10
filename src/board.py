@@ -159,6 +159,7 @@ def migrate(conn: sqlite3.Connection) -> dict[str, bool]:
     # ALTER, so no collision check applies. CREATE TABLE IF NOT EXISTS is
     # idempotent on the same terms as the column adds above.
     conn.execute(QUARANTINE_DDL)
+    conn.execute(WORKTREE_DDL)
 
     conn.commit()
     return added
@@ -326,6 +327,65 @@ def ready_tasks(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
+def worktree_for_task(conn: sqlite3.Connection, task_id: str) -> Optional[dict[str, Any]]:
+    """The durable ownership record for a Tri-AI-created worktree, if any."""
+    row = conn.execute(
+        "SELECT * FROM triai_worktrees WHERE task_id = ?", (task_id,)
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def list_worktrees(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every Tri-AI-owned worktree record, oldest first."""
+    return [dict(row) for row in conn.execute(
+        "SELECT * FROM triai_worktrees ORDER BY created_at, task_id"
+    ).fetchall()]
+
+
+def record_worktree(
+    conn: sqlite3.Connection,
+    *,
+    task_id: str,
+    source_path: Path | str,
+    target_path: Path | str,
+    branch_name: str,
+) -> None:
+    """Record ownership and move a ready task to its materialized checkout."""
+    kb = kanban()
+    source = str(Path(source_path).resolve())
+    target = str(Path(target_path).resolve())
+    with kb.write_txn(conn):
+        existing = conn.execute(
+            "SELECT source_path, target_path, branch_name FROM triai_worktrees "
+            "WHERE task_id = ?",
+            (task_id,),
+        ).fetchone()
+        expected = (source, target, branch_name)
+        if existing is not None:
+            actual = (existing["source_path"], existing["target_path"], existing["branch_name"])
+            if actual != expected:
+                raise RuntimeError(
+                    f"worktree ownership collision for task {task_id}: "
+                    f"recorded {actual!r}, requested {expected!r}"
+                )
+        else:
+            conn.execute(
+                "INSERT INTO triai_worktrees "
+                "(task_id, source_path, target_path, branch_name, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (task_id, source, target, branch_name, int(time.time())),
+            )
+        changed = conn.execute(
+            "UPDATE tasks SET workspace_path = ? WHERE id = ? AND status = 'ready' "
+            "AND claim_lock IS NULL",
+            (target, task_id),
+        ).rowcount
+        if changed != 1:
+            raise RuntimeError(
+                f"task {task_id} ceased to be ready while recording its worktree"
+            )
+
+
 # ---------------------------------------------------------------------------
 # Reclaim
 # ---------------------------------------------------------------------------
@@ -392,6 +452,16 @@ CREATE TABLE IF NOT EXISTS triai_quarantine (
     reason      TEXT NOT NULL,
     detail      TEXT,
     created_at  INTEGER NOT NULL
+)
+"""
+
+WORKTREE_DDL = """
+CREATE TABLE IF NOT EXISTS triai_worktrees (
+    task_id      TEXT PRIMARY KEY,
+    source_path  TEXT NOT NULL,
+    target_path  TEXT NOT NULL UNIQUE,
+    branch_name  TEXT NOT NULL,
+    created_at   INTEGER NOT NULL
 )
 """
 
