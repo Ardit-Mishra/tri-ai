@@ -39,6 +39,7 @@ import executor  # noqa: E402
 # The audited closure: every module on the execution path.
 CLOSURE_MODULES = (
     "executor.py", "board.py", "worker.py", "ledger.py", "assign.py", "chores.py",
+    "planner.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole
@@ -154,6 +155,51 @@ class ClosureIsComplete(unittest.TestCase):
                     if (SRC / filename).exists() and filename not in CLOSURE_MODULES:
                         missing.append(f"{path.name} imports unaudited {filename}")
         self.assertEqual(missing, [], "local execution imports outside closure: " + repr(missing))
+
+
+def _planner_bypass_violations(tree: ast.AST) -> list[str]:
+    """Return direct graph-writer bypasses that skip board.create_task."""
+    violations: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute):
+            if (
+                isinstance(func.value, ast.Name)
+                and func.value.id in {"kb", "kanban_db"}
+                and func.attr == "create_task"
+            ):
+                violations.append(f"{node.lineno}: direct kernel create_task")
+            if func.attr == "execute" and node.args:
+                query = node.args[0]
+                if isinstance(query, ast.Constant) and isinstance(query.value, str):
+                    if "INSERT INTO TASKS" in query.value.upper():
+                        violations.append(f"{node.lineno}: raw tasks insert")
+            if func.attr == "decompose":
+                violations.append(f"{node.lineno}: decomposition bypass")
+        elif isinstance(func, ast.Name) and func.id == "decompose":
+            violations.append(f"{node.lineno}: decomposition bypass")
+    return violations
+
+
+class PlannerCannotBypassTheVerifyWriter(unittest.TestCase):
+    def test_the_planner_contains_no_direct_kernel_writer(self):
+        source = SRC / "planner.py"
+        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        self.assertEqual(_planner_bypass_violations(tree), [])
+
+    def test_the_bypass_audit_rejects_each_forbidden_shape(self):
+        bad = ast.parse(
+            """
+def broken(kb, conn):
+    kb.create_task(conn, title='no oracle')
+    conn.execute('INSERT INTO tasks (id) VALUES (1)')
+    decompose()
+"""
+        )
+        violations = _planner_bypass_violations(bad)
+        self.assertEqual(len(violations), 3, violations)
 
 
 class ImportsCannotHideProcessCalls(unittest.TestCase):
