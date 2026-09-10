@@ -304,6 +304,29 @@ def verify_spec(conn: sqlite3.Connection, task_id: str) -> Optional[dict[str, An
 
 
 # ---------------------------------------------------------------------------
+# Ready-task selection
+# ---------------------------------------------------------------------------
+
+
+def ready_tasks(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every currently reclaimable ready task, oldest-first within priority.
+
+    ``verify_command`` must be present: an unverifiable task does not belong
+    on the board (``create_task`` enforces that at write time; this re-checks
+    rows written through lower-level APIs).
+    """
+    rows = conn.execute(
+        "SELECT id, title, workspace_path, verify_command, verify_timeout, "
+        "       workspace_kind, branch_name "
+        "FROM tasks "
+        "WHERE status = 'ready' AND claim_lock IS NULL "
+        "  AND verify_command IS NOT NULL "
+        "ORDER BY priority DESC, created_at ASC"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
 # Reclaim
 # ---------------------------------------------------------------------------
 #

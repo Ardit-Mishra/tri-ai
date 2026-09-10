@@ -39,7 +39,7 @@ import executor  # noqa: E402
 # The audited closure: every module on the execution path.
 CLOSURE_MODULES = (
     "executor.py", "board.py", "worker.py", "ledger.py", "assign.py", "chores.py",
-    "planner.py",
+    "planner.py", "dispatcher.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole
@@ -654,6 +654,106 @@ class TheOrdinaryPushRouteIsClosed(unittest.TestCase):
                 f"{pushed.stdout or pushed.stderr!r}. The ordinary route is "
                 "no longer closed.",
             )
+
+
+class DispatcherCannotBypassOrPush(unittest.TestCase):
+    """The dispatcher is scheduling-only: no process creation, no raw git,
+    no push/merge/deploy/credential access.
+
+    Process creation is confined to the launcher callback — the dispatcher
+    never calls subprocess, os.system, or any PROCESS_ATTRS directly.  Git,
+    push, merge, deploy, and credential operations are all forbidden in the
+    dispatcher module.
+    """
+
+    def test_no_direct_process_creation_in_dispatcher(self):
+        """dispatcher.py must not contain any subprocess/os process calls."""
+        path = SRC / "dispatcher.py"
+        if not path.exists():
+            self.skipTest("dispatcher.py not found")
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        violations = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                func = node.func
+                attr = None
+                if isinstance(func, ast.Attribute):
+                    attr = func.attr
+                elif isinstance(func, ast.Name):
+                    attr = func.id
+                if attr in PROCESS_ATTRS:
+                    # Check which module the call is in.
+                    owner = _owners(tree, "dispatcher.py").get(id(node))
+                    violations.append((node.lineno, attr, owner))
+        self.assertEqual(
+            violations, [],
+            f"dispatcher.py contains direct process creation calls: "
+            f"{violations}. Process creation belongs in the launcher callback.",
+        )
+
+    def test_no_raw_git_in_dispatcher(self):
+        """dispatcher.py must not import or call executor.git."""
+        path = SRC / "dispatcher.py"
+        if not path.exists():
+            self.skipTest("dispatcher.py not found")
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "git":
+                self.fail(
+                    f"dispatcher.py:{node.lineno}: raw git access found. "
+                    "The dispatcher does not execute git commands."
+                )
+            if isinstance(node, ast.Name) and node.id == "git":
+                self.fail(
+                    f"dispatcher.py:{node.lineno}: bare 'git' reference found."
+                )
+
+    def test_no_push_merge_deploy_or_credential_in_dispatcher(self):
+        """dispatcher.py source must not contain push, merge, deploy, or
+        credential references."""
+        path = SRC / "dispatcher.py"
+        if not path.exists():
+            self.skipTest("dispatcher.py not found")
+        source = path.read_text(encoding="utf-8")
+        forbidden = ["push", "merge", "deploy", "credential"]
+        for kw in forbidden:
+            # Check for these as identifiers (not substrings of other words).
+            import re as _re
+            pattern = r'\b' + _re.escape(kw) + r'\b'
+            matches = list(_re.finditer(pattern, source, _re.IGNORECASE))
+            if matches:
+                line_no = source[:matches[0].start()].count('\n') + 1
+                self.fail(
+                    f"dispatcher.py:{line_no}: forbidden keyword '{kw}' found. "
+                    "The dispatcher does not push, merge, deploy, or "
+                    "access credentials."
+                )
+
+    def test_dispatcher_uses_only_launcher_for_worker_invocation(self):
+        """The only way to spawn a worker from the dispatcher is through the
+        launcher callable — no direct subprocess, no direct process module."""
+        path = SRC / "dispatcher.py"
+        if not path.exists():
+            self.skipTest("dispatcher.py not found")
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+        # Check that 'import subprocess' or 'from subprocess import' does
+        # not appear in the module.
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    self.assertNotIn(
+                        "subprocess", alias.name,
+                        f"dispatcher.py:{node.lineno}: imports subprocess "
+                        "directly. Worker creation goes through the launcher.",
+                    )
+            elif isinstance(node, ast.ImportFrom):
+                if node.module and "subprocess" in node.module:
+                    self.fail(
+                        f"dispatcher.py:{node.lineno}: from-subprocess import. "
+                        "Worker creation goes through the launcher."
+                    )
 
 
 if __name__ == "__main__":

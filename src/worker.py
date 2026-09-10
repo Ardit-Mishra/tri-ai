@@ -136,19 +136,10 @@ def worker_id() -> str:
 def ready_tasks(conn) -> list[dict[str, Any]]:
     """Every currently reclaimable ready task, oldest-first within priority.
 
-    Used by ``--dry-run`` (lists without touching anything) and by
-    ``pick_ready_task``. ``verify_command`` must be present: an unverifiable
-    task does not belong on the board (board.create_task enforces that at
-    write time; this re-checks rows written through lower-level APIs).
+    Delegates to ``board.ready_tasks`` — the single source of truth for
+    ready-task selection.
     """
-    rows = conn.execute(
-        "SELECT id, title, workspace_path, verify_command, verify_timeout "
-        "FROM tasks "
-        "WHERE status = 'ready' AND claim_lock IS NULL "
-        "  AND verify_command IS NOT NULL "
-        "ORDER BY priority DESC, created_at ASC"
-    ).fetchall()
-    return [dict(r) for r in rows]
+    return board.ready_tasks(conn)
 
 
 def pick_ready_task(conn) -> Optional[str]:

@@ -54,14 +54,15 @@ second worker on one repository.
 
 ## Current Checkpoint
 
-Phase 3 Slice 1 is complete locally in `a86f331` (`Add transactional Phase 3
-graph planner`), independently reviewed and verified by `python tests/run.py`:
-98 tests, exit 0, 104.808s on 2026-09-10. Three read-only investigations
-supplied the plan: a Hermes kernel map, a strict planner-contract review, and a
-concurrency/worktree test design. The next atomic step is **Slice 2 only**:
-implement the cap-derived dispatcher and workspace-partition tests. Do not
-start linked-graph failure isolation until Slice 2 is fully verified and
-independently reviewed.
+Phase 3 Slice 2 is complete locally (uncommitted on `phase-2/worker-assign`),
+verified by `python tests/run.py`: 130 tests, exit 0, 117.646s on 2026-09-10.
+Slice 1 (`a86f331`): planner graph writer, 98 tests. Slice 2 adds
+`src/dispatcher.py` (cap-derived concurrent dispatcher with workspace
+partitioning), `board.ready_tasks()`, and `tests/test_phase3_concurrency.py`
+(28 tests). Safety audit extended with `DispatcherCannotBypassOrPush`. The
+next atomic step is **Slice 3 only**: linked-graph failure isolation and full
+ledger assertions. Do not begin Slice 3 until Slice 2 is independently
+reviewed.
 
 ## Safe Fan-Out
 

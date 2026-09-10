@@ -10,23 +10,24 @@ See: .planning/PROJECT.md (updated 2026-09-02)
 ## Current Position
 
 Phase: 3 of 5 (Planner + Bounded Concurrent Execution)
-Plan: `.planning/phases/phase-3-plan.md` (planned, implementation not started)
-Status: Phase 2 complete; Phase 3 planned from three read-only evidence packets
-Last activity: 2026-09-10 — Phase 3 Slice 1 is complete in local commit `a86f331`
-(`Add transactional Phase 3 graph planner`). It adds a one-shot, validate-first graph writer,
-explicit board workspace fields, and adversarial tests for no-oracle rejection, malformed graphs,
-atomic rollback, dependency fan-in, lower-layer worktree metadata, CLI exit, and the direct-kernel
-writer audit. Independent review found and fixed three defects before commit. Full suite:
-**98 tests, exit 0, 104.808s** (`python tests/run.py`); focused planner/safety suite: **39 tests,
-exit 0, 5.827s**. Next atomic step is Phase 3 Slice 2 only: the cap-derived dispatcher and
-workspace-partition tests. Phase 2 was built, cross-reviewed, and verified. Worker/ledger/assign/
-chores modules landed; the Job Object containment and the exact process-gateway audit replaced the
-first unsafe timeout design. The scheduled trigger has an explicit assignment-exit gate. Full suite:
-**89 tests, exit 0** (`tests/run.ps1`); real end-to-end runs captured a complete ledger entry with
-model/provider read from `--usage-file` and a reverted failure with a recoverable stash. The bounded
-retry test proves two ledgered failures trip the kernel circuit breaker rather than looping.
+Plan: `.planning/phases/phase-3-plan.md` (Slices 1–2 complete, Slice 3 pending)
+Status: Phase 2 complete; Phase 3 Slices 1–2 verified locally
+Last activity: 2026-09-10 — Phase 3 Slice 2 is complete in local commit (uncommitted yet,
+to be committed after STATE.md update). Adds `src/dispatcher.py` (~290 lines):
+cap-derived concurrent dispatcher with workspace partitioning, `board.ready_tasks()` as
+a board-level API, parallel wave dispatch via threading, and 28 tests covering cap
+derivation, group scheduling, workspace conflict detection, parallel-over-serial timing
+proof, same-repo serialization, unique-worktree concurrency, and subprocess PID
+verification. Safety audit extended with `DispatcherCannotBypassOrPush` class (no
+process creation, no raw git, no push/merge/deploy/credential in dispatcher). Full suite:
+**130 tests, exit 0, 117.646s** (`python tests/run.py`).
 
-Progress: [████░░░░░░] 40%
+Slice 1 (`a86f331`): planner graph writer — validate-first, transactional, workspace-aware.
+98 tests at commit. Slice 2: dispatcher + concurrency tests — the cap-derived concurrent
+executor with workspace partitioning. 130 tests at commit. Next atomic step is Phase 3
+Slice 3 only: linked-graph failure isolation and full ledger assertions.
+
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -96,14 +97,42 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-09-10
-Stopped at: **Phase 2 complete locally; begin Phase 3 planning.** Claude committed the main Phase 2
-implementation on `phase-2/worker-assign` (`f964973`, `ea44258`). The follow-on commit contains the
-cross-review corrections: an explicit assignment-exit gate for the Windows schedule, three genuine
-trigger-to-worker-to-ledger tests, and the bounded retry/circuit-breaker proof. Phase 2 is still
-unpushed; no remote action is authorized by this state record. Full suite: **89 tests, exit 0**
-(2026-09-10; 93.951s). Two real E2E runs complete:
-a passing task (ledger entry with model/provider, board `done`) and a failing task (ledger
-`outcome: failed`, `git status --porcelain` empty, `git stash list` shows `triai-revert:` entry).
+Phase 3 Slice 2 complete. Branch `phase-2/worker-assign`. Commit pending (uncommitted changes).
+
+**Slice 2 changed files:**
+- `src/dispatcher.py` — NEW. Cap-derived concurrent dispatcher (~290 lines): `read_cap()`,
+  `partition_groups()`, `filter_running()`, `dispatch_one()`, `dispatch()`, `run_batch()`,
+  `WorkerResult`, `DispatchResult`.
+- `src/board.py` — added `ready_tasks()` (board-level API for ready task selection with
+  `workspace_kind` and `branch_name`).
+- `src/worker.py` — `ready_tasks()` now delegates to `board.ready_tasks()`.
+- `tests/test_phase3_concurrency.py` — NEW. 28 tests: `ReadCapTest` (9), `PartitionGroupsTest` (5),
+  `FilterRunningTest` (3), `DispatchMockTest` (4), `TimingProofTest` (2), `SameRepoPartitionTest` (3),
+  `SubprocessDispatchTest` (2).
+- `tests/test_safety_boundary.py` — `dispatcher.py` added to `CLOSURE_MODULES`; new
+  `DispatcherCannotBypassOrPush` class (4 tests: no process creation, no raw git, no push/merge/
+  deploy/credential, launcher-only worker invocation).
+
+**Test result:** `python tests/run.py` → **130 tests, exit 0, 117.646s** (2026-09-10).
+Focused concurrency suite: **28 tests, exit 0, 16.92s**.
+
+**Key design decisions (Slice 2):**
+- Cap derived from `.planning/research/concurrency_results.json` (currently 4). Fail loudly on
+  malformed/missing file or override exceeding measured cap.
+- `run_batch()` uses threading for concurrent dispatch within a wave — tasks within a wave genuinely
+  overlap in wall-clock time, proving the parallel-over-serial timing predicate.
+- `dispatch()` tracks `dispatched_ids` to prevent re-dispatch when re-reading `ready_tasks()` between
+  waves. `running_keys` cleared after each wave (workers have exited by then).
+- Mock launchers mark tasks as done on the board after invocation, so the dispatch loop's inter-wave
+  re-read sees correct state.
+- Safety: dispatcher never calls subprocess, os.system, or any PROCESS_ATTRS directly. Process
+  creation is the launcher's responsibility.
+
+**Slice 1 commit:** `a86f331` — planner graph writer. 98 tests, exit 0, 104.808s.
+**Phase 2 commit:** `ea44258` — worker/ledger/assign/chores. 89 tests, exit 0, 93.951s.
+
+Next: Phase 3 Slice 3 only — linked-graph failure isolation and full ledger assertions. Do not begin
+until Slice 2 is independently reviewed.
 
 Phase 1 carries two defects found by self-audit and fixed (non-atomic `create_task`; the `setdefault`
 board pin), one found by review and fixed (`migrate` silently accepting a same-named column of a
