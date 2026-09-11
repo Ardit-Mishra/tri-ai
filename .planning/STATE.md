@@ -33,9 +33,9 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **168 tests, exit
-0, 118.068s** (2026-09-11). This verifies Phase 5A confirmed Telegram
-control alongside every prior phase.
+**Latest canonical verification:** `python tests/run.py` → **174 tests, exit
+0, 179.409s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+control and the Phase 5B local polling daemon alongside every prior phase.
 
 **Phase 5A accepted locally:** confirmed Telegram control is implemented in
 `telegram_control.py` and `board.py`, with the HTTPS daemon selecting it
@@ -43,7 +43,16 @@ only when an operator supplies an intake-policy JSON file. Run and retry create
 durable pending actions; confirm is chat-bound and idempotent; policy owns
 workspace, verify command, and timeout; cancel is compare-and-swap and refuses
 an unregistered or surviving worker PID. Focused control/transport tests: 22,
-exit 0, 5.175s. Next atomic step: Phase 5B continuous local worker daemon.
+exit 0, 5.175s.
+
+**Phase 5B accepted locally:** `src/worker_daemon.py` is a foreground,
+resilient loop around exactly one existing `worker.run_once` tick. Empty
+queues use capped exponential backoff; a real attempt resets the delay; a
+worker-requested hard stop or SIGINT/SIGTERM exits cleanly. The daemon does not
+create a retry path, so the existing worker/board retry and circuit-breaker
+rules remain authoritative. Focused daemon/safety tests: 42, exit 0, 3.097s.
+Next atomic step: Phase 5C read-only Hermes routing-contract inspection, then
+an evidence-producing local routing probe only if that contract is documented.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.
