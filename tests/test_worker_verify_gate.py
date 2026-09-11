@@ -135,6 +135,9 @@ class WorkerVerifyGate(BoardTestCase):
         self.assertEqual(entries[0]["verify_exit"], 0)
         self.assertEqual(entries[0]["verify_outcome"], "passed")
         self.assertEqual(entries[0]["task_id"], tid)
+        proposal = board.proposal(self.conn, f"task:{tid}:{claimed.current_run_id}:passed")
+        self.assertIsNotNone(proposal)
+        self.assertEqual((proposal["status"], proposal["suggested_action"]), ("pending", "archive"))
 
     def test_the_agent_gets_the_board_prompt_and_repo(self):
         repo = self._make_repo()
@@ -192,6 +195,9 @@ class WorkerVerifyGate(BoardTestCase):
         self.assertEqual(entries[0]["outcome"], "failed")
         self.assertEqual(entries[0]["verify_exit"], 2)
         self.assertEqual(entries[0]["verify_outcome"], "failed")
+        proposal = board.proposal(self.conn, f"task:{tid}:{claimed.current_run_id}:failed")
+        self.assertIsNotNone(proposal)
+        self.assertEqual((proposal["status"], proposal["suggested_action"]), ("pending", "retry"))
 
     def test_verify_timeout_is_recorded_without_an_exit_code_and_delayed(self):
         repo = self._make_repo()

@@ -5,11 +5,11 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** candidate-only constrained evolution is verified locally.
-The next bounded design question is an explicit operator review and activation
-workflow; there is deliberately no activation mechanism in the candidate
-module. Route admission is complete, but executor routing remains intentionally
-disabled until an operator-configured Hermes profile has real measured evidence.
+**Current focus:** Telegram proposal review and bounded procedural activation
+are verified locally. The next step is an operator-started live phone exercise;
+no live Telegram request was made during implementation. Route admission is
+complete, but executor routing remains intentionally disabled until an
+operator-configured Hermes profile has real measured evidence.
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
@@ -36,11 +36,11 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **212 tests, exit
-0, 171.113s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **224 tests, exit
+0, 177.333s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
-candidate-evolution gates alongside every prior phase.
+candidate-evolution and proposal-review gates alongside every prior phase.
 
 **Phase 5A accepted locally:** confirmed Telegram control is implemented in
 `telegram_control.py` and `board.py`, with the HTTPS daemon selecting it
@@ -118,6 +118,20 @@ Citation drift invalidates both the candidate and any held-out replay result;
 replay reports supporting evidence only. Focused tests: 8, exit 0, 0.280s.
 Next: separately design explicit operator review and activation, with no
 automatic execution or configuration mutation.
+
+**Proposal review and activation accepted locally:** `src/board.py` owns
+durable `pending` / `approved` / `rejected` / `expired` proposals, per-chat
+Telegram notification receipts, and compare-and-swap decisions. A passed task
+can only be archived when it is still `done`; a failed task uses the existing
+retry gate; an approved candidate becomes a citation-revalidated, fixed
+procedural checklist record only. Approval cannot merge, push, deploy, run a
+process, alter prompts/verifiers/task schemas/routes, or inject a worker. The
+Telegram daemon authenticates both callback actor and chat before calling the
+local control seam, emits fixed inline decision data, and edits terminal
+choices to remove buttons. Citation drift expires the proposal and writes no
+activated rule. Focused tests: 36, exit 0, 22.178s. Next: operator-started
+mobile exercise with the existing daemon; no live network request was made in
+this implementation slice.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.

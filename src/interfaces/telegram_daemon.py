@@ -40,8 +40,15 @@ class TelegramApi(Protocol):
     def get_updates(self, *, offset: Optional[int], timeout: int) -> list[dict[str, Any]]:
         """Return Telegram update objects."""
 
-    def send_message(self, *, chat_id: str, text: str) -> None:
-        """Send one read-only response to one authorized chat."""
+    def send_message(
+        self, *, chat_id: str, text: str, reply_markup: Optional[dict[str, Any]] = None,
+    ) -> Optional[int]:
+        """Send one response or proposal card and return Telegram's message ID."""
+
+    def edit_message(
+        self, *, chat_id: str, message_id: int, text: str, reply_markup: dict[str, Any],
+    ) -> None:
+        """Replace a resolved proposal card and its active inline buttons."""
 
 
 @dataclass(frozen=True)
@@ -97,7 +104,7 @@ class HttpsTelegramApi:
         return decoded.get("result")
 
     def get_updates(self, *, offset: Optional[int], timeout: int) -> list[dict[str, Any]]:
-        payload: dict[str, Any] = {"timeout": timeout, "allowed_updates": ["message"]}
+        payload: dict[str, Any] = {"timeout": timeout, "allowed_updates": ["message", "callback_query"]}
         if offset is not None:
             payload["offset"] = offset
         result = self._call("getUpdates", payload, timeout=timeout + 10)
@@ -105,8 +112,25 @@ class HttpsTelegramApi:
             raise TelegramTransportError("Telegram getUpdates returned an invalid result")
         return result
 
-    def send_message(self, *, chat_id: str, text: str) -> None:
-        self._call("sendMessage", {"chat_id": chat_id, "text": text}, timeout=20)
+    def send_message(
+        self, *, chat_id: str, text: str, reply_markup: Optional[dict[str, Any]] = None,
+    ) -> Optional[int]:
+        payload: dict[str, Any] = {"chat_id": chat_id, "text": text}
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
+        result = self._call("sendMessage", payload, timeout=20)
+        if not isinstance(result, dict) or isinstance(result.get("message_id"), bool) or not isinstance(result.get("message_id"), int):
+            raise TelegramTransportError("Telegram sendMessage returned no message ID")
+        return int(result["message_id"])
+
+    def edit_message(
+        self, *, chat_id: str, message_id: int, text: str, reply_markup: dict[str, Any],
+    ) -> None:
+        self._call(
+            "editMessageText",
+            {"chat_id": chat_id, "message_id": message_id, "text": text, "reply_markup": reply_markup},
+            timeout=20,
+        )
 
 
 def _message_chunks(text: str, *, limit: int = MAX_MESSAGE_CHARS) -> list[str]:
@@ -138,6 +162,9 @@ class TelegramDaemon:
         runs_root: Path | str,
         renderer: Callable[..., str] = telegram_read_surface.dispatch_command,
         handler: Optional[Callable[..., str]] = None,
+        callback_handler: Optional[Callable[..., Any]] = None,
+        notifier: Optional[Callable[..., Sequence[Any]]] = None,
+        notification_recorder: Optional[Callable[..., bool]] = None,
     ) -> None:
         self._api = api
         self._settings = settings
@@ -146,6 +173,25 @@ class TelegramDaemon:
         self._runs_root = runs_root
         self._renderer = renderer
         self._handler = handler
+        self._callback_handler = callback_handler
+        self._notifier = notifier
+        self._notification_recorder = notification_recorder
+
+    def publish_pending(self) -> None:
+        """Push each pending card once per authorized chat through an injected control seam."""
+        if self._notifier is None or self._notification_recorder is None:
+            return
+        for chat_id in sorted(self._settings.authorized_chat_ids):
+            for card in self._notifier(chat_id=chat_id, board_path=self._board_path):
+                message_id = self._api.send_message(
+                    chat_id=chat_id, text=card.text, reply_markup=card.reply_markup,
+                )
+                if message_id is None:
+                    raise TelegramTransportError("proposal notification did not return a message ID")
+                self._notification_recorder(
+                    proposal_id=card.proposal_id, chat_id=chat_id,
+                    message_id=message_id, board_path=self._board_path,
+                )
 
     def poll_once(self, *, offset: Optional[int], timeout: int) -> Optional[int]:
         """Process one long-poll response and return the next Telegram offset."""
@@ -155,6 +201,10 @@ class TelegramDaemon:
             update_id = update.get("update_id")
             if isinstance(update_id, int):
                 next_offset = max(next_offset or update_id + 1, update_id + 1)
+            callback = update.get("callback_query")
+            if isinstance(callback, dict):
+                self._handle_callback(callback)
+                continue
             message = update.get("message")
             if not isinstance(message, dict):
                 continue
@@ -183,7 +233,40 @@ class TelegramDaemon:
                 )
             for chunk in _message_chunks(rendered):
                 self._api.send_message(chat_id=chat_id, text=chunk)
+        self.publish_pending()
         return next_offset
+
+    def _handle_callback(self, callback: Mapping[str, Any]) -> None:
+        """Authorize an inline decision before it reaches the local control surface."""
+        if self._callback_handler is None:
+            return
+        message, actor, data = callback.get("message"), callback.get("from"), callback.get("data")
+        if not isinstance(message, dict) or not isinstance(actor, dict) or not isinstance(data, str):
+            return
+        chat = message.get("chat")
+        message_id = message.get("message_id")
+        chat_id, actor_id = (
+            str(chat.get("id", "")) if isinstance(chat, dict) else "",
+            str(actor.get("id", "")),
+        )
+        if (
+            chat_id not in self._settings.authorized_chat_ids
+            or actor_id not in self._settings.authorized_chat_ids
+            or isinstance(message_id, bool)
+            or not isinstance(message_id, int)
+        ):
+            return
+        response = self._callback_handler(
+            data, chat_id=actor_id, board_path=self._board_path,
+            ledger_path=self._ledger_path, runs_root=self._runs_root,
+        )
+        if response.remove_buttons:
+            self._api.edit_message(
+                chat_id=chat_id, message_id=message_id, text=response.text,
+                reply_markup={"inline_keyboard": []},
+            )
+        else:
+            self._api.send_message(chat_id=chat_id, text=response.text)
 
     def run_forever(self, *, poll_timeout: int) -> None:
         """Long-poll until a transport failure or operator stop interrupts it."""
@@ -208,11 +291,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         settings = settings_from_environment(os.environ)
         transport = HttpsTelegramApi(settings.token)
-        handler = None
-        if args.intake_policy:
-            handler = telegram_control.TelegramControl(
-                telegram_control.load_policy(args.intake_policy)
-            ).dispatch
+        policy = telegram_control.load_policy(args.intake_policy) if args.intake_policy else None
+        control = telegram_control.TelegramControl(policy)
+        handler = control.dispatch
+        callback_handler = control.dispatch_callback
+        notifier = control.pending_notifications
+        notification_recorder = control.record_notification
         daemon = TelegramDaemon(
             transport,
             settings,
@@ -220,6 +304,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             ledger_path=args.ledger,
             runs_root=args.runs_dir,
             handler=handler,
+            callback_handler=callback_handler,
+            notifier=notifier,
+            notification_recorder=notification_recorder,
         )
         if args.once:
             daemon.poll_once(offset=None, timeout=args.poll_timeout)

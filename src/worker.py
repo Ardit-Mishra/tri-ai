@@ -341,6 +341,7 @@ def execute_task(
             agent_log=agent_log, verify_log=verify_log,
         )
         ledger.record(entry, path=lp)
+        _record_outcome_proposal(conn, claimed, run_id, "passed")
         return Attempt("passed", entry=entry)
 
     # --- everything else reverts -----------------------------------------
@@ -474,7 +475,20 @@ def _fail(
             "was recorded on the board".strip()
         )
     ledger.record(entry, path=ledger_path)
+    if outcome == "failed":
+        _record_outcome_proposal(conn, claimed, run_id, "failed")
     return Attempt(outcome, entry=entry)
+
+
+def _record_outcome_proposal(conn, claimed, run_id: int, outcome: str) -> None:
+    """Durably surface a terminal outcome without changing worker execution."""
+    board.create_task_outcome_proposal(
+        conn,
+        task_id=claimed.id,
+        run_id=int(run_id),
+        title=claimed.title,
+        outcome=outcome,
+    )
 
 
 def _environment_backoff(
