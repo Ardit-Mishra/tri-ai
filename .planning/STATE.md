@@ -5,15 +5,16 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Phase 4 — hard stop after verified read-only adapter scaffold
+**Current focus:** Phase 4.5 — authorized implementation of the Telegram
+long-poll transport over the verified read-only adapter
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
 operator-configured cloud/free lanes and desktop-local failover, semantic memory,
-and constrained self-evolution. These features are approved, but Phase 4 Slice
-2 remains the next atomic implementation step. The design has not yet received
-independent subagent review because the service returned `Transport closed`; the
-reviewer packets are embedded in the design.
+and constrained self-evolution. These features are approved. The current atomic
+step is a narrowly bounded transport daemon for Phase 4's read-only adapter. It
+does not start Phase 5: it introduces no Telegram write verb, board mutation,
+process spawn, service installation, or automated credential use.
 
 ## Current Position
 
@@ -28,8 +29,29 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **153 tests, exit
-0, 111.899s** (2026-09-11). This is the pre-commit Slice 4 scaffold verification.
+**Latest canonical verification:** `python tests/run.py` → **160 tests, exit
+0, 114.434s** (2026-09-11). This verifies the Phase 4.5 Telegram transport
+alongside every prior phase.
+
+**Current implementation:** operator authorized Phase 4.5 Telegram long-poll
+transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.
+The daemon alone will read `TRI_AI_TELEGRAM_BOT_TOKEN` at operator-start time,
+will require an explicit chat-id allowlist before invoking the adapter, and
+will hard-stop on transport failure. No live credential or Telegram request is
+used during implementation or tests.
+
+**Phase 4.5 verification:** focused adapter/transport proof
+`python -m unittest tests.test_phase4_observability tests.test_telegram_daemon`
+→ **14 tests, exit 0, 2.858s**. The fake transport proves authorization happens
+before adapter dispatch, all supported command routes remain read-only, long
+logs are chunked without truncation, and the live client shapes HTTPS JSON POST
+without making a request. Direct daemon CLI help also exits 0. Files added:
+`src/interfaces/telegram_daemon.py`, `src/interfaces/__init__.py`,
+`tests/test_telegram_daemon.py`, and the transport plan; files extended:
+`src/telegram_read_surface.py`, `tests/test_phase4_observability.py`.
+The next atomic step is local commit-level review, then operator configuration
+and foreground start of the daemon. Do not add service installation, polling
+automation, or Telegram mutation.
 
 **Phase 4 Slice 2 accepted:** independent review of `a71ff9e` found that a
 crash after `git worktree add` could strand a deterministic unowned target and
@@ -40,12 +62,13 @@ exact-branch adoption/refusal, then proves a corrupted on-disk recorded target
 skips before launcher/claim. Every rejected target remains evidence. Full
 record: `.planning/reviews/phase-4-slice-2-review-2026-09-11.md`.
 
-**Branch audit:** `.planning/reviews/phase-audit-2026-09-10.md` records every
-registered branch and its command result. Slice 3 (`slice3/error-class`) and
-Slice 4 (`slice4/telegram-read`) fail their current full suites. Phase 5,
-Phase 6, and Phase 7 worktrees are partial experiments, not merged progress;
-the Phase 7 candidate is rejected because it can mark a task done without a
-trusted verify result.
+**Branch audit:** `.planning/reviews/phase-audit-2026-09-10.md` retains the
+then-current branch evidence. Its old observations about Slice 3 and Slice 4
+candidate suites are superseded on the canonical branch by commits `a0ab9fc`
+and `1695ec4`, and by the Phase 4.5 verifier above. Phase 5, Phase 6, and
+Phase 7 worktrees remain partial experiments, not merged progress; the Phase 7
+candidate remains rejected because it can mark a task done without a trusted
+verify result.
 
 ## Performance Metrics
 
@@ -93,8 +116,11 @@ Recent decisions affecting current work:
   accepts only `/status`, `/task <id>`, and `/logs <id>`; reads board/ledger;
   returns full contained retained logs; and has no token, transport, network,
   process, or board-mutation capability. It is not a live Telegram deployment.
-  Per the overnight hard-stop instruction, do not begin Phase 5 or add a live
-  transport without a new reviewed plan and operator direction.
+  Operator direction on 2026-09-11 explicitly authorizes the bounded live
+  transport plan at `.planning/phases/phase-4.5-telegram-transport-plan.md`.
+  The implementation has local exit-code evidence but has not been connected
+  to a live account in this session. Do not begin Phase 5 or add any Telegram
+  mutation.
 - Phase 2's worker must call `board.release_stale_claims`, never `kb.release_stale_claims` directly — going straight to the kernel reintroduces the Windows reclaim deferral (see Blockers). Add a grep check to Phase 2's criterion-5 audit step, beside the existing no-push/no-merge/no-credentials audit
 - Any new Tri-AI entry point must go through `board.kanban()`, which now *assigns* `HERMES_KANBAN_DB` rather than `setdefault`-ing it. A dispatcher-spawned worker inherits that variable pointing at the Hermes board, so `setdefault` silently kept the wrong board
 - Review is a separate seat: Claude writes, a second model reviews at the commit/branch level. Brief at `~/CODEX-REVIEWER-BRIEF.md`. It earns its keep — the first pass caught a test whose *name* claimed it proved a schema collision was refused while its body only inspected a throwaway table and never called `migrate()`. A test that asserts less than its name is the same class of failure as an agent reporting success it did not achieve, and self-review does not reliably catch it

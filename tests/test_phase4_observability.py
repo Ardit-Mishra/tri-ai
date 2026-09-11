@@ -31,9 +31,10 @@ class ObservabilityFixture(BoardTestCase):
         subprocess.run(["git", "add", "."], cwd=self.repo, check=True)
         subprocess.run(["git", "commit", "-qm", "baseline"], cwd=self.repo, check=True)
 
-    def task(self, title: str) -> str:
+    def task(self, title: str, *, expected_artifacts: tuple[str, ...] = ()) -> str:
         return board.create_task(self.conn, title=title, prompt="inspect", repo=self.repo,
-                                 verify_command="python -c \"import sys; sys.exit(0)\"", verify_timeout=20)
+                                 verify_command="python -c \"import sys; sys.exit(0)\"", verify_timeout=20,
+                                 expected_artifacts=expected_artifacts)
 
     def entry(self, task_id: str, *, run_id: int = 1, outcome: str = "failed") -> None:
         paths = ledger.run_output_paths(task_id, run_id, root=self.runs_root)
@@ -60,13 +61,15 @@ class ReadCommandsReflectEvidence(ObservabilityFixture):
         self.assertIn("Ledger entries: 0", output)
 
     def test_task_renders_exact_board_and_ledger_evidence(self):
-        task_id = self.task("failed-task")
+        task_id = self.task("failed-task", expected_artifacts=("reports/result.json",))
         self.entry(task_id)
         output = surface.render_task(self.db_path, self.ledger_path, task_id)
         self.assertIn("Status: ready", output)
         self.assertIn("Ledger entries: 1", output)
         self.assertIn("verify_exit=7", output)
         self.assertIn("verify_outcome=failed", output)
+        self.assertIn(f"Workspace: {self.repo}", output)
+        self.assertIn("Target files: reports/result.json", output)
 
     def test_logs_return_full_retained_output_not_paths_or_a_tail(self):
         task_id = self.task("logs-task")

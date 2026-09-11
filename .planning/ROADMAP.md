@@ -143,7 +143,7 @@ Branch experiments do not change this order or count as completion.
 | 1. Verified Board Substrate | 1/1 | Complete | 2026-09-08 |
 | 2. Verify-Gated Single-Worker Execution | 1/1 | Complete | 2026-09-10 |
 | 3. Planner + Bounded Concurrent Execution | 1/1 | Complete | 2026-09-10 |
-| 4. Read-Only Telegram Observability | 1/4 slices accepted | In progress | - |
+| 4. Read-Only Telegram Observability | 4/4 slices + transport implementation verified | In progress; operator activation/review pending | - |
 | 5. Memory, Telegram Control, and Intake | 0/TBD | Planned; candidate branch is partial | - |
 | 6. JARVIS Dashboard | 0/TBD | Planned; candidate branch failing | - |
 | 7. Planner Integration and Trusted Distributed Delegation | 0/TBD | Planned; candidate violates verify gate | - |

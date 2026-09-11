@@ -9,6 +9,7 @@ reads the Tri-AI board, ledger, and task-owned retained logs.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
@@ -20,7 +21,7 @@ def _board_rows(board_path: Path | str) -> list[dict[str, Any]]:
     conn = board.connect(Path(board_path))
     try:
         return [dict(row) for row in conn.execute(
-            "SELECT id, title, status, current_run_id FROM tasks "
+            "SELECT id, title, status, current_run_id, workspace_path, expected_artifacts FROM tasks "
             "ORDER BY priority DESC, created_at ASC"
         ).fetchall()]
     finally:
@@ -46,7 +47,19 @@ def render_task(board_path: Path | str, ledger_path: Path | str, task_id: str) -
     if row is None:
         return f"Unknown task: {task_id}"
     entries = [entry for entry in ledger.read_entries(Path(ledger_path)) if entry.get("task_id") == task_id]
-    lines = [f"Task {row['id']}: {row['title']}", f"Status: {row['status']}", f"Ledger entries: {len(entries)}"]
+    raw_artifacts = row.get("expected_artifacts") or "[]"
+    try:
+        artifacts = json.loads(raw_artifacts)
+    except json.JSONDecodeError:
+        artifacts = []
+    target_files = ", ".join(str(item) for item in artifacts) or "none declared"
+    lines = [
+        f"Task {row['id']}: {row['title']}",
+        f"Status: {row['status']}",
+        f"Workspace: {row.get('workspace_path') or 'none recorded'}",
+        f"Target files: {target_files}",
+        f"Ledger entries: {len(entries)}",
+    ]
     lines.extend(
         f"run={entry.get('run_id')} outcome={entry.get('outcome')} "
         f"verify_outcome={entry.get('verify_outcome')} verify_exit={entry.get('verify_exit')}"
