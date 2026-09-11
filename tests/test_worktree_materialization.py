@@ -38,7 +38,7 @@ class WorktreeMaterializationTest(BoardTestCase):
     def _source_repo(self) -> Path:
         repo = self.tmp / "source"
         _init_repo(repo)
-        return repo
+        return repo.resolve()
 
     def _worktree_task(self, source: Path, branch: str) -> str:
         return board.create_task(
@@ -183,6 +183,112 @@ class WorktreeMaterializationTest(BoardTestCase):
         self.assertEqual(row["status"], "ready")
         self.assertIsNone(row["claim_lock"])
         self.assertEqual(Path(row["workspace_path"]), source)
+
+    def test_preexisting_deterministic_target_adopts_only_for_exact_source_and_branch(self):
+        source = self._source_repo()
+        task_id = self._worktree_task(source, "triai/adopt-crash-target")
+        target = worktrees._target_path(source, task_id)
+        subprocess.run(
+            ["git", "worktree", "add", "-qb", "triai/adopt-crash-target", str(target)],
+            cwd=source,
+            check=True,
+        )
+
+        task = dict(self.task_row(task_id))
+        resolution = worktrees.resolve_task(self.conn, task)
+
+        self.assertTrue(resolution.ready, resolution.reason)
+        self.assertEqual(Path(resolution.task["workspace_path"]), target)
+        record = board.worktree_for_task(self.conn, task_id)
+        self.assertIsNotNone(record)
+        self.assertEqual(Path(record["source_path"]), source)
+        self.assertEqual(Path(record["target_path"]), target)
+        self.assertEqual(record["branch_name"], "triai/adopt-crash-target")
+
+        wrong_source = self._worktree_task(source, "triai/wrong-source")
+        wrong_source_target = worktrees._target_path(source, wrong_source)
+        wrong_source_target.parent.mkdir(parents=True, exist_ok=True)
+        foreign_source = self.tmp / "foreign-source"
+        _init_repo(foreign_source)
+        subprocess.run(
+            ["git", "worktree", "add", "-qb", "triai/wrong-source", str(wrong_source_target)],
+            cwd=foreign_source,
+            check=True,
+        )
+        wrong_source_resolution = worktrees.resolve_task(
+            self.conn, dict(self.task_row(wrong_source))
+        )
+        self.assertFalse(wrong_source_resolution.ready)
+        self.assertIn("existing worktree target cannot be proven owned", wrong_source_resolution.reason)
+        self.assertIsNone(board.worktree_for_task(self.conn, wrong_source))
+        wrong_source_row = self.task_row(wrong_source)
+        self.assertEqual(wrong_source_row["status"], "ready")
+        self.assertIsNone(wrong_source_row["claim_lock"])
+        self.assertTrue(wrong_source_target.exists(), "rejected worktree remains retained evidence")
+
+        wrong_branch = self._worktree_task(source, "triai/expected-existing-branch")
+        wrong_branch_target = worktrees._target_path(source, wrong_branch)
+        subprocess.run(
+            ["git", "worktree", "add", "-qb", "triai/other-existing-branch", str(wrong_branch_target)],
+            cwd=source,
+            check=True,
+        )
+        wrong_branch_resolution = worktrees.resolve_task(
+            self.conn, dict(self.task_row(wrong_branch))
+        )
+        self.assertFalse(wrong_branch_resolution.ready)
+        self.assertIn("existing worktree target cannot be proven owned", wrong_branch_resolution.reason)
+        self.assertIsNone(board.worktree_for_task(self.conn, wrong_branch))
+        wrong_branch_row = self.task_row(wrong_branch)
+        self.assertEqual(wrong_branch_row["status"], "ready")
+        self.assertIsNone(wrong_branch_row["claim_lock"])
+        self.assertTrue(wrong_branch_target.exists(), "rejected worktree remains retained evidence")
+
+    def test_wrong_recorded_branch_skips_before_dispatch_claims(self):
+        source = self._source_repo()
+        task_id = self._worktree_task(source, "triai/expected-branch")
+        target = worktrees._target_path(source, task_id)
+        subprocess.run(
+            ["git", "worktree", "add", "-qb", "triai/wrong-branch", str(target)],
+            cwd=source,
+            check=True,
+        )
+        board.record_worktree(
+            self.conn,
+            task_id=task_id,
+            source_path=source,
+            target_path=target,
+            branch_name="triai/expected-branch",
+        )
+        cap = self.tmp / "concurrency.json"
+        _write_concurrency(cap, cap=1)
+        self.conn.close()
+        invoked: list[str] = []
+
+        result = dispatcher.dispatch(
+            launcher=lambda tid: invoked.append(tid) or WorkerResult(task_id=tid, exit_code=0),
+            board_path=self.db_path,
+            concurrency_source=cap,
+            max_waves=1,
+        )
+
+        check = board.connect(self.db_path)
+        try:
+            row = check.execute(
+                "SELECT status, claim_lock, workspace_path FROM tasks WHERE id = ?",
+                (task_id,),
+            ).fetchone()
+        finally:
+            check.close()
+        self.assertEqual(invoked, [])
+        self.assertEqual(result.results, [])
+        self.assertFalse(result.all_passed)
+        self.assertEqual(result.skipped[0]["task_id"], task_id)
+        self.assertIn("recorded worktree ownership", result.skipped[0]["reason"])
+        self.assertEqual(row["status"], "ready")
+        self.assertIsNone(row["claim_lock"])
+        self.assertEqual(Path(row["workspace_path"]), target)
+        self.assertTrue(target.exists(), "rejected worktree remains retained evidence")
 
     def test_named_worker_materializes_before_claiming(self):
         source = self._source_repo()
