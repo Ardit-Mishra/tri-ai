@@ -5,10 +5,10 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** build the approved episodic/procedural memory foundation
-from accepted board and ledger evidence. Route admission is complete, but
-executor routing remains intentionally disabled until an operator-configured
-Hermes profile has real measured evidence.
+**Current focus:** build the approved procedural-rule layer on top of
+provenance-checked episodic records. Route admission is complete, but executor
+routing remains intentionally disabled until an operator-configured Hermes
+profile has real measured evidence.
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
@@ -35,10 +35,10 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **189 tests, exit
-0, 141.214s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **194 tests, exit
+0, 142.528s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
-the route-admission gate alongside every prior phase.
+the route-admission and episodic-memory gates alongside every prior phase.
 
 **Phase 5A accepted locally:** confirmed Telegram control is implemented in
 `telegram_control.py` and `board.py`, with the HTTPS daemon selecting it
@@ -79,6 +79,14 @@ Agent success narration is never consulted. Focused tests: 8, exit 0, 0.038s.
 No Hermes configuration, credential, endpoint, executor, worker, or board
 path is reachable. Next: a fresh episodic-memory plan using accepted
 board/ledger records, not the rejected candidate branch.
+
+**Episodic memory accepted locally:** `src/memory/episodic.py` is a
+read-only derived SQLite index over full JSONL ledger snapshots. Every fact
+keeps its original source path, line number, and SHA-256 line digest; malformed
+input leaves the current index untouched, while changed source lines invalidate
+the old citation and preserve it as stale evidence. Focused tests: 5, exit 0,
+0.196s. Next: procedural rules that cite only validated episodic facts and
+cannot alter task acceptance or execution policy.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.
