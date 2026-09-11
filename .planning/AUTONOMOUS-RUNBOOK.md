@@ -55,7 +55,7 @@ Phase 3 is COMPLETE and independently reviewed at
 Slice 2 is implemented and corrected in `a71ff9e` / `02b90f8`, but **not
 accepted**: the review fixes for crash adoption and wrong-branch ownership have
 no adversarial regression test. The canonical suite is green at `00671d9`:
-`python tests/run.py` — 137 tests, exit 0, 123.881s.
+`python tests/run.py` — 137 tests, exit 0, 152.073s.
 
 The next atomic step is to add exactly two Slice 2 tests: a pre-existing
 deterministic worktree is adopted only after exact source/branch proof, and a

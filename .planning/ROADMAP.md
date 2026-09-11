@@ -105,6 +105,11 @@ already uses.
 **Plans**: Phase 5-8 are design previews in `.planning/phases/phase-4-plan.md`,
 `.planning/research/memory-subsystem-design.md`, and
 `.planning/research/distributed-delegation-design.md`; no later phase is accepted.
+**Planning gate**: Before Phase 5 implementation, reconcile the preview's
+Phase 6 placement of semantic memory and self-evolution with the detailed
+memory design's 5C/5D placement. The Phase 5 plan must choose one ordering,
+state dependencies, and define exit-code-backed proofs before either branch is
+treated as authoritative.
 
 ### Phase 6: JARVIS Dashboard and Evolution
 **Goal**: Present a read-only board/ledger/memory view and derive only deterministic,

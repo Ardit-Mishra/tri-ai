@@ -21,7 +21,7 @@ accepted. Do not start Slice 3 until they exist and review passes.
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
 **Latest canonical verification:** `python tests/run.py` → **137 tests, exit
-0, 123.881s** (2026-09-10). This establishes the current base is green; it
+0, 152.073s** (2026-09-10). This establishes the current base is green; it
 does not prove Slice 2's two correction cases because no test drives them.
 
 **Phase 4 Slice 2 correction:** independent review of `a71ff9e` found that a
@@ -100,6 +100,9 @@ Recent decisions affecting current work:
   Phase 6's dashboard candidate fails. Phase 7's daemon candidate can fabricate
   a passing verification result and directly applies remote diffs; do not merge
   any of these branches. Full evidence is in the audit record.
+- Before Phase 5 work starts, reconcile the coarse preview (semantic memory and
+  self-evolution in Phase 6) with the detailed memory design (5C/5D). The
+  Phase 5 plan, not an experimental branch, must choose the order and proofs.
 
 ### Blockers/Concerns
 
@@ -145,7 +148,7 @@ failure result.
   dispatcher (stops at first failed child) makes the sibling-completion assertion fail.
 
 **Current canonical test result:** `python tests/run.py` → **137 tests, exit 0,
-123.881s** (2026-09-10).
+152.073s** (2026-09-10).
 
 **Key design decisions (Slice 3):**
 - The failure test drives `worker.execute_task` (the real claim -> precheck -> gate -> agent -> verify
