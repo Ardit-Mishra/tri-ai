@@ -4,7 +4,7 @@
 **Origin:** 2026-09-10 independent Phase 3 review + a blueprint evaluation against Tri-AI's
 architecture. The blueprint's "honest gaps" list and the partial control-plane entry,
 each mapped to where it lives today and what would have to happen before it ships.
-**Rule:** nothing here changes `STATE.md`'s "next = Phase 4". This file records decisions;
+**Rule:** nothing here changes `STATE.md`'s active milestone: Phase 4. This file records decisions;
 the phase-4 plan (`phases/phase-4-plan.md`) and its successors are where slice work happens.
 
 ## How to read this
@@ -198,7 +198,11 @@ desktop, a cloud instance) without changing the board.
 
 ---
 
-## Ranked next actions (no slices started)
+## Ranked next actions
+
+Slice 1 is accepted. Slice 2 is implemented but awaits the adversarial
+correction tests recorded in `.planning/reviews/phase-audit-2026-09-10.md`.
+Slices 3-4 and every later phase remain unaccepted candidates.
 
 1. **#7 `dispatch_one` contract + `filter_running`** — fix first: removes a latent lie in the docstring and dead code, tiny.
 2. **#2 worktree creation** — the biggest unshipped promise; unblocks same-repo concurrency.

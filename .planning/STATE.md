@@ -2,79 +2,48 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-02)
+See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Phase 4 — Read-Only Telegram Observability (Slice 1 review correction)
+**Current focus:** Phase 4 — Read-Only Telegram Observability (Slice 2
+adversarial correction proof)
 
 ## Current Position
 
-Phase: 4 of 5 (Read-Only Telegram Observability)
-Plan: `.planning/phases/phase-4-plan.md` (Slice 1 accepted; Slice 2 next)
-Status: Phase 3 is complete and independently reviewed. Phase 4 Slice 1 is
-accepted after independent review; Slice 2 worktree creation is the next step.
-Last activity: 2026-09-10 — independent review of `24bf5e7` found a P1
-false-success path: a `dispatch_one` contract error raised inside `run_batch`'s
-thread was printed and lost, so public `dispatch()` returned an empty result
-whose `all_passed` property was vacuously true. Commit `2369613`
-(`Propagate concurrent dispatcher failures`) records the correction:
-`run_batch` records and re-raises worker-thread errors in submission order;
-`DispatchBatchContractTest` drives two independent board tasks through public
-concurrent `dispatch()` with a deliberately mismatched launcher and asserts
-`ValueError`. Focused command: `python -m unittest tests.test_phase3_concurrency
-tests.test_safety_boundary` -- 64 tests, exit 0, 18.893s. Full command:
-`python tests/run.py` -- 132 tests, exit 0, 135.695s. Changed only
-`src/dispatcher.py` and `tests/test_phase3_concurrency.py`; prior-session
-Phase 4 planning artifacts remain unstaged. Independent review thread
-`01a08b5e-5472-7a52-a7b3-523e96857d98` found no blocking findings in
-`2369613`: public `dispatch()` now propagates normal launcher exceptions, the
-two-task negative test would fail against the old thread-error swallowing path,
-and no API/concurrency regression was found. Its focused command passed 64
-tests, exit 0, 24.119s (existing ResourceWarnings only). Next atomic step:
-Phase 4 Slice 2 -- test-first, task-owned worktree materialization before
-claim is implemented locally in `a71ff9e` (`Materialize task-owned worktrees
-before claim`) and awaits independent review. It adds `src/worktrees.py`, a
-board-owned `triai_worktrees` record, an audited creation-only executor gateway,
-dispatcher pre-resolution, and `worker --task-id`; it does not add any removal
-command. Tests prove two same-repo siblings receive different real worktrees
-and checked-out branches before overlapping launch; a dirty source or injected
-creation failure leaves the task ready/unclaimed and never invokes the agent;
-the named worker resolves before claim. Focused command: `python -m unittest
-tests.test_worktree_materialization tests.test_safety_boundary` -- 41 tests,
-exit 0, 5.928s. Full command: `python tests/run.py` -- 137 tests, exit 0,
-120.283s. Next atomic step: independent review of `a71ff9e`; do not start
-Slice 3 until it passes. Independent Phase 3 review completed. All four
-roadmap criteria verified, all five Completion Gate commands pass (132 tests,
-exit 0, 109.816s). Four non-blocking findings recorded in
-`.planning/reviews/phase-3-review.md`: dead env vars in `dispatch_one` (F1),
-unused `filter_running` (F2), overly broad safety-boundary process detection
-(F3), Slice 2 commit message references removed `dispatched_ids` (F4). Phase 3
-Slice 3 is complete in local commits. Adds
-`tests/test_phase3_failure_isolation.py` (2 tests) proving linked-graph failure
-isolation through the REAL worker path (`worker.execute_task`): the failing
-parent's deliberate non-zero verify command is ledgered `verify_outcome='failed'`
-and follows the kernel's bounded retry/circuit-breaker state machine to
-`blocked`; the blocked descendant never becomes claimable (kernel demotes a
-ready child with undone parents to `todo` at claim time); independent siblings
-reach `done` in the same dispatcher run with valid worker/run ledger identities;
-and a deliberately broken dispatcher that stops at the first failed child makes
-the sibling-completion assertion fail (negative control). Also simplifies the
-dispatch loop in `src/dispatcher.py` (drop `dispatched_ids`; re-read the board
-each wave so reclaimed tasks reappear; add `max_waves` cap for tests). Full
-suite: **132 tests, exit 0, 117.560s** (`python tests/run.py`).
+Phase: 4 of 8 (Read-Only Telegram Observability)
+Plan: `.planning/phases/phase-4-plan.md`
+Status: Phases 1-3 are complete; Phase 4 Slice 1 is accepted. Slice 2's
+implementation and review correction are committed on the canonical branch,
+but the two P1 review fixes lack adversarial regression tests and are not
+accepted. Do not start Slice 3 until they exist and review passes.
 
-Slice 1 (`a86f331`): planner graph writer — validate-first, transactional,
-workspace-aware. 98 tests at commit. Slice 2 (`fa2bb52`): cap-derived
-concurrent dispatcher with workspace partitioning — 130 tests at commit. Slice 3
-(`76dc2c6`): linked-graph failure isolation — 132 tests at commit. Phase 3
-is complete and the next step is independent commit-level review before Phase 4.
+**Canonical branch:** `phase-2/worker-assign` at `908e92a` (this audit
+commit). The audited implementation base was `00671d9`.
 
-Progress: [██████████] Phase 3 complete; Phase 4 Slice 1 under review
+**Latest canonical verification:** `python tests/run.py` → **137 tests, exit
+0, 139.195s** (2026-09-10). This establishes the current base is green; it
+does not prove Slice 2's two correction cases because no test drives them.
+
+**Phase 4 Slice 2 correction:** independent review of `a71ff9e` found that a
+crash after `git worktree add` could strand a deterministic unowned target and
+that a recorded target was not proven to be the expected branch. `02b90f8`
+adds `executor.verify_worktree` and holds a board write transaction across
+adoption/materialization/recording. Required next proof: (1) pre-create the
+deterministic target and prove it is adopted only when linked to the exact
+source and branch; (2) corrupt a recorded target/branch and prove dispatch
+skips it unclaimed. Keep every target as evidence; do not auto-remove it.
+
+**Branch audit:** `.planning/reviews/phase-audit-2026-09-10.md` records every
+registered branch and its command result. Slice 3 (`slice3/error-class`) and
+Slice 4 (`slice4/telegram-read`) fail their current full suites. Phase 5,
+Phase 6, and Phase 7 worktrees are partial experiments, not merged progress;
+the Phase 7 candidate is rejected because it can mark a task done without a
+trusted verify result.
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
+- Completed phases: 3
 - Average duration: 1 session
 - Total execution time: 2 sessions
 
@@ -84,9 +53,10 @@ Progress: [██████████] Phase 3 complete; Phase 4 Slice 1 und
 |-------|-------|-------|----------|
 | 1. Verified Board Substrate | 1 | 1 session | 1 session |
 | 2. Verify-Gated Single-Worker Execution | 1 | 1 session | 1 session |
+| 3. Planner + Bounded Concurrent Execution | 1 | independently reviewed | — |
 
 **Recent Trend:**
-- Phase 1 (22 tests) → Phase 2 (89 tests cumulative)
+- Phase 1 (22 tests) → Phase 2 (89) → Phase 3 (132) → current Phase 4 base (137)
 - Trend: ↑
 
 *Updated after each plan completion*
@@ -112,26 +82,24 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Phase 4 Slice 2 mapping found a plan/house-rule conflict: the draft says
-  failed-worktree recovery uses `git worktree remove --force`, but the project
-  hard-stop rule preserves failure evidence and forbids automated tidy-up
-  deletion. Slice 2 therefore creates only a board-recorded, task-owned
-  worktree and preserves it after any failed execution; removal is a future
-  explicit operator action, not a worker action. Do not call Hermes'
-  private worktree resolver: its post-claim failure path records a task failure,
-  which contradicts Slice 2's required ready/unclaimed skip. The real worker
-  also lacks a task-ID CLI argument, so the dispatcher-selected task must be
-  threaded to a `--task-id` worker path before concurrent subprocess execution
-  can be claimed correct. Evidence: read-only reports in threads
-  `01a08b61-ecd5-7463-91a0-e03e124f8920` and
-  `01a08b61-f8fb-76f0-8713-1c102adbf0e7`, 2026-09-10.
+- Phase 4 Slice 2: add the two missing adversarial tests for `02b90f8` before
+  accepting its review correction. This is the next atomic step. The task-owned
+  worktree is never automatically removed; a failed or pre-existing target is
+  evidence for an operator, not worker cleanup.
 - Phase 2's worker must call `board.release_stale_claims`, never `kb.release_stale_claims` directly — going straight to the kernel reintroduces the Windows reclaim deferral (see Blockers). Add a grep check to Phase 2's criterion-5 audit step, beside the existing no-push/no-merge/no-credentials audit
 - Any new Tri-AI entry point must go through `board.kanban()`, which now *assigns* `HERMES_KANBAN_DB` rather than `setdefault`-ing it. A dispatcher-spawned worker inherits that variable pointing at the Hermes board, so `setdefault` silently kept the wrong board
 - Review is a separate seat: Claude writes, a second model reviews at the commit/branch level. Brief at `~/CODEX-REVIEWER-BRIEF.md`. It earns its keep — the first pass caught a test whose *name* claimed it proved a schema collision was refused while its body only inspected a throwaway table and never called `migrate()`. A test that asserts less than its name is the same class of failure as an agent reporting success it did not achieve, and self-review does not reliably catch it
 - The kernel exposes `signal_fn` on `reclaim_task` and `detect_stale_running` as well. Neither is used yet; both need the same wrapper when a phase reaches for them
 - Phase 3 review: **DONE 2026-09-10** — passed, 4 non-blocking findings, recorded at `.planning/reviews/phase-3-review.md` (commit `12288a7`).
-- Phase 4 is read-only Telegram observability. Its companion Slice 1 (`dispatch_one` env contract, gap #7) removed the dead launcher env dict and `filter_running`, but independent review found and the local working tree corrects the concurrent exception-propagation hole recorded in Current Position. Slice 2 (worktree creation, gap #2), Slice 3 (error classification, gap #1), and the Telegram read surface have not started. The dispatcher's `--ledger`/`--runs-dir` and the failure-isolation ledger rows are the raw material the read surface will consume; the Slice 3 test's ledger assertions are the shape contract it should reuse.
-- Blueprint gap capture: `.planning/research/proposed-gaps.md` records all seven honest gaps + the partial control-plane item, each mapped to current state (verified file refs) and a decision (slice-worthy → which phase, or hypothesis → which probe gates it). Nothing marked slice-worthy has started; ranked next actions are #7 → #2 → #1 → Phase 4 Telegram reads → Phase 5 writes/#3 ingestion/#8 dashboard → probes for #4/#5 → #6 design-reject-as-auto-merge.
+- Slice 3's uncommitted classifier is not integrated with the worker and fails
+  its current test matrix. Slice 4's candidate returns log paths rather than
+  full captured logs and has no real transport. Neither has started in the
+  sense that matters for roadmap acceptance.
+- Phase 5's memory candidate is partial (episodic and semantic committed,
+  procedural uncommitted, evolution absent) and uses WAL on SQLite 3.50.4.
+  Phase 6's dashboard candidate fails. Phase 7's daemon candidate can fabricate
+  a passing verification result and directly applies remote diffs; do not merge
+  any of these branches. Full evidence is in the audit record.
 
 ### Blockers/Concerns
 
@@ -158,11 +126,12 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-09-10
-Phase 3 COMPLETE and independently reviewed — Slices 1-3 verified, review
-passed with 4 non-blocking findings. Branch `phase-2/worker-assign`. Slice 3
-commit `76dc2c6`. Review recorded in `.planning/reviews/phase-3-review.md`.
+Phase/plan audit complete on canonical `phase-2/worker-assign` at `908e92a`.
+Read `.planning/reviews/phase-audit-2026-09-10.md` before touching any feature
+worktree. It separates accepted history from candidate code and preserves each
+failure result.
 
-**Slice 3 changed files:**
+**Accepted Phase 3 evidence:**
 - `src/dispatcher.py` — MODIFIED. Dispatch loop simplified for retry support: drop `dispatched_ids`;
   re-read `board.ready_tasks()` fresh each wave so reclaimed (failed-then-retried) tasks reappear
   naturally; add `max_waves` test bound. No new process/git surface (safety audit unchanged).
@@ -174,9 +143,8 @@ commit `76dc2c6`. Review recorded in `.planning/reviews/phase-3-review.md`.
   `done` in the same run with valid worker/run ledger identities, and a deliberately broken
   dispatcher (stops at first failed child) makes the sibling-completion assertion fail.
 
-**Test result:** `python tests/run.py` → **132 tests, exit 0, 117.560s** (2026-09-10).
-Focused slice-suite: `test_phase3_concurrency` + `test_phase3_failure_isolation` +
-`test_safety_boundary` → **66 tests, exit 0, 25.766s**.
+**Current canonical test result:** `python tests/run.py` → **137 tests, exit 0,
+139.195s** (2026-09-10).
 
 **Key design decisions (Slice 3):**
 - The failure test drives `worker.execute_task` (the real claim -> precheck -> gate -> agent -> verify
@@ -194,8 +162,8 @@ Focused slice-suite: `test_phase3_concurrency` + `test_phase3_failure_isolation`
 **Slice 1 commit:** `a86f331` — planner graph writer. 98 tests, exit 0, 104.808s.
 **Phase 2 commit:** `ea44258` — worker/ledger/assign/chores. 89 tests, exit 0, 93.951s.
 
-Next: Phase 4 — read-only Telegram observability (see roadmap). Phase 3 review
-has passed (`.planning/reviews/phase-3-review.md`).
+Next: Phase 4 Slice 2 adversarial correction tests, then independent review.
+Do not merge any branch or start Slice 3 before that gate passes.
 
 Phase 1 carries two defects found by self-audit and fixed (non-atomic `create_task`; the `setdefault`
 board pin), one found by review and fixed (`migrate` silently accepting a same-named column of a

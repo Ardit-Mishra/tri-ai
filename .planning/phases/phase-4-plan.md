@@ -1,9 +1,11 @@
 # Phase 4 Plan — Read-Only Telegram Observability (+ captured-gap companion slices)
 
-**Status:** draft for review — Phase 4 is named next in `STATE.md` (review of Phase 3 passed);
-no slice started. This plan captures the Phase 4 milestone and the companion work from
-`research/proposed-gaps.md` that attaches to it. **Review this plan and the gaps file before any
-Phase 4 implementation; do not begin until you have.**
+**Status:** in progress. Slice 1 is accepted (`2369613`). Slice 2 is implemented
+(`a71ff9e`, corrected by `02b90f8`) but awaits adversarial regression proof for
+the review corrections; Slices 3-4 have unaccepted candidate worktrees. See
+`.planning/reviews/phase-audit-2026-09-10.md`. This plan captures the Phase 4
+milestone and the companion work from `research/proposed-gaps.md` that attaches
+to it.
 **Requirement:** the roadmap's "board observable from Telegram" — read-only view first
 (`.planning/research/FEATURES.md` v1 list, Telegram read-only entry).
 **Depends on:** Phase 3 (`12288a7`, 132 tests, exit 0 — review passed)
@@ -58,8 +60,9 @@ serialization + partition at Slice 2, and it is the execution-side gap with the 
 `board.create_task` already accepts `workspace_kind='worktree'` + `branch_name` (`src/board.py:
 219-233`), but nothing creates the worktree — a task carries a path that must already exist. This
 slice resolves the task's worktree before the worker claims the task:
-- the worker's precheck/revert semantics stay intact (recovery is `git worktree remove --force`,
-  per `PITFALLS.md:414`);
+- the worker's precheck/revert semantics stay intact; Tri-AI does **not** remove
+  a failed worktree automatically because it is failure evidence. An operator
+  alone may decide whether to remove it later;
 - when isolation cannot be proven, leave the task ready and report a skip — never reuse a `dir`
   workspace, never delete one (Phase 3 plan boundary);
 - worktree creation goes through a narrow, audited gateway — not a new bypass. The AST safety

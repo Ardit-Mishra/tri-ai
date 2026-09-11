@@ -24,9 +24,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Verified Board Substrate** - Add the verify_command column and prove atomic claim/lease/reclaim under real contention, reusing the existing kanban kernel
 - [x] **Phase 2: Verify-Gated Single-Worker Execution** - One worker claims, runs, and accepts/reverts subtasks strictly by exit code, assignable from CLI, queue file, or a durable schedule
-- [ ] **Phase 3: Planner + Bounded Concurrent Execution** - The strong model writes a real graph and exits; several workers execute it concurrently at a measured cap with proven per-branch failure isolation
-- [ ] **Phase 4: Read-Only Telegram Observability** - The board and full subtask output are inspectable from Telegram, no write capability yet
-- [ ] **Phase 5: Telegram Control Actions** - Cancel, retry, and confirmation-gated task assignment from Telegram, routed through the same primitives every worker already uses
+- [x] **Phase 3: Planner + Bounded Concurrent Execution** - The strong model writes a real graph and exits; several workers execute it concurrently at a measured cap with proven per-branch failure isolation
+- [ ] **Phase 4: Read-Only Telegram Observability** - The board and full subtask output are inspectable from Telegram, no write capability yet (in progress)
+- [ ] **Phase 5: Memory, Telegram Control, and Intake** - Passive memory foundation plus cancel, retry, and confirmation-gated task assignment from Telegram
+- [ ] **Phase 6: JARVIS Dashboard and Evolution** - Read-only terminal/web dashboard and deterministic, citation-backed evolution
+- [ ] **Phase 7: Trusted Distributed Delegation** - A remote-worker protocol that preserves verify-gated acceptance
+- [ ] **Phase 8: Remote Offload and Phone Control** - Hardware-aware offload and confirmation-gated multi-node control
 
 ## Phase Details
 
@@ -62,7 +65,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A planner-authored subtask with no verify_command is rejected by the board's write API at insertion (a non-zero exit / raised error at write time), never discovered later at claim or run time
   3. A batch of independent CPU/IO-bound chores run through N concurrent workers (N set from `concurrency_results.json`, not guessed) completes in measurably less wall-clock time than the same batch run through one worker, with the ledger showing every worker's entries
   4. A deliberately-failed subtask (bad verify command or killed worker) in one branch of a concurrent run shows as failed in the ledger/board, while sibling subtasks with no dependency on it reach `done` in the same run
-**Plans**: `.planning/phases/phase-3-plan.md` (planned — implementation has not started)
+**Plans**: `.planning/phases/phase-3-plan.md` (complete — `76dc2c6`; independent review `12288a7`, 132 tests, exit 0)
 
 ### Phase 4: Read-Only Telegram Observability
 **Goal**: The board and ledger are inspectable from Telegram — what is queued, claimed, running, passed, or failed — including full output on any subtask, with no write capability yet.
@@ -71,10 +74,14 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Success Criteria** (what must be TRUE):
   1. A Telegram status query returns the current board state (counts/list of queued, claimed, running, passed, failed) matching a direct board query taken at the same moment
   2. A Telegram query for a specific failed subtask returns its full captured stdout/stderr (not a truncated tail), sufficient to diagnose the failure without re-running the task
-**Plans**: TBD
+**Plans**: `.planning/phases/phase-4-plan.md` (in progress; Slice 1 accepted, Slice 2 awaiting adversarial correction tests)
 
-### Phase 5: Telegram Control Actions
-**Goal**: A running subtask can be cancelled, a failed subtask can be retried, and a new task can be assigned — all from Telegram, with cancellation ungated and everything else confirmation-gated, routing through the exact same board primitives every worker already uses.
+### Phase 5: Memory, Telegram Control, and Intake
+**Goal**: Build the passive episodic/procedural memory foundation, then let a
+running subtask be cancelled, a failed subtask retried, and a new task assigned
+from Telegram. Cancellation is ungated; every other remote mutation is
+confirmation-gated and routes through the same board primitives every worker
+already uses.
 **Depends on**: Phase 4
 **Requirements**: OBS-02, OBS-03, TRIG-04
 **Success Criteria** (what must be TRUE):
@@ -82,17 +89,36 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Sending a retry command for a failed subtask from Telegram re-enters it into the exact claim→verify path (same verify_command, no bypass), verified by a follow-up board query showing a new task_run
   3. Assigning a new task from Telegram requires an explicit confirmation step before the planner is invoked; an unconfirmed message creates zero board rows
   4. No Telegram handler contains a path to arbitrary shell execution, verify-command editing, or push/merge/deploy/credential access (grep/audit-verifiable)
-**Plans**: TBD
+**Plans**: Phase 5-8 are design previews in `.planning/phases/phase-4-plan.md`,
+`.planning/research/memory-subsystem-design.md`, and
+`.planning/research/distributed-delegation-design.md`; no later phase is accepted.
+
+### Phase 6: JARVIS Dashboard and Evolution
+**Goal**: Present a read-only board/ledger/memory view and derive only deterministic,
+citation-backed memory rules. It depends on accepted Phase 5 memory evidence.
+
+### Phase 7: Trusted Distributed Delegation
+**Goal**: Coordinate remote execution without allowing a remote agent report to
+mark work verified. The accepting authority must possess an independently
+checkable verify result.
+
+### Phase 8: Remote Offload and Phone Control
+**Goal**: Add measured hardware routing and confirmation-gated phone controls
+only after the trusted remote protocol exists.
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8.
+Branch experiments do not change this order or count as completion.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Verified Board Substrate | 1/1 | Complete | 2026-09-08 |
 | 2. Verify-Gated Single-Worker Execution | 1/1 | Complete | 2026-09-10 |
-| 3. Planner + Bounded Concurrent Execution | 1/1 | Planned | - |
-| 4. Read-Only Telegram Observability | 0/TBD | Not started | - |
-| 5. Telegram Control Actions | 0/TBD | Not started | - |
+| 3. Planner + Bounded Concurrent Execution | 1/1 | Complete | 2026-09-10 |
+| 4. Read-Only Telegram Observability | 1/4 slices accepted | In progress | - |
+| 5. Memory, Telegram Control, and Intake | 0/TBD | Planned; candidate branch is partial | - |
+| 6. JARVIS Dashboard and Evolution | 0/TBD | Planned; candidate branch failing | - |
+| 7. Trusted Distributed Delegation | 0/TBD | Planned; candidate violates verify gate | - |
+| 8. Remote Offload and Phone Control | 0/TBD | Planned | - |

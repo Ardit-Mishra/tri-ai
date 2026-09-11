@@ -34,22 +34,25 @@ Shipped and proven before this milestone — the substrate this builds on.
 - ✓ Chat reaches the desktop from a phone (Hermes gateway, "Bob")
 - ✓ Continuity when premium quota runs out (`claude-free` / `cf`, route registry keyed by resolved
   model rather than route name)
+- ✓ Phase 1 board substrate: verify schema, atomic claim contention, and Windows-safe stale reclaim
+  adapter (22 tests; published ledger evidence)
+- ✓ Phase 2 single-worker path: exit-code acceptance, artifact gate, recovery/quarantine, ledger,
+  and CLI/queue/schedule triggers (89 tests, independently reviewed)
+- ✓ Phase 3 planner and bounded CPU/IO dispatch: transactional graph creation, cap-derived parallel
+  workers, and branch-local failure isolation (132 tests; independent review passed)
 
 ### Active
 
 Hypotheses until shipped.
 
-- [ ] Premium model decomposes an assigned task into a persisted task graph, then exits — the
-      graph, not the conversation, is the unit of work
-- [ ] Several local workers execute independent subtasks **simultaneously**
-- [ ] Workers coordinate through one shared task board: what is claimed, in-flight, done, failed —
-      each sees the others' status and results, without talking directly to each other
-- [ ] Every subtask carries its own verify command; a subtask is accepted only on exit 0
-- [ ] A failed subtask reverts and does not block unrelated branches of the graph
-- [ ] Tasks can be assigned four ways: laptop CLI, a queue file, Telegram, and on a schedule
-- [ ] The board is **observable and controllable from Telegram** — see what is running, what
-      passed, what failed; cancel or retry
-- [ ] Every run appends to the existing ledger, so the autonomy claim stays citable
+- [ ] The model-backed planner is wired to a live premium-model assignment; its persisted-graph
+      validator is shipped, but the live model ingress is deliberately still separate
+- [ ] Tasks can be assigned from Telegram, with a confirmation gate
+- [ ] The board is observable from a real Telegram transport and returns full captured logs
+- [ ] The board is controllable from Telegram only through proven cancel/retry primitives
+- [ ] Passive memory may inform a worker only after citation validation and integration proof
+- [ ] Remote execution may be accepted only from an independently checkable verification result,
+      never a remote worker's completion report
 - [ ] First working target: run the verifiable chores of all five repos in parallel rather than
       serially (pending research — see `.planning/research/`)
 
@@ -117,4 +120,4 @@ the command emit the fact. Asked to count a 17-row list by eye a model answered 
 | Board observable and controllable from Telegram | Requested explicitly; also closes the documented inbox→execute→report gap | — Pending |
 
 ---
-*Last updated: 2026-09-02 after initialization*
+*Last updated: 2026-09-10 after phase and branch audit*

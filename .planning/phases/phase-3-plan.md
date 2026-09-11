@@ -1,6 +1,7 @@
 # Phase 3 Plan - Planner + Bounded Concurrent Execution
 
-**Status:** in progress - Slice 1 complete in `a86f331`; Slice 2 next
+**Status:** complete — Slices 1-3 landed in `a86f331`, `fa2bb52`, and
+`76dc2c6`; independent review passed in `12288a7` (132 tests, exit 0).
 **Requirements:** GRAPH-01, GRAPH-03, EXEC-01, VERIFY-03
 **Depends on:** Phase 2 (`4b37f4a`, 89 tests, exit 0)
 

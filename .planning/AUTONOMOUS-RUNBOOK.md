@@ -50,22 +50,19 @@ Build **Read-Only Telegram Observability** in four reviewed slices:
 
 ## Current Checkpoint
 
-Phase 3 is COMPLETE locally on `phase-2/worker-assign`; its independent review
-passed at `.planning/reviews/phase-3-review.md`. Phase 4 Slice 1 correction is
-committed locally as `2369613`: independent review found that a
-`dispatch_one` error inside a `run_batch` thread was lost, allowing public
-`dispatch()` to report an empty batch as `all_passed`. The correction stores
-thread errors and re-raises them after joining; a public two-task concurrent
-negative test proves the failure crosses the batch boundary. Verification:
-`python -m unittest tests.test_phase3_concurrency tests.test_safety_boundary`
--- 64 tests, exit 0, 18.893s; `python tests/run.py` -- 132 tests, exit 0,
-135.695s. Independent reviewer thread `01a08b5e-5472-7a52-a7b3-523e96857d98`
-found no blocking findings and passed the focused suite (64 tests, exit 0,
-24.119s). Slice 1 is accepted. The next atomic step is Slice 2 worktree
-creation: first map the relevant read-only git/kernel APIs and write tests that
-can fail for both distinct-worktree and creation-failure cases. Do not stage,
-revert, or overwrite the
-pre-existing Phase 4 planning artifacts listed by `git status`.
+Phase 3 is COMPLETE and independently reviewed at
+`.planning/reviews/phase-3-review.md`. Phase 4 Slice 1 is accepted (`2369613`).
+Slice 2 is implemented and corrected in `a71ff9e` / `02b90f8`, but **not
+accepted**: the review fixes for crash adoption and wrong-branch ownership have
+no adversarial regression test. The canonical suite is green at `00671d9`:
+`python tests/run.py` — 137 tests, exit 0, 139.195s.
+
+The next atomic step is to add exactly two Slice 2 tests: a pre-existing
+deterministic worktree is adopted only after exact source/branch proof, and a
+corrupt board record/branch is skipped before claim. Run the focused and full
+suite, record evidence, commit locally, and obtain review. Do not start Slice
+3, merge a feature branch, or delete a worktree automatically. See
+`.planning/reviews/phase-audit-2026-09-10.md` for the complete branch audit.
 
 ## Safe Fan-Out
 
@@ -102,10 +99,9 @@ can fail for a named deliberate break before implementation begins.
 
 ## Implementation Order
 
-1. Commit the verified Slice 1 correction locally, staging only its source,
-   test, and continuity documentation.
-2. Obtain an independent review focused on the public concurrent exception
-   path; do not start Slice 2 until it passes.
+1. Add and verify the two Slice 2 correction tests.
+2. Obtain independent review of the correction; do not start Slice 3 until it
+   passes.
 3. Implement one remaining Phase 4 slice at a time in plan order.
 4. Run the full suite, update `STATE.md` and this runbook checkpoint, then
    commit locally and stop for independent review before the next slice.
@@ -115,12 +111,12 @@ can fail for a named deliberate break before implementation begins.
 Start a new Claude session from `C:\Users\ardit\tri-ai` with:
 
 > Read `.planning/AUTONOMOUS-RUNBOOK.md`, `.planning/STATE.md`, and
-> `.planning/phases/phase-4-plan.md`, and `.planning/research/proposed-gaps.md`
-> in full. You are the Phase 4 lead. First run the canonical-checkout gate,
-> then inspect `git status`: preserve the pre-existing Phase 4 planning
-> artifacts. Slice 1 is accepted. Begin Phase 4 Slice 2 with read-only mapping
-> of the worktree lifecycle and a test plan; do not implement beyond that slice
-> or start Slice 3. Work locally;
+> `.planning/phases/phase-4-plan.md`, `.planning/research/proposed-gaps.md`, and
+> `.planning/reviews/phase-audit-2026-09-10.md` in full. You are the Phase 4
+> lead. First run the canonical-checkout gate. Slice 1 is accepted; Slice 2's
+> code correction in `02b90f8` lacks two adversarial tests. Implement only
+> those tests and any minimal correction they expose; do not start Slice 3 or
+> merge any feature branch. Work locally;
 > never push, merge, deploy, create remotes, or read credentials. Update state
 > after every verified slice. If context or usage runs low, write the exact
 > completed evidence, current commit, failing command, and next atomic step to
