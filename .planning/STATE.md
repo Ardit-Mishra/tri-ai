@@ -5,8 +5,9 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Phase 5A-C — operator-authorized confirmed Telegram
-control, continuous local worker daemon, and measured local routing probe
+**Current focus:** plan/review the route-admission gate required before any
+executor routing adoption; Phase 5A-C's control, daemon, and diagnostic probe
+are complete.
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
@@ -24,7 +25,7 @@ Plan: .planning/phases/phase-5-control-worker-routing-plan.md
 Status: Phases 1-3 are complete. Phase 4's local adapter and HTTPS transport
 are verified; an operator independently exercised the read-only phone path on
 2026-09-11 against task t_baa70e9a, which reached done after two retained
-reclaims. Phase 5A-C is authorized implementation work. Slice 2's
+reclaims. Phase 5A-C is complete local implementation work. Slice 2's
 implementation/review correction (`a71ff9e` / `02b90f8`) is now covered by
 adversarial regression tests in `8ea0d03`. Slice 3 is accepted on local,
 exit-code evidence under the operator's explicit continuation instruction; the
@@ -33,9 +34,10 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **174 tests, exit
-0, 179.409s** (2026-09-11). This verifies Phase 5A confirmed Telegram
-control and the Phase 5B local polling daemon alongside every prior phase.
+**Latest canonical verification:** `python tests/run.py` → **181 tests, exit
+0, 141.429s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+control, the Phase 5B local polling daemon, and the Phase 5C routing probe
+alongside every prior phase.
 
 **Phase 5A accepted locally:** confirmed Telegram control is implemented in
 `telegram_control.py` and `board.py`, with the HTTPS daemon selecting it
@@ -51,8 +53,19 @@ queues use capped exponential backoff; a real attempt resets the delay; a
 worker-requested hard stop or SIGINT/SIGTERM exits cleanly. The daemon does not
 create a retry path, so the existing worker/board retry and circuit-breaker
 rules remain authoritative. Focused daemon/safety tests: 42, exit 0, 3.097s.
-Next atomic step: Phase 5C read-only Hermes routing-contract inspection, then
-an evidence-producing local routing probe only if that contract is documented.
+
+**Phase 5C accepted locally:** `src/routing_probe.py` is an injected-
+transport, diagnostic-only policy probe. It rejects unknown task kinds and
+non-loopback/non-`/v1` endpoints before a transport call; it records
+policy-versioned primary evidence and exactly one distinct loopback fallback
+for 429, timeout, or connection failure. It is structurally unable to import
+the board, worker, or executor or complete a task. Hermes source inspection
+verified launch-scoped `--model`/`--provider` selection, but endpoint
+selection is Hermes `config.yaml` state and general `OPENAI_BASE_URL` is
+retired. No executor route was invented, no Hermes configuration was read, and
+no live proxy call was made. Focused probe tests: 7, exit 0, 0.035s. Next:
+plan/review a credential-free, operator-configured Hermes profile plus measured
+route-admission gate before enabling executor routing.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.

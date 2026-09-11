@@ -1,6 +1,6 @@
 # Phase 5A-C Plan - Confirmed Telegram Control, Worker Daemon, Routing Probe
 
-**Status:** operator-authorized implementation in progress (2026-09-11).
+**Status:** 5A-5C implemented and locally verified (2026-09-11).
 
 This plan intentionally separates three local slices. Each one has an
 exit-code-backed test gate and a local commit. The Telegram transport remains a
@@ -71,6 +71,18 @@ credentials to the worker or bypassing the existing contained agent gateway.
 If that contract cannot be demonstrated from local Hermes source/tests, the
 slice stops at diagnostic evidence rather than guessing an environment
 variable.
+
+**Implementation record:** Hermes source proves that one-shot accepts
+`--model`/`--provider` (and corresponding launch-scoped model/provider
+environment overrides), while named endpoint resolution comes from Hermes
+`config.yaml`; its general `OPENAI_BASE_URL` override is explicitly retired.
+The worker therefore remains unchanged. `routing_probe.py` measures only a
+policy-owned, loopback OpenAI-compatible primary/fallback pair through an
+injected transport and writes a separate diagnostic JSONL record. It never
+reads Hermes configuration, credentials, or board state, and it cannot accept
+a task. A later executor-adoption plan must bind a credential-free,
+operator-configured Hermes profile to a measured admission gate before altering
+`executor.run_agent`.
 
 Proofs: unknown route is refused before HTTP; 429, timeout, and connection
 error select fallback exactly once; fallback result and policy version are

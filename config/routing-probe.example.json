@@ -1,0 +1,17 @@
+{
+  "version": "2026-09-11-local-probe-v1",
+  "routes": {
+    "code": {
+      "primary": {
+        "name": "omniroute",
+        "endpoint": "http://127.0.0.1:20128/v1",
+        "model": "operator-configured-primary"
+      },
+      "fallback": {
+        "name": "ollama",
+        "endpoint": "http://127.0.0.1:11434/v1",
+        "model": "operator-configured-fallback"
+      }
+    }
+  }
+}
