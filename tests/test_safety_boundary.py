@@ -40,6 +40,7 @@ import executor  # noqa: E402
 CLOSURE_MODULES = (
     "executor.py", "board.py", "worktrees.py", "worker.py", "failure_class.py", "ledger.py", "assign.py", "chores.py",
     "planner.py", "dispatcher.py",
+    "worker_daemon.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole
