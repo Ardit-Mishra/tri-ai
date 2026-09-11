@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 import board
+import proposals
 import telegram_read_surface
 
 
@@ -40,6 +41,12 @@ class WorkspacePolicy:
 @dataclass(frozen=True)
 class IntakePolicy:
     workspaces: Mapping[str, WorkspacePolicy]
+
+
+@dataclass(frozen=True)
+class CallbackResponse:
+    text: str
+    remove_buttons: bool
 
 
 def load_policy(path: Path | str) -> IntakePolicy:
@@ -88,7 +95,7 @@ def load_policy(path: Path | str) -> IntakePolicy:
 class TelegramControl:
     """Combined read router and constrained confirmed write router."""
 
-    def __init__(self, policy: IntakePolicy, *, pending_seconds: int = PENDING_SECONDS) -> None:
+    def __init__(self, policy: Optional[IntakePolicy] = None, *, pending_seconds: int = PENDING_SECONDS) -> None:
         if pending_seconds <= 0:
             raise ValueError("pending action lifetime must be positive")
         self._policy = policy
@@ -130,7 +137,7 @@ class TelegramControl:
         conn = board.connect(Path(board_path))
         try:
             if command == "/run":
-                if len(parts) != 3 or parts[1] not in self._policy.workspaces:
+                if self._policy is None or len(parts) != 3 or parts[1] not in self._policy.workspaces:
                     return "Usage: /run <workspace-alias> <prompt>"
                 workspace = self._policy.workspaces[parts[1]]
                 action_id = self._pending(
@@ -170,3 +177,65 @@ class TelegramControl:
             return f"Unknown command: {command}"
         finally:
             conn.close()
+
+    def pending_notifications(self, *, chat_id: str, board_path: Path | str) -> tuple[proposals.OutboundProposal, ...]:
+        """Return unsent board proposals for one authorized transport recipient."""
+        conn = board.connect(Path(board_path))
+        try:
+            return tuple(proposals.render(item) for item in board.pending_proposals_for_chat(conn, chat_id))
+        finally:
+            conn.close()
+
+    def record_notification(
+        self,
+        *,
+        proposal_id: str,
+        chat_id: str,
+        message_id: int,
+        board_path: Path | str,
+    ) -> bool:
+        """Persist a successful transport delivery; an unsent proposal remains retryable."""
+        conn = board.connect(Path(board_path))
+        try:
+            return board.record_proposal_notification(
+                conn, proposal_id=proposal_id, chat_id=chat_id, message_id=message_id,
+            )
+        finally:
+            conn.close()
+
+    def dispatch_callback(
+        self,
+        data: str,
+        *,
+        chat_id: str,
+        board_path: Path | str,
+        ledger_path: Path | str,
+        runs_root: Path | str,
+    ) -> CallbackResponse:
+        """Apply a registered proposal decision; callback data cannot name a command."""
+        del ledger_path, runs_root
+        parts = data.split(":", 2)
+        if len(parts) != 3 or parts[0] != "prop" or parts[1] not in {"approve", "reject"}:
+            return CallbackResponse("Rejected unsafe callback payload.", True)
+        proposal_id = parts[2]
+        if not proposal_id or len(proposal_id) > 160 or any(char.isspace() for char in proposal_id):
+            return CallbackResponse("Rejected unsafe callback payload.", True)
+        if not chat_id:
+            return CallbackResponse("Rejected unauthenticated callback.", True)
+        conn = board.connect(Path(board_path))
+        try:
+            result = board.decide_proposal(
+                conn, proposal_id=proposal_id, decision=parts[1],
+            )
+        finally:
+            conn.close()
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        if result.changed and result.status == "approved":
+            return CallbackResponse(f"Approved by operator at {stamp}.", True)
+        if result.changed and result.status == "rejected":
+            return CallbackResponse(f"Rejected by operator at {stamp}.", True)
+        if result.changed and result.status == "expired":
+            return CallbackResponse(f"Expired safely at {stamp}: {result.detail}.", True)
+        if result.status in {"approved", "rejected", "expired"}:
+            return CallbackResponse(f"Already {result.status}: {result.detail}.", True)
+        return CallbackResponse(f"Proposal was not applied: {result.status} ({result.detail}).", False)

@@ -7,6 +7,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -18,13 +19,20 @@ class FakeTransport:
         self.updates = updates
         self.get_calls: list[tuple[int | None, int]] = []
         self.sent: list[tuple[str, str]] = []
+        self.markups: list[dict[str, object] | None] = []
+        self.edited: list[tuple[str, int, str, dict[str, object]]] = []
 
     def get_updates(self, *, offset: int | None, timeout: int) -> list[dict[str, object]]:
         self.get_calls.append((offset, timeout))
         return self.updates
 
-    def send_message(self, *, chat_id: str, text: str) -> None:
+    def send_message(self, *, chat_id: str, text: str, reply_markup=None) -> int:
         self.sent.append((chat_id, text))
+        self.markups.append(reply_markup)
+        return len(self.sent)
+
+    def edit_message(self, *, chat_id: str, message_id: int, text: str, reply_markup) -> None:
+        self.edited.append((chat_id, message_id, text, reply_markup))
 
 
 class FakeResponse:
@@ -105,11 +113,59 @@ class TelegramDaemonTests(unittest.TestCase):
         self.assertTrue(req.full_url.startswith("https://api.telegram.org/bot"))
         self.assertEqual(req.get_method(), "POST")
         self.assertEqual(json.loads(req.data.decode("utf-8"))["offset"], 7)
+        self.assertIn("callback_query", json.loads(req.data.decode("utf-8"))["allowed_updates"])
         self.assertEqual(timeout, 40)
 
         rejected = daemon.HttpsTelegramApi("test-token", opener=lambda *args, **kwargs: FakeResponse({"ok": False}))
         with self.assertRaises(daemon.TelegramTransportError):
             rejected.send_message(chat_id="42", text="status")
+
+    def test_authorized_callback_edits_the_origin_message_and_unauthorized_actor_is_dropped(self):
+        allowed = {
+            "update_id": 11,
+            "callback_query": {
+                "from": {"id": 42}, "data": "prop:approve:task:one:1:passed",
+                "message": {"chat": {"id": 42}, "message_id": 88},
+            },
+        }
+        denied = {
+            "update_id": 12,
+            "callback_query": {
+                "from": {"id": 99}, "data": "prop:approve:task:one:1:passed",
+                "message": {"chat": {"id": 42}, "message_id": 89},
+            },
+        }
+        transport = FakeTransport([allowed, denied])
+        calls = []
+        worker = daemon.TelegramDaemon(
+            transport, self.settings(), board_path="board.db", ledger_path="ledger.jsonl", runs_root="runs",
+            callback_handler=lambda data, **kwargs: calls.append((data, kwargs["chat_id"])) or SimpleNamespace(
+                text="Approved by operator", remove_buttons=True,
+            ),
+        )
+        self.assertEqual(worker.poll_once(offset=None, timeout=30), 13)
+        self.assertEqual(calls, [("prop:approve:task:one:1:passed", "42")])
+        self.assertEqual(transport.edited, [("42", 88, "Approved by operator", {"inline_keyboard": []})])
+
+    def test_pending_proposals_are_sent_once_with_fixed_inline_actions(self):
+        transport = FakeTransport([])
+        recorded = []
+        card = SimpleNamespace(
+            proposal_id="task:one:1:passed", text="Task one passed.",
+            reply_markup={"inline_keyboard": [[
+                {"text": "Approve", "callback_data": "prop:approve:task:one:1:passed"},
+                {"text": "Reject", "callback_data": "prop:reject:task:one:1:passed"},
+            ]]},
+        )
+        worker = daemon.TelegramDaemon(
+            transport, self.settings(), board_path="board.db", ledger_path="ledger.jsonl", runs_root="runs",
+            notifier=lambda **kwargs: (card,),
+            notification_recorder=lambda **kwargs: recorded.append(kwargs) or True,
+        )
+        worker.poll_once(offset=None, timeout=30)
+        self.assertEqual(transport.sent, [("42", "Task one passed.")])
+        self.assertEqual(transport.markups[0]["inline_keyboard"][0][0]["callback_data"], "prop:approve:task:one:1:passed")
+        self.assertEqual(recorded[0]["proposal_id"], card.proposal_id)
 
 
 class TransportBoundaryIsNarrow(unittest.TestCase):

@@ -167,6 +167,32 @@ class RetryAndCancel(ControlFixture):
         self.assertEqual(self.task_row(task_id)["status"], "running")
 
 
+class ProposalCallbacks(ControlFixture):
+    def callback(self, data: str, *, chat_id: str = "42"):
+        return self.control.dispatch_callback(
+            data, chat_id=chat_id, board_path=self.db_path,
+            ledger_path=self.ledger, runs_root=self.runs,
+        )
+
+    def test_callback_accepts_only_registered_decisions_and_is_idempotent(self):
+        task_id = self.task()
+        claimed = self.kb.claim_task(self.conn, task_id, claimer=self.host_local_claimer(12700))
+        self.assertIsNotNone(claimed)
+        self.assertTrue(self.kb.complete_task(self.conn, task_id, expected_run_id=claimed.current_run_id))
+        created = board.create_task_outcome_proposal(
+            self.conn, task_id=task_id, run_id=claimed.current_run_id, title="failed", outcome="passed",
+        )
+        approved = self.callback(f"prop:approve:{created.proposal_id}")
+        self.assertTrue(approved.remove_buttons)
+        self.assertIn("Approved", approved.text)
+        self.assertEqual(self.task_row(task_id)["status"], "archived")
+        repeated = self.callback(f"prop:approve:{created.proposal_id}")
+        self.assertTrue(repeated.remove_buttons)
+        self.assertIn("Already approved", repeated.text)
+        self.assertTrue(self.callback("prop:approve:bad id").remove_buttons)
+        self.assertIn("unsafe", self.callback("run this").text.lower())
+
+
 class TelegramControlBoundary(unittest.TestCase):
     source = Path(__file__).resolve().parents[1] / "src" / "telegram_control.py"
 

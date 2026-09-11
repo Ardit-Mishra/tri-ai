@@ -36,6 +36,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional
 
+from memory import episodic, procedural
+
 DEFAULT_HERMES_HOME = (
     Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"
 )
@@ -163,6 +165,9 @@ def migrate(conn: sqlite3.Connection) -> dict[str, bool]:
     conn.execute(WORKTREE_DDL)
     conn.execute(ENVIRONMENT_BACKOFF_DDL)
     conn.execute(PENDING_ACTIONS_DDL)
+    conn.execute(PROPOSALS_DDL)
+    conn.execute(PROPOSAL_NOTIFICATIONS_DDL)
+    conn.execute(ACTIVATED_PROCEDURAL_RULES_DDL)
 
     conn.commit()
     return added
@@ -498,6 +503,40 @@ CREATE TABLE IF NOT EXISTS triai_pending_actions (
 )
 """
 
+PROPOSALS_DDL = """
+CREATE TABLE IF NOT EXISTS triai_proposals (
+    id               TEXT PRIMARY KEY,
+    kind             TEXT NOT NULL,
+    summary          TEXT NOT NULL,
+    suggested_action TEXT NOT NULL,
+    payload_json     TEXT NOT NULL,
+    status           TEXT NOT NULL,
+    created_at       INTEGER NOT NULL,
+    decided_at       INTEGER,
+    CHECK (kind IN ('task_outcome', 'candidate_rule')),
+    CHECK (suggested_action IN ('archive', 'retry', 'activate_procedural_advice')),
+    CHECK (status IN ('pending', 'approved', 'rejected', 'expired'))
+)
+"""
+
+PROPOSAL_NOTIFICATIONS_DDL = """
+CREATE TABLE IF NOT EXISTS triai_proposal_notifications (
+    proposal_id TEXT NOT NULL REFERENCES triai_proposals(id),
+    chat_id     TEXT NOT NULL,
+    message_id  INTEGER NOT NULL,
+    notified_at INTEGER NOT NULL,
+    PRIMARY KEY (proposal_id, chat_id)
+)
+"""
+
+ACTIVATED_PROCEDURAL_RULES_DDL = """
+CREATE TABLE IF NOT EXISTS triai_activated_procedural_rules (
+    proposal_id  TEXT PRIMARY KEY REFERENCES triai_proposals(id),
+    rule_json    TEXT NOT NULL,
+    activated_at INTEGER NOT NULL
+)
+"""
+
 
 @dataclass(frozen=True)
 class ControlResult:
@@ -507,6 +546,239 @@ class ControlResult:
     status: str
     task_id: Optional[str] = None
     detail: str = ""
+
+
+@dataclass(frozen=True)
+class ProposalResult:
+    """One immutable proposal decision or idempotent no-op."""
+
+    changed: bool
+    status: str
+    proposal_id: str
+    detail: str = ""
+
+
+_TASK_OUTCOME_ACTIONS = {"passed": "archive", "failed": "retry"}
+
+
+def _proposal_payload(row: sqlite3.Row) -> dict[str, Any]:
+    proposal = dict(row)
+    proposal["payload"] = json.loads(proposal.pop("payload_json"))
+    return proposal
+
+
+def _create_proposal(
+    conn: sqlite3.Connection,
+    *,
+    proposal_id: str,
+    kind: str,
+    summary: str,
+    suggested_action: str,
+    payload: Mapping[str, Any],
+    now: Optional[int] = None,
+) -> ProposalResult:
+    """Insert a fixed-shape proposal once; an existing ID is never refreshed."""
+    if not proposal_id or not summary or kind not in {"task_outcome", "candidate_rule"}:
+        raise ValueError("proposal id, kind, and summary are required")
+    if suggested_action not in {"archive", "retry", "activate_procedural_advice"}:
+        raise ValueError("proposal action is not registered")
+    current = int(time.time()) if now is None else int(now)
+    kb = kanban()
+    with kb.write_txn(conn):
+        existing = conn.execute(
+            "SELECT status FROM triai_proposals WHERE id = ?", (proposal_id,)
+        ).fetchone()
+        if existing is not None:
+            return ProposalResult(False, str(existing["status"]), proposal_id, "proposal already exists")
+        conn.execute(
+            "INSERT INTO triai_proposals "
+            "(id, kind, summary, suggested_action, payload_json, status, created_at) "
+            "VALUES (?, ?, ?, ?, ?, 'pending', ?)",
+            (
+                proposal_id, kind, summary, suggested_action,
+                json.dumps(dict(payload), sort_keys=True), current,
+            ),
+        )
+    return ProposalResult(True, "pending", proposal_id)
+
+
+def create_task_outcome_proposal(
+    conn: sqlite3.Connection,
+    *,
+    task_id: str,
+    run_id: int,
+    title: str,
+    outcome: str,
+) -> ProposalResult:
+    """Create the one operator decision allowed for a passed or failed run."""
+    action = _TASK_OUTCOME_ACTIONS.get(outcome)
+    if action is None:
+        raise ValueError(f"task outcome does not have an operator proposal: {outcome!r}")
+    summary = f"Task {task_id} ({title}) {outcome}."
+    return _create_proposal(
+        conn,
+        proposal_id=f"task:{task_id}:{int(run_id)}:{outcome}",
+        kind="task_outcome",
+        summary=summary,
+        suggested_action=action,
+        payload={"task_id": task_id, "run_id": int(run_id), "outcome": outcome},
+    )
+
+
+def create_candidate_rule_proposal(
+    conn: sqlite3.Connection,
+    *,
+    proposal_id: str,
+    rule: Mapping[str, Any],
+) -> ProposalResult:
+    """Persist an unactivated, citation-validated procedural-rule proposal."""
+    parsed = procedural.rule_from_mapping(rule)
+    if parsed.expires_at <= time.time() or not all(episodic.validate(c) for c in parsed.citations):
+        raise ValueError("candidate rule is expired or its citations are stale")
+    return _create_proposal(
+        conn,
+        proposal_id=proposal_id,
+        kind="candidate_rule",
+        summary=f"Candidate advice for {parsed.task_kind} in {parsed.workspace.name}.",
+        suggested_action="activate_procedural_advice",
+        payload={"rule": dict(rule)},
+    )
+
+
+def proposal(conn: sqlite3.Connection, proposal_id: str) -> Optional[dict[str, Any]]:
+    """Return one proposal with structured payload, or None."""
+    row = conn.execute("SELECT * FROM triai_proposals WHERE id = ?", (proposal_id,)).fetchone()
+    return _proposal_payload(row) if row is not None else None
+
+
+def pending_proposals_for_chat(conn: sqlite3.Connection, chat_id: str) -> tuple[dict[str, Any], ...]:
+    """Pending proposals not yet sent to this authorized chat."""
+    rows = conn.execute(
+        "SELECT p.* FROM triai_proposals AS p "
+        "WHERE p.status = 'pending' AND NOT EXISTS ("
+        "  SELECT 1 FROM triai_proposal_notifications AS n "
+        "  WHERE n.proposal_id = p.id AND n.chat_id = ?"
+        ") ORDER BY p.created_at, p.id",
+        (str(chat_id),),
+    ).fetchall()
+    return tuple(_proposal_payload(row) for row in rows)
+
+
+def record_proposal_notification(
+    conn: sqlite3.Connection,
+    *,
+    proposal_id: str,
+    chat_id: str,
+    message_id: int,
+    now: Optional[int] = None,
+) -> bool:
+    """Remember one successfully sent Telegram message so polling cannot spam."""
+    if isinstance(message_id, bool) or not isinstance(message_id, int) or message_id < 1:
+        raise ValueError("Telegram message_id must be a positive integer")
+    kb = kanban()
+    with kb.write_txn(conn):
+        inserted = conn.execute(
+            "INSERT OR IGNORE INTO triai_proposal_notifications "
+            "(proposal_id, chat_id, message_id, notified_at) VALUES (?, ?, ?, ?)",
+            (proposal_id, str(chat_id), message_id, int(time.time()) if now is None else int(now)),
+        ).rowcount
+    return inserted == 1
+
+
+def _archive_done_task_in_txn(conn: sqlite3.Connection, task_id: str) -> ControlResult:
+    """Archive only an already-done task; never use the kernel's broad archive."""
+    kb = kanban()
+    changed = conn.execute(
+        "UPDATE tasks SET status = 'archived' WHERE id = ? AND status = 'done' "
+        "AND claim_lock IS NULL",
+        (task_id,),
+    ).rowcount
+    if changed != 1:
+        row = conn.execute("SELECT status FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        return ControlResult(False, "missing" if row is None else str(row["status"]), task_id,
+                             "only an unchanged completed task may be archived")
+    kb._append_event(conn, task_id, "archived", {"source": "telegram_proposal"})
+    return ControlResult(True, "archived", task_id)
+
+
+def decide_proposal(
+    conn: sqlite3.Connection,
+    *,
+    proposal_id: str,
+    decision: str,
+    now: Optional[int] = None,
+) -> ProposalResult:
+    """Compare-and-swap one pending proposal through its registered action."""
+    if decision not in {"approve", "reject"}:
+        raise ValueError("proposal decision is not registered")
+    current = int(time.time()) if now is None else int(now)
+    kb = kanban()
+    recompute = False
+    with kb.write_txn(conn, allow_nested=True):
+        row = conn.execute("SELECT * FROM triai_proposals WHERE id = ?", (proposal_id,)).fetchone()
+        if row is None:
+            return ProposalResult(False, "missing", proposal_id, "proposal does not exist")
+        if row["status"] != "pending":
+            return ProposalResult(False, str(row["status"]), proposal_id, "proposal already decided")
+        if decision == "reject":
+            conn.execute(
+                "UPDATE triai_proposals SET status = 'rejected', decided_at = ? "
+                "WHERE id = ? AND status = 'pending'", (current, proposal_id),
+            )
+            return ProposalResult(True, "rejected", proposal_id)
+
+        payload = json.loads(row["payload_json"])
+        action = str(row["suggested_action"])
+        if action == "archive":
+            action_result = _archive_done_task_in_txn(conn, str(payload["task_id"]))
+            recompute = action_result.changed
+        elif action == "retry":
+            task_id = str(payload["task_id"])
+            state = conn.execute("SELECT status FROM tasks WHERE id = ?", (task_id,)).fetchone()
+            if state is not None and state["status"] == "ready":
+                action_result = ControlResult(True, "ready", task_id, "task is already ready")
+            else:
+                action_result = _retry_task_in_txn(conn, task_id)
+                recompute = action_result.changed
+        elif action == "activate_procedural_advice":
+            raw_rule = payload.get("rule")
+            if not isinstance(raw_rule, Mapping):
+                return ProposalResult(False, "unsafe", proposal_id, "candidate rule payload is invalid")
+            rule = procedural.rule_from_mapping(raw_rule, now=current)
+            if rule.expires_at <= current or not all(episodic.validate(c) for c in rule.citations):
+                conn.execute(
+                    "UPDATE triai_proposals SET status = 'expired', decided_at = ? "
+                    "WHERE id = ? AND status = 'pending'", (current, proposal_id),
+                )
+                return ProposalResult(True, "expired", proposal_id, "candidate citations drifted or expired")
+            conn.execute(
+                "INSERT INTO triai_activated_procedural_rules "
+                "(proposal_id, rule_json, activated_at) VALUES (?, ?, ?)",
+                (proposal_id, json.dumps(dict(raw_rule), sort_keys=True), current),
+            )
+            action_result = ControlResult(True, "activated")
+        else:
+            return ProposalResult(False, "unsafe", proposal_id, "proposal action is not registered")
+
+        if not action_result.changed:
+            return ProposalResult(False, action_result.status, proposal_id, action_result.detail)
+        changed = conn.execute(
+            "UPDATE triai_proposals SET status = 'approved', decided_at = ? "
+            "WHERE id = ? AND status = 'pending'", (current, proposal_id),
+        ).rowcount
+        if changed != 1:
+            return ProposalResult(False, "raced", proposal_id, "proposal changed during approval")
+    if recompute:
+        kb.recompute_ready(conn)
+    return ProposalResult(True, "approved", proposal_id)
+
+
+def activated_procedural_rule(conn: sqlite3.Connection, proposal_id: str) -> Optional[dict[str, Any]]:
+    """Read an operator-activated rule; callers must still validate before use."""
+    row = conn.execute(
+        "SELECT rule_json FROM triai_activated_procedural_rules WHERE proposal_id = ?", (proposal_id,)
+    ).fetchone()
+    return json.loads(row["rule_json"]) if row is not None else None
 
 
 def create_pending_action(
