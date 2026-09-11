@@ -82,12 +82,15 @@ from the pre-board milestone (`PROJECT.md:31`, validated) but route by *resolved
 not by *subtask kind*. `STACK.md:186` floats a hypothesis: long generation-heavy subtasks "likely"
 should run serially — explicitly a hypothesis, not measured.
 
-**The gap:** nothing maps code vs prose vs markup subtasks to the best-fit local model.
+**The gap:** nothing maps code vs prose vs markup subtasks to a measured primary route and a
+desktop-local fallback.
 
 **Decision:** **hypothesis → probe before a slice.** The project's own methodology: this is exactly
 the kind of claim to verify empirically, not infer. Gate: a per-task-kind accuracy/VRAM probe (a
 small deliberate dataset of code / prose / markup chores with binary oracles, run across a short
-list of candidate local models) before any routher ships. Until then the fixed configuration stands.
+list of candidate local models) before any route ships. Optional operator-configured cloud/free
+routes are broker-owned and must prove a ledgered desktop-local fallback for `429`, exhaustion,
+and network failure. Until then the fixed configuration stands.
 
 ## 5. RAG / vector retrieval for context-injected workers
 
@@ -110,13 +113,16 @@ constraint holds (local embedders only).
 
 **The gap / the pushback:** a small model proposing sub-graph patches (add an install step, insert a
 data-cleaning pre-task) is the "small models judge" failure mode `PROJECT.md:84-91` documents — the
-same model that deleted 387/389 lines and reported success. **Auto-merge of a local model's patch is
-rejected.** The safe shape: a worker that hits a missing-dependency blocker proposes a patch to the
-**operator or the premium planner lane**, never auto-merges.
+same model that deleted 387/389 lines and reported success. **Auto-merge of a local model's
+arbitrary patch remains rejected.** The safe shape: a worker that hits a missing-dependency blocker
+proposes a patch to the **operator or premium planner lane**, never auto-merges it. Separately,
+the approved local-promotion lane may integrate a reviewed immutable source SHA into an allowlisted
+local integration branch after a fresh verifier passes; it is not graph healing.
 
-**Decision:** **design decision, not a slice.** Recorded here as: human-in-loop or reject. Any
-future slice is gated on a concrete "propose only, never merge" contract and a proving test that a
-local model's proposed patch cannot land without an explicit operator/premium-lane approval.
+**Decision:** **design decision, not a slice.** Graph healing remains template-based: an
+operator-approved remediation task with a predeclared verifier, never an arbitrary patch. A proving
+test must show a local model's proposed patch cannot land without explicit operator/premium-lane
+approval or the separate reviewed-promotion contract.
 
 ## 7. `dispatch_one` env-var contract (review F1)
 

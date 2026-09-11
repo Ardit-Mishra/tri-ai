@@ -12,7 +12,10 @@ Tri-AI must become more capable across runs without weakening the rule that a ta
 
 1. The board and ledger remain sources of truth. Memory, routing, and RAG are advisory inputs, never acceptance authorities.
 2. Each automated decision records inputs, policy version, and output in a durable local artifact with an adversarial test.
-3. All inference and embeddings are local. No metered per-token API, account, credential, or automatic network request is introduced.
+3. Local execution and embeddings remain viable at $0 marginal cost. An optional
+   operator-configured cloud/free route may be used only through the route broker; Tri-AI never
+   creates accounts, changes plans, raises limits, or makes cloud availability a completion
+   requirement.
 4. Worker execution remains unable to push, deploy, or merge protected/remote branches. Promotion is a separate, narrow local process.
 5. A later phase may use an accepted lower-phase artifact, never a candidate branch or agent report.
 
@@ -58,18 +61,34 @@ The fixture contains known-answer contexts, stale counterparts, poisoned high-si
 - Re-running the same query/corpus yields byte-identical context ordering.
 - RAG cannot alter a verify command, artifacts, task target, or acceptance result.
 
-## C. Measured Local Model Routing
+## C. Measured Routing and Optional Cloud Failover
 
-Routes are selected by a declared task-kind enum, never by an LLM classifying itself. The route manifest names only installed local models and records a policy version. Its data comes from a task-kind benchmark whose outcomes are existing binary verifiers, not prose.
+Routes are selected by a declared task-kind enum, never by an LLM classifying itself. The route
+manifest records a policy version and names a primary route plus a desktop-local fallback. Its data
+comes from a task-kind benchmark whose outcomes are existing binary verifiers, not prose.
 
-Each candidate is compared to the fixed baseline on the same code/prose/markup fixture. The probe records verifier outcome, timeout, duration, resource measurement where available, route policy, and resolved model. A route ships only with no verifier-pass regression and within configured residency/concurrency budget. The initial table is static; no task silently falls back to another model. An unavailable route is a recorded bounded failure.
+Each local candidate is compared to the fixed baseline on the same code/prose/markup fixture. The
+probe records verifier outcome, timeout, duration, resource measurement where available, route
+policy, and resolved model. A local route ships only with no verifier-pass regression and within
+configured residency/concurrency budget.
+
+An optional cloud route is selected only when the operator configured it in the local broker. The
+broker, not worker code, owns any injected provider credential. `429`, quota/exhaustion, provider
+unavailability, and network partition are classified as environment outcomes. They produce a
+separate ledgered attempt with the exact fallback reason and then use the pinned desktop-local
+fallback. Fallback is automatic but never silent: it cannot overwrite the first attempt, skip the
+verifier, or load an unapproved local model. Missing cloud configuration begins locally.
 
 ### Required proofs
 
-- Invalid task kind or unknown/non-local model is rejected before agent launch.
-- A deliberately regressed candidate fails the promotion gate despite an agent success report.
+- Invalid task kind, unknown model, or unconfigured cloud provider is rejected before agent launch.
+- A deliberately regressed candidate fails the route-admission gate despite an agent success report.
 - The ledger records selected route and policy version.
 - A fixture proves a route cannot load an unapproved second model or bypass the measured residency cap.
+- Simulated `429`, quota/exhaustion, and network failures each create one classified failed route
+  attempt and exactly one desktop-local fallback attempt; neither attempt is accepted without its
+  verifier exit 0.
+- The worker/executor safety closure cannot import the broker or observe provider credentials.
 
 ## D. Semantic Memory and Constrained Self-Evolution
 
@@ -96,7 +115,8 @@ The allowed form is template-based remediation: a known error fingerprint may en
 1. Finish and independently review Phase 4; Slice 2 adversarial tests remain the current atomic task.
 2. Add Phase 4.1 local verified promotion as a separate plan and review gate.
 3. Phase 5A: episodic and procedural memory.
-4. Phase 5B: RAG and model-routing probes. Failed probes produce evidence, not forced features or hidden retries.
+4. Phase 5B: RAG and routing/failover probes. Failed probes produce evidence, not forced features
+   or hidden retries.
 5. Phase 5C: semantic memory using accepted episodic/procedural artifacts.
 6. Phase 5D: constrained self-evolution and template-based healing.
 7. Phase 5 Telegram control/intake, then Phase 6 dashboards, Phase 7 planner integration plus trusted remote delegation, and Phase 8 offload/phone control.

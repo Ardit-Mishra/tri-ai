@@ -111,9 +111,10 @@ memory design's 5C/5D placement. The Phase 5 plan must choose one ordering,
 state dependencies, and define exit-code-backed proofs before either branch is
 treated as authoritative.
 **Approved capability direction (2026-09-11)**: semantic memory and constrained
-self-evolution are Phase 5C/5D; Phase 6 is dashboards. Local RAG and model
-routing first ship as evidence-producing probes, and local verified promotion
-is a separate post-Phase-4 gate. See
+self-evolution are Phase 5C/5D; Phase 6 is dashboards. Local RAG and measured
+routing/failover first ship as evidence-producing probes, and local verified
+promotion is a separate post-Phase-4 gate. Optional operator-configured
+cloud/free routes always have a desktop-local fallback. See
 `.planning/research/capability-expansion-design.md`.
 
 ### Phase 6: JARVIS Dashboard

@@ -115,8 +115,9 @@ evidence rather than a summary.
 - **Memory subsystem — episodic + procedural (gap #9):** SQLite run index + markdown summaries
   (compiled truth + timeline), rules engine with citation validation, skill files. Foundation for
   everything after Phase 4. Design at `.planning/research/memory-subsystem-design.md`.
-- **RAG and local model-routing probes:** both are evidence-producing, local-only probes before
-  either becomes worker input or route policy. Their graduated contracts live in
+- **RAG and routing/failover probes:** both are evidence-producing probes before either becomes
+  worker input or route policy. Routes may use an operator-configured cloud/free lane only through
+  a broker and must record a desktop-local fallback. Their graduated contracts live in
   `.planning/research/capability-expansion-design.md`.
 - **Memory subsystem — semantic + constrained self-evolution:** provenance-derived knowledge graph,
   citation/replay-gated advice rules, and template-based remediation. These are Phase 5C/5D, not

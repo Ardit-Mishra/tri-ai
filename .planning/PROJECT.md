@@ -63,8 +63,9 @@ Hypotheses until shipped.
 - **Judgment work on the free lane** — anything a command cannot judge waits for the human. This is
   the boundary that keeps the ledger meaningful; widening it would make the whole system's central
   claim untrue.
-- **Metered per-token APIs** — banned outright. Breaks the $0 rule.
-- **Creating accounts** — for any service, ever.
+- **Mandatory paid/cloud routing or autonomous account creation** — banned. Optional
+  operator-configured cloud/free routes may be used through the local route broker, but local
+  fallback must remain viable and Tri-AI never creates accounts, changes plans, or raises limits.
 - **Autonomous push, remote/protected-branch merge, deploy, or credential access** — banned.
   A separate local promotion process may merge a reviewed immutable source SHA only into a
   dedicated local integration branch after a fresh operator-owned verifier passes; its contract
@@ -97,7 +98,9 @@ the command emit the fact. Asked to count a 17-row list by eye a model answered 
 
 ## Constraints
 
-- **Budget**: $0 marginal cost — local and free models only. Metered per-token APIs are banned.
+- **Budget**: local execution must remain viable at $0 marginal cost. An operator may explicitly
+  configure an optional free, prepaid, or quota-backed cloud route; Tri-AI never creates accounts,
+  changes plans, raises limits, or makes a cloud route mandatory for completion.
 - **Model**: Hermes rejects any model below `MINIMUM_CONTEXT_LENGTH = 64_000`
   (`agent/model_metadata.py:405`, enforced at `agent/agent_init.py:2772`). This disqualifies
   `qwen3:14b` (40,960) and `qwen2.5-coder:14b` (32,768) **as Ollama currently serves them** —
@@ -105,7 +108,9 @@ the command emit the fact. Asked to count a 17-row list by eye a model answered 
   context is possible in principle and costs KV-cache VRAM; unmeasured, so not assumed.
 - **Hardware**: 12 GB VRAM ceiling. Models above it CPU-offload and become an order of magnitude
   slower, not slightly slower. Concurrent workers multiply this pressure — the central unknown.
-- **Safety**: no push, merge, deploy, or credential access from automated work.
+- **Safety**: no push, remote/protected merge, deploy, or credential access from worker code.
+  An infrastructure-owned route broker may use only credentials injected by the operator at its own
+  startup; workers neither receive nor read provider credentials.
 - **Environment**: the desktop's SSH shell is PowerShell; SSH-launched processes die with the
   session, so durable work is registered as a Windows scheduled task and triggered.
 - **Honesty**: the system's public description must not exceed what the ledger shows.

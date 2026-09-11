@@ -9,11 +9,12 @@ See: `.planning/PROJECT.md` (audited 2026-09-10)
 adversarial correction proof)
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
-defines local verified promotion, local RAG/model-routing probes, semantic
-memory, and constrained self-evolution. These features are approved, but Phase
-4 Slice 2 remains the next atomic implementation step. The design has not yet
-received independent subagent review because the service returned `Transport
-closed`; the reviewer packets are embedded in the design.
+defines local verified promotion, RAG, measured routing with optional
+operator-configured cloud/free lanes and desktop-local failover, semantic memory,
+and constrained self-evolution. These features are approved, but Phase 4 Slice
+2 remains the next atomic implementation step. The design has not yet received
+independent subagent review because the service returned `Transport closed`; the
+reviewer packets are embedded in the design.
 
 ## Current Position
 
@@ -28,7 +29,7 @@ accepted. Do not start Slice 3 until they exist and review passes.
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
 **Latest canonical verification:** `python tests/run.py` → **137 tests, exit
-0, 146.674s** (2026-09-11). This establishes the current base is green; it
+0, 136.158s** (2026-09-11). This establishes the current base is green; it
 does not prove Slice 2's two correction cases because no test drives them.
 
 **Phase 4 Slice 2 correction:** independent review of `a71ff9e` found that a
@@ -155,7 +156,7 @@ failure result.
   dispatcher (stops at first failed child) makes the sibling-completion assertion fail.
 
 **Current canonical test result:** `python tests/run.py` → **137 tests, exit 0,
-146.674s** (2026-09-11).
+136.158s** (2026-09-11).
 
 **Key design decisions (Slice 3):**
 - The failure test drives `worker.execute_task` (the real claim -> precheck -> gate -> agent -> verify
