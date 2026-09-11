@@ -5,10 +5,10 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** build deterministic semantic memory from the accepted
-episodic/procedural artifacts. Route admission is complete, but executor
-routing remains intentionally disabled until an operator-configured Hermes
-profile has real measured evidence.
+**Current focus:** plan candidate-only constrained evolution from repeated
+classified failures. Route admission is complete, but executor routing remains
+intentionally disabled until an operator-configured Hermes profile has real
+measured evidence.
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
@@ -35,11 +35,11 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **200 tests, exit
-0, 156.190s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **204 tests, exit
+0, 168.635s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
-the route-admission, episodic-memory, and procedural-memory gates alongside
-every prior phase.
+the route-admission, episodic-memory, procedural-memory, and semantic-memory
+gates alongside every prior phase.
 
 **Phase 5A accepted locally:** confirmed Telegram control is implemented in
 `telegram_control.py` and `board.py`, with the HTTPS daemon selecting it
@@ -97,6 +97,15 @@ free text, command-shaped fields, routing/model fields, and any activation
 other than `preflight_advice` are refused. Focused tests: 6, exit 0, 0.086s.
 No rule is injected into the worker yet. Next: deterministic semantic facts
 derived only from the episodic and procedural records.
+
+**Semantic memory accepted locally:** `src/memory/semantic.py` derives a
+deterministic, in-memory graph of task/run/outcome/dependency/retry/rule
+citations from supplied episodic facts and procedural rules. Every edge carries
+source citation(s); any changed or missing source makes the corresponding fact
+disappear on the next derivation. Focused tests: 4, exit 0, 0.152s. It has no
+board, worker, executor, router, process, or persistence capability. Next:
+candidate-only constrained evolution, with replay and citation validation
+before any possible activation.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.
