@@ -38,7 +38,7 @@ import executor  # noqa: E402
 
 # The audited closure: every module on the execution path.
 CLOSURE_MODULES = (
-    "executor.py", "board.py", "worktrees.py", "worker.py", "ledger.py", "assign.py", "chores.py",
+    "executor.py", "board.py", "worktrees.py", "worker.py", "failure_class.py", "ledger.py", "assign.py", "chores.py",
     "planner.py", "dispatcher.py",
 )
 

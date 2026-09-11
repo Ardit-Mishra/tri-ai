@@ -44,6 +44,7 @@ the field names below are stable; the integration tests assert on them:
     branch        str or None actual repo branch at precheck (provenance; see
                               the expected-branch note in worker.py)
     outcome       str         one of: passed | failed | timeout | spawn_error |
+                              environment_backoff | environment_exhausted |
                               skipped | blocked | quarantined | dry_run
     verify_exit   int or None verify command exit code (only when it ran and
                               returned an exit; ``None`` for timeout — a
@@ -60,6 +61,9 @@ the field names below are stable; the integration tests assert on them:
     reason        str or None short, human-readable cause for a non-pass
                               outcome (verify exit, precheck detail, problems
                               from the upstream-artifact gate, quarantine cause)
+    failure_class str or None "environment" when a deterministic verifier
+                              signal delayed the task, "logic" for a recorded
+                              logic failure, otherwise None
     agent_log     str or None absolute path to the full agent output
     verify_log    str or None absolute path to the full verify output
 
@@ -74,6 +78,14 @@ Outcome vocabulary (worker.py decides, ledger.py only records):
     timeout       the verify command timed out and its process tree was
                   terminated; ``verify_exit`` is None
     spawn_error   the verify command could not be started
+    environment_backoff
+                  a verifier environment failure was recorded and the still-
+                  ready task is hidden from board consumers until its durable
+                  eligibility time; it did not increment the logic breaker.
+    environment_exhausted
+                  more than the bounded number of consecutive environment
+                  retries occurred; the task is blocked for an operator,
+                  without a kernel ``gave_up`` logic-failure event.
     skipped       the task was claimed, then released WITHOUT touching the
                   repo (dirty tree, branch mismatch, no workspace, unreadable
                   repo). ``reason`` carries the precheck detail. A dirty tree

@@ -57,13 +57,11 @@ proof for exact-source/branch adoption and corrupt-record refusal before claim.
 The canonical suite passed: `python tests/run.py` — 139 tests, exit 0,
 109.003s.
 
-The next atomic step is Phase 4 Slice 3: implement deterministic environment
-versus logic classification without weakening per-attempt ledger evidence or
-the circuit breaker. Review the unaccepted `slice3/error-class` worktree as
-evidence only; do not merge or copy it wholesale. Do not start Slice 4 until
-Slice 3 passes focused/full tests and independent review. See
-`.planning/reviews/phase-4-slice-2-review-2026-09-11.md` and
-`.planning/reviews/phase-audit-2026-09-10.md`.
+Slice 3 was accepted on focused/full exit-code evidence after the operator
+explicitly authorized continuation despite four unavailable Claude review
+attempts. The review record remains explicit about that limitation. The next
+atomic step is Slice 4's read-only Telegram scaffold; it must contain no
+transport, credential, account, or mutation capability.
 
 ## Safe Fan-Out
 

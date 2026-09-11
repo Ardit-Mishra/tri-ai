@@ -1,8 +1,9 @@
 # Phase 4 Plan — Read-Only Telegram Observability (+ captured-gap companion slices)
 
 **Status:** in progress. Slices 1-2 are accepted (`2369613`, `8ea0d03`). Slice
-2's implementation (`a71ff9e`, corrected by `02b90f8`) has adversarial
-regression proof; Slices 3-4 have unaccepted candidate worktrees. See
+3 is accepted on local focused/full exit-code evidence under explicit operator
+continuation; the unavailable separate-review attempts are recorded. Slice 4
+has an unaccepted candidate worktree. See
 `.planning/reviews/phase-audit-2026-09-10.md`. This plan captures the Phase 4
 milestone and the companion work from `research/proposed-gaps.md` that attaches
 to it.
@@ -79,7 +80,9 @@ fails" break (task stays ready, skipped, not mis-serialized).
 The circuit breaker (2 consecutive failures → `blocked`, `src/worker.py:485`) exists and stays.
 This is the first change to what counts as a "failure" against a node since the circuit breaker
 shipped in Phase 2. This slice adds the bucket: an environment-class failure (OOM, package-mirror
-time-out, network) backs off **without** recording against the node; a logic-class failure
+time-out, network, 429/quota exhaustion) takes a flat five-second durable delay
+without incrementing the node's logic breaker; after three consecutive delayed
+retries it blocks for an operator without a kernel `gave_up` event. A logic-class failure
 (assertion, syntax) is the only thing that records and trips the breaker. Re-visit
 `.planning/research/FEATURES.md`'s anti-backoff note — it concerns protecting a shared external
 service, which is a different claim from not confusing two failure classes, and the plan must say

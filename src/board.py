@@ -160,6 +160,7 @@ def migrate(conn: sqlite3.Connection) -> dict[str, bool]:
     # idempotent on the same terms as the column adds above.
     conn.execute(QUARANTINE_DDL)
     conn.execute(WORKTREE_DDL)
+    conn.execute(ENVIRONMENT_BACKOFF_DDL)
 
     conn.commit()
     return added
@@ -309,20 +310,26 @@ def verify_spec(conn: sqlite3.Connection, task_id: str) -> Optional[dict[str, An
 # ---------------------------------------------------------------------------
 
 
-def ready_tasks(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+def ready_tasks(conn: sqlite3.Connection, *, now: Optional[int] = None) -> list[dict[str, Any]]:
     """Every currently reclaimable ready task, oldest-first within priority.
 
     ``verify_command`` must be present: an unverifiable task does not belong
     on the board (``create_task`` enforces that at write time; this re-checks
     rows written through lower-level APIs).
     """
+    current_time = int(time.time()) if now is None else int(now)
     rows = conn.execute(
         "SELECT id, title, workspace_path, verify_command, verify_timeout, "
         "       workspace_kind, branch_name "
         "FROM tasks "
         "WHERE status = 'ready' AND claim_lock IS NULL "
         "  AND verify_command IS NOT NULL "
+        "  AND NOT EXISTS ("
+        "      SELECT 1 FROM triai_environment_backoff AS backoff "
+        "      WHERE backoff.task_id = tasks.id AND backoff.eligible_at > ?"
+        "  ) "
         "ORDER BY priority DESC, created_at ASC"
+        , (current_time,)
     ).fetchall()
     return [dict(r) for r in rows]
 
@@ -464,6 +471,24 @@ CREATE TABLE IF NOT EXISTS triai_worktrees (
     created_at   INTEGER NOT NULL
 )
 """
+
+ENVIRONMENT_BACKOFF_DDL = """
+CREATE TABLE IF NOT EXISTS triai_environment_backoff (
+    task_id      TEXT PRIMARY KEY,
+    attempts     INTEGER NOT NULL,
+    eligible_at  INTEGER NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL
+)
+"""
+
+
+def environment_backoff(conn: sqlite3.Connection, task_id: str) -> Optional[dict[str, Any]]:
+    """Return the durable environment retry delay for a task, if one exists."""
+    row = conn.execute(
+        "SELECT * FROM triai_environment_backoff WHERE task_id = ?", (task_id,)
+    ).fetchone()
+    return dict(row) if row is not None else None
 
 
 def workspace_key(path: Path | str) -> str:

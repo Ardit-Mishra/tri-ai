@@ -5,8 +5,8 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Phase 4 — Read-Only Telegram Observability (Slice 3 error
-classification)
+**Current focus:** Phase 4 — Read-Only Telegram Observability (Slice 4
+read-only scaffold)
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
@@ -22,14 +22,15 @@ Phase: 4 of 8 (Read-Only Telegram Observability)
 Plan: `.planning/phases/phase-4-plan.md`
 Status: Phases 1-3 are complete; Phase 4 Slices 1 and 2 are accepted. Slice 2's
 implementation/review correction (`a71ff9e` / `02b90f8`) is now covered by
-adversarial regression tests in `8ea0d03`. Slice 3 is the next atomic step.
+adversarial regression tests in `8ea0d03`. Slice 3 is accepted on local,
+exit-code evidence under the operator's explicit continuation instruction; the
+separate review service was unavailable and is recorded as such.
 
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **139 tests, exit
-0, 109.003s** (2026-09-11). This establishes the current base is green and
-includes the accepted Slice 2 ownership-correction cases.
+**Latest canonical verification:** `python tests/run.py` → **146 tests, exit
+0, 110.851s** (2026-09-11). This is the pre-commit Slice 3 verification.
 
 **Phase 4 Slice 2 accepted:** independent review of `a71ff9e` found that a
 crash after `git worktree add` could strand a deterministic unowned target and
@@ -89,10 +90,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Phase 4 Slice 3: integrate deterministic environment-vs-logic failure
-  classification. Every attempt remains ledgered; only an explicitly classified
-  environment failure avoids incrementing the circuit breaker. Review the
-  unaccepted candidate rather than adopting it by report.
+- Phase 4 Slice 4: scaffold the read-only Telegram surface with no transport,
+  credential, account, or mutation capability. Slice 3's review service was
+  unavailable across four attempts; the operator explicitly authorized
+  continuation after its focused/full verification. Preserve this limitation in
+  the Slice 3 review record rather than calling it independent approval.
 - Phase 2's worker must call `board.release_stale_claims`, never `kb.release_stale_claims` directly — going straight to the kernel reintroduces the Windows reclaim deferral (see Blockers). Add a grep check to Phase 2's criterion-5 audit step, beside the existing no-push/no-merge/no-credentials audit
 - Any new Tri-AI entry point must go through `board.kanban()`, which now *assigns* `HERMES_KANBAN_DB` rather than `setdefault`-ing it. A dispatcher-spawned worker inherits that variable pointing at the Hermes board, so `setdefault` silently kept the wrong board
 - Review is a separate seat: Claude writes, a second model reviews at the commit/branch level. Brief at `~/CODEX-REVIEWER-BRIEF.md`. It earns its keep — the first pass caught a test whose *name* claimed it proved a schema collision was refused while its body only inspected a throwaway table and never called `migrate()`. A test that asserts less than its name is the same class of failure as an agent reporting success it did not achieve, and self-review does not reliably catch it

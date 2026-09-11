@@ -193,7 +193,7 @@ class WorkerVerifyGate(BoardTestCase):
         self.assertEqual(entries[0]["verify_exit"], 2)
         self.assertEqual(entries[0]["verify_outcome"], "failed")
 
-    def test_verify_timeout_is_recorded_without_an_exit_code(self):
+    def test_verify_timeout_is_recorded_without_an_exit_code_and_delayed(self):
         repo = self._make_repo()
         tid = self._make_task(repo, title="write changelog", verify="python verify.py")
         claimed = self._claim(tid)
@@ -204,9 +204,9 @@ class WorkerVerifyGate(BoardTestCase):
                 self.conn, claimed, ledger_path=self.ledger, runs_root=self.runs,
             )
 
-        self.assertEqual(attempt.outcome, "timeout")
+        self.assertEqual(attempt.outcome, "environment_backoff")
         self.assertEqual(self.task_row(tid)["status"], "ready")
-        self.assertIn("verify_timeout", self.event_kinds(tid))
+        self.assertIn("environment_backoff", self.event_kinds(tid))
 
         run = self.conn.execute(
             "SELECT outcome, status FROM task_runs WHERE task_id = ? ORDER BY id DESC LIMIT 1",
@@ -215,12 +215,13 @@ class WorkerVerifyGate(BoardTestCase):
         self.assertEqual(run["outcome"], "timed_out")
 
         entries = ledger.read_entries(self.ledger)
-        self.assertEqual(entries[0]["outcome"], "timeout")
+        self.assertEqual(entries[0]["outcome"], "environment_backoff")
         self.assertIsNone(entries[0]["verify_exit"],
                           "a timeout must not borrow an exit code")
         self.assertEqual(entries[0]["verify_outcome"], "timeout")
+        self.assertEqual(entries[0]["failure_class"], "environment")
 
-    def test_verify_spawn_error_is_its_own_outcome(self):
+    def test_verify_spawn_error_is_ledgered_then_delayed(self):
         repo = self._make_repo()
         tid = self._make_task(repo, title="write changelog", verify="missing.exe")
         claimed = self._claim(tid)
@@ -233,9 +234,9 @@ class WorkerVerifyGate(BoardTestCase):
                 self.conn, claimed, ledger_path=self.ledger, runs_root=self.runs,
             )
 
-        self.assertEqual(attempt.outcome, "spawn_error")
+        self.assertEqual(attempt.outcome, "environment_backoff")
         self.assertEqual(self.task_row(tid)["status"], "ready")
-        self.assertIn("verify_spawn_error", self.event_kinds(tid))
+        self.assertIn("environment_backoff", self.event_kinds(tid))
 
         run = self.conn.execute(
             "SELECT outcome FROM task_runs WHERE task_id = ? ORDER BY id DESC LIMIT 1",
@@ -244,9 +245,10 @@ class WorkerVerifyGate(BoardTestCase):
         self.assertEqual(run["outcome"], "spawn_failed")
 
         entries = ledger.read_entries(self.ledger)
-        self.assertEqual(entries[0]["outcome"], "spawn_error")
+        self.assertEqual(entries[0]["outcome"], "environment_backoff")
         self.assertIsNone(entries[0]["verify_exit"])
         self.assertEqual(entries[0]["verify_outcome"], "spawn_error")
+        self.assertEqual(entries[0]["failure_class"], "environment")
 
     # -- the upstream-artifact gate runs before the agent -----------------
 

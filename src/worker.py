@@ -74,6 +74,7 @@ from typing import Any, Optional, Sequence
 
 import board  # noqa: F401  (closure module; all kernel access via board.kanban())
 import executor
+import failure_class
 import ledger
 import worktrees
 
@@ -87,6 +88,12 @@ EXIT_QUARANTINE = 3
 # Matches run_queue.py's default. The verify command's budget is the task's
 # verify_timeout, enforced by the worker before execution.
 DEFAULT_AGENT_TIMEOUT = 30 * 60
+
+# Environment failures are delayed rather than treated as evidence that the
+# task's logic is broken. The cap belongs to the environment lane, not the
+# kernel's logic circuit breaker, and prevents an unattended worker loop.
+ENVIRONMENT_BACKOFF_SECONDS = 5
+ENVIRONMENT_RETRY_LIMIT = 3
 
 # Block kind for a quarantined workspace. `needs_input` is the "truly blocked /
 # human must look" bucket in the kernel's VALID_BLOCK_KINDS; only an operator
@@ -143,13 +150,8 @@ def ready_tasks(conn) -> list[dict[str, Any]]:
 
 def pick_ready_task(conn) -> Optional[str]:
     """One ready task id to claim, or None when there is nothing to do."""
-    tasks = conn.execute(
-        "SELECT id FROM tasks "
-        "WHERE status = 'ready' AND claim_lock IS NULL "
-        "  AND verify_command IS NOT NULL "
-        "ORDER BY priority DESC, created_at ASC LIMIT 1"
-    ).fetchone()
-    return str(tasks["id"]) if tasks else None
+    tasks = board.ready_tasks(conn)
+    return str(tasks[0]["id"]) if tasks else None
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +375,22 @@ def execute_task(
             },
         )
 
+    classification = failure_class.classify_failure(
+        verify_outcome=verifier.outcome,
+        verify_exit=verifier.exit_code,
+        verify_output=verifier.output,
+    )
+    if classification is failure_class.FailureClass.ENVIRONMENT:
+        return _environment_backoff(
+            conn, claimed, run_id, repo, branch,
+            verify_outcome=verifier.outcome,
+            verify_exit=verifier.exit_code, agent=agent,
+            reason=verifier.output.strip().splitlines()[-1][:300]
+            if verifier.output.strip() else None,
+            ledger_path=lp, agent_log=agent_log, verify_log=verify_log,
+            seconds=seconds,
+        )
+
     return _fail(
         conn, claimed, run_id, repo, branch,
         outcome=outcome, verify_outcome=verifier.outcome,
@@ -443,7 +461,7 @@ def _fail(
         outcome=outcome, verify_exit=verify_exit, verify_outcome=verify_outcome,
         agent_exit=agent.exit_code if agent is not None else None,
         model=model, provider=provider, model_source=model_source,
-        seconds=seconds, reason=reason,
+        seconds=seconds, reason=reason, failure_class="logic",
         agent_log=agent_log, verify_log=verify_log,
     )
     if not owned and not skip_board:
@@ -457,6 +475,88 @@ def _fail(
         )
     ledger.record(entry, path=ledger_path)
     return Attempt(outcome, entry=entry)
+
+
+def _environment_backoff(
+    conn, claimed, run_id, repo, branch, *, verify_outcome,
+    verify_exit, agent, reason, ledger_path, agent_log, verify_log, seconds,
+) -> Attempt:
+    """Ledger an environment failure without invoking the logic breaker.
+
+    The task itself remains ``ready`` so its graph status is not rewritten, but
+    the durable board record hides it from both worker and dispatcher until its
+    due time. After three such retries it is explicitly blocked for an operator
+    without creating a kernel ``gave_up`` logic-failure event.
+    """
+    kb = board.kanban()
+    now = int(time.time())
+    prior = board.environment_backoff(conn, claimed.id)
+    attempts = int(prior["attempts"]) + 1 if prior is not None else 1
+    exhausted = attempts > ENVIRONMENT_RETRY_LIMIT
+    event_kind = "environment_retry_exhausted" if exhausted else "environment_backoff"
+    retry_status = kb._retry_status_for_run(conn, claimed.id, run_id)
+    run_outcome = (
+        "timed_out" if verify_outcome == "timeout" else
+        "spawn_failed" if verify_outcome == "spawn_error" else "failed"
+    )
+    owned = False
+    with kb.write_txn(conn):
+        if exhausted:
+            cur = conn.execute(
+                "UPDATE tasks SET status = 'blocked', claim_lock = NULL, claim_expires = NULL, "
+                "worker_pid = NULL, last_heartbeat_at = NULL "
+                "WHERE id = ? AND status = 'running' AND claim_lock = ? AND current_run_id = ?",
+                (claimed.id, claimed.claim_lock, int(run_id)),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE tasks SET status = ?, claim_lock = NULL, claim_expires = NULL, "
+                "worker_pid = NULL, last_heartbeat_at = NULL "
+                "WHERE id = ? AND status = 'running' AND claim_lock = ? AND current_run_id = ?",
+                (retry_status, claimed.id, claimed.claim_lock, int(run_id)),
+            )
+        if cur.rowcount == 1:
+            owned = True
+            closed = kb._end_run(
+                conn, claimed.id, outcome=run_outcome, status=run_outcome,
+                error=(reason or "environment failure")[:500],
+                metadata={"failure_class": "environment", "attempts": attempts},
+            )
+            payload = {
+                "verify_outcome": verify_outcome,
+                "verify_exit": verify_exit,
+                "attempts": attempts,
+                "reason": reason,
+            }
+            if exhausted:
+                kb._append_event(conn, claimed.id, event_kind, payload, run_id=closed)
+            else:
+                eligible_at = now + ENVIRONMENT_BACKOFF_SECONDS
+                conn.execute(
+                    "INSERT INTO triai_environment_backoff "
+                    "(task_id, attempts, eligible_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?) "
+                    "ON CONFLICT(task_id) DO UPDATE SET attempts = excluded.attempts, "
+                    "eligible_at = excluded.eligible_at, updated_at = excluded.updated_at",
+                    (claimed.id, attempts, eligible_at, now, now),
+                )
+                kb._append_event(
+                    conn, claimed.id, event_kind, {**payload, "eligible_at": eligible_at}, run_id=closed,
+                )
+    entry = _entry(
+        claimed, run_id=run_id, repo=repo, branch=branch,
+        outcome="environment_exhausted" if exhausted else "environment_backoff",
+        verify_exit=verify_exit, verify_outcome=verify_outcome,
+        agent_exit=agent.exit_code if agent is not None else None,
+        model=agent.model if agent is not None else None,
+        provider=agent.provider if agent is not None else None,
+        model_source=agent.model_source if agent is not None else "unavailable",
+        seconds=seconds, reason=reason, agent_log=agent_log, verify_log=verify_log,
+        failure_class="environment",
+    )
+    if not owned:
+        entry["reason"] = f"{entry.get('reason') or ''}; claim ownership lost before environment backoff".strip()
+    ledger.record(entry, path=ledger_path)
+    return Attempt(entry["outcome"], entry=entry)
 
 
 def _board_failure(
@@ -528,6 +628,9 @@ def _board_failure(
         )
         if cur.rowcount == 1:
             owned = True
+            # The environment series is consecutive. A real logic failure
+            # begins the kernel's separate breaker series from this point.
+            conn.execute("DELETE FROM triai_environment_backoff WHERE task_id = ?", (task_id,))
             closed = kb._end_run(
                 conn, task_id,
                 outcome=run_outcome, status=run_outcome,
@@ -590,7 +693,7 @@ def _entry(
     claimed, *, run_id, repo, branch, outcome,
     verify_exit=None, verify_outcome=None, agent_exit=None,
     model=None, provider=None, model_source="unavailable",
-    seconds=0.0, reason=None, agent_log=None, verify_log=None,
+    seconds=0.0, reason=None, agent_log=None, verify_log=None, failure_class=None,
 ) -> dict[str, Any]:
     """One ledger line. Field names are documented in ledger.py's schema."""
     return {
@@ -610,6 +713,7 @@ def _entry(
         "model_source": model_source,
         "seconds": round(float(seconds), 2),
         "reason": reason,
+        "failure_class": failure_class,
         "agent_log": str(agent_log) if agent_log is not None else None,
         "verify_log": str(verify_log) if verify_log is not None else None,
     }
