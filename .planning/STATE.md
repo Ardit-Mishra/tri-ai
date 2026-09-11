@@ -5,8 +5,8 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** build the approved procedural-rule layer on top of
-provenance-checked episodic records. Route admission is complete, but executor
+**Current focus:** build deterministic semantic memory from the accepted
+episodic/procedural artifacts. Route admission is complete, but executor
 routing remains intentionally disabled until an operator-configured Hermes
 profile has real measured evidence.
 
@@ -35,10 +35,11 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **194 tests, exit
-0, 142.528s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **200 tests, exit
+0, 156.190s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
-the route-admission and episodic-memory gates alongside every prior phase.
+the route-admission, episodic-memory, and procedural-memory gates alongside
+every prior phase.
 
 **Phase 5A accepted locally:** confirmed Telegram control is implemented in
 `telegram_control.py` and `board.py`, with the HTTPS daemon selecting it
@@ -87,6 +88,15 @@ input leaves the current index untouched, while changed source lines invalidate
 the old citation and preserve it as stale evidence. Focused tests: 5, exit 0,
 0.196s. Next: procedural rules that cite only validated episodic facts and
 cannot alter task acceptance or execution policy.
+
+**Procedural memory accepted locally:** `src/memory/procedural.py` loads
+strict, operator-owned rules whose only selectable output is a fixed
+preflight-checklist vocabulary. Selection revalidates exact workspace/task-kind
+scope, expiry, citation digests, deterministic order, and a character budget;
+free text, command-shaped fields, routing/model fields, and any activation
+other than `preflight_advice` are refused. Focused tests: 6, exit 0, 0.086s.
+No rule is injected into the worker yet. Next: deterministic semantic facts
+derived only from the episodic and procedural records.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.
