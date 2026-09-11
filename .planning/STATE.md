@@ -17,8 +17,8 @@ implementation and review correction are committed on the canonical branch,
 but the two P1 review fixes lack adversarial regression tests and are not
 accepted. Do not start Slice 3 until they exist and review passes.
 
-**Canonical branch:** `phase-2/worker-assign` at `908e92a` (this audit
-commit). The audited implementation base was `00671d9`.
+**Canonical branch:** `phase-2/worker-assign`. The audited implementation base
+was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
 **Latest canonical verification:** `python tests/run.py` → **137 tests, exit
 0, 139.195s** (2026-09-10). This establishes the current base is green; it
@@ -126,7 +126,8 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-09-10
-Phase/plan audit complete on canonical `phase-2/worker-assign` at `908e92a`.
+Phase/plan audit complete on canonical `phase-2/worker-assign`; audit record
+commit `75e188f`.
 Read `.planning/reviews/phase-audit-2026-09-10.md` before touching any feature
 worktree. It separates accepted history from candidate code and preserves each
 failure result.
