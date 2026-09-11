@@ -51,18 +51,19 @@ Build **Read-Only Telegram Observability** in four reviewed slices:
 ## Current Checkpoint
 
 Phase 3 is COMPLETE and independently reviewed at
-`.planning/reviews/phase-3-review.md`. Phase 4 Slice 1 is accepted (`2369613`).
-Slice 2 is implemented and corrected in `a71ff9e` / `02b90f8`, but **not
-accepted**: the review fixes for crash adoption and wrong-branch ownership have
-no adversarial regression test. The canonical suite is green at `00671d9`:
-`python tests/run.py` — 137 tests, exit 0, 136.158s.
+`.planning/reviews/phase-3-review.md`. Phase 4 Slices 1 and 2 are accepted
+(`2369613`, `8ea0d03`). Slice 2's correction in `02b90f8` now has adversarial
+proof for exact-source/branch adoption and corrupt-record refusal before claim.
+The canonical suite passed: `python tests/run.py` — 139 tests, exit 0,
+109.003s.
 
-The next atomic step is to add exactly two Slice 2 tests: a pre-existing
-deterministic worktree is adopted only after exact source/branch proof, and a
-corrupt board record/branch is skipped before claim. Run the focused and full
-suite, record evidence, commit locally, and obtain review. Do not start Slice
-3, merge a feature branch, or delete a worktree automatically. See
-`.planning/reviews/phase-audit-2026-09-10.md` for the complete branch audit.
+The next atomic step is Phase 4 Slice 3: implement deterministic environment
+versus logic classification without weakening per-attempt ledger evidence or
+the circuit breaker. Review the unaccepted `slice3/error-class` worktree as
+evidence only; do not merge or copy it wholesale. Do not start Slice 4 until
+Slice 3 passes focused/full tests and independent review. See
+`.planning/reviews/phase-4-slice-2-review-2026-09-11.md` and
+`.planning/reviews/phase-audit-2026-09-10.md`.
 
 ## Safe Fan-Out
 

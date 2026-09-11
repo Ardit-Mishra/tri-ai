@@ -1,8 +1,8 @@
 # Phase 4 Plan — Read-Only Telegram Observability (+ captured-gap companion slices)
 
-**Status:** in progress. Slice 1 is accepted (`2369613`). Slice 2 is implemented
-(`a71ff9e`, corrected by `02b90f8`) but awaits adversarial regression proof for
-the review corrections; Slices 3-4 have unaccepted candidate worktrees. See
+**Status:** in progress. Slices 1-2 are accepted (`2369613`, `8ea0d03`). Slice
+2's implementation (`a71ff9e`, corrected by `02b90f8`) has adversarial
+regression proof; Slices 3-4 have unaccepted candidate worktrees. See
 `.planning/reviews/phase-audit-2026-09-10.md`. This plan captures the Phase 4
 milestone and the companion work from `research/proposed-gaps.md` that attaches
 to it.

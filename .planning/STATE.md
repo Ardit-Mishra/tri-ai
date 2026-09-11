@@ -5,8 +5,8 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Phase 4 — Read-Only Telegram Observability (Slice 2
-adversarial correction proof)
+**Current focus:** Phase 4 — Read-Only Telegram Observability (Slice 3 error
+classification)
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
@@ -20,26 +20,25 @@ reviewer packets are embedded in the design.
 
 Phase: 4 of 8 (Read-Only Telegram Observability)
 Plan: `.planning/phases/phase-4-plan.md`
-Status: Phases 1-3 are complete; Phase 4 Slice 1 is accepted. Slice 2's
-implementation and review correction are committed on the canonical branch,
-but the two P1 review fixes lack adversarial regression tests and are not
-accepted. Do not start Slice 3 until they exist and review passes.
+Status: Phases 1-3 are complete; Phase 4 Slices 1 and 2 are accepted. Slice 2's
+implementation/review correction (`a71ff9e` / `02b90f8`) is now covered by
+adversarial regression tests in `8ea0d03`. Slice 3 is the next atomic step.
 
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **137 tests, exit
-0, 136.158s** (2026-09-11). This establishes the current base is green; it
-does not prove Slice 2's two correction cases because no test drives them.
+**Latest canonical verification:** `python tests/run.py` → **139 tests, exit
+0, 109.003s** (2026-09-11). This establishes the current base is green and
+includes the accepted Slice 2 ownership-correction cases.
 
-**Phase 4 Slice 2 correction:** independent review of `a71ff9e` found that a
+**Phase 4 Slice 2 accepted:** independent review of `a71ff9e` found that a
 crash after `git worktree add` could strand a deterministic unowned target and
 that a recorded target was not proven to be the expected branch. `02b90f8`
 adds `executor.verify_worktree` and holds a board write transaction across
-adoption/materialization/recording. Required next proof: (1) pre-create the
-deterministic target and prove it is adopted only when linked to the exact
-source and branch; (2) corrupt a recorded target/branch and prove dispatch
-skips it unclaimed. Keep every target as evidence; do not auto-remove it.
+adoption/materialization/recording. `8ea0d03` proves exact-source and
+exact-branch adoption/refusal, then proves a corrupted on-disk recorded target
+skips before launcher/claim. Every rejected target remains evidence. Full
+record: `.planning/reviews/phase-4-slice-2-review-2026-09-11.md`.
 
 **Branch audit:** `.planning/reviews/phase-audit-2026-09-10.md` records every
 registered branch and its command result. Slice 3 (`slice3/error-class`) and
@@ -90,10 +89,10 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Phase 4 Slice 2: add the two missing adversarial tests for `02b90f8` before
-  accepting its review correction. This is the next atomic step. The task-owned
-  worktree is never automatically removed; a failed or pre-existing target is
-  evidence for an operator, not worker cleanup.
+- Phase 4 Slice 3: integrate deterministic environment-vs-logic failure
+  classification. Every attempt remains ledgered; only an explicitly classified
+  environment failure avoids incrementing the circuit breaker. Review the
+  unaccepted candidate rather than adopting it by report.
 - Phase 2's worker must call `board.release_stale_claims`, never `kb.release_stale_claims` directly — going straight to the kernel reintroduces the Windows reclaim deferral (see Blockers). Add a grep check to Phase 2's criterion-5 audit step, beside the existing no-push/no-merge/no-credentials audit
 - Any new Tri-AI entry point must go through `board.kanban()`, which now *assigns* `HERMES_KANBAN_DB` rather than `setdefault`-ing it. A dispatcher-spawned worker inherits that variable pointing at the Hermes board, so `setdefault` silently kept the wrong board
 - Review is a separate seat: Claude writes, a second model reviews at the commit/branch level. Brief at `~/CODEX-REVIEWER-BRIEF.md`. It earns its keep — the first pass caught a test whose *name* claimed it proved a schema collision was refused while its body only inspected a throwaway table and never called `migrate()`. A test that asserts less than its name is the same class of failure as an agent reporting success it did not achieve, and self-review does not reliably catch it
@@ -108,9 +107,9 @@ Recent decisions affecting current work:
   Phase 6's dashboard candidate fails. Phase 7's daemon candidate can fabricate
   a passing verification result and directly applies remote diffs; do not merge
   any of these branches. Full evidence is in the audit record.
-- Before Phase 5 work starts, reconcile the coarse preview (semantic memory and
-  self-evolution in Phase 6) with the detailed memory design (5C/5D). The
-  Phase 5 plan, not an experimental branch, must choose the order and proofs.
+- Before Phase 5 work starts, turn the approved capability-expansion design
+  into reviewed atomic implementation plans; semantic memory/evolution are
+  Phase 5C/5D, with the choice and proof obligations now recorded there.
 
 ### Blockers/Concerns
 
