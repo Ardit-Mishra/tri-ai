@@ -2,8 +2,9 @@
 
 **Status:** in progress. Slices 1-2 are accepted (`2369613`, `8ea0d03`). Slice
 3 is accepted on local focused/full exit-code evidence under explicit operator
-continuation; the unavailable separate-review attempts are recorded. Slice 4
-has an unaccepted candidate worktree. See
+continuation; the unavailable separate-review attempts are recorded. Slice 4's
+local read-only adapter scaffold is verified; no live Telegram transport is
+built or claimed. See
 `.planning/reviews/phase-audit-2026-09-10.md`. This plan captures the Phase 4
 milestone and the companion work from `research/proposed-gaps.md` that attaches
 to it.

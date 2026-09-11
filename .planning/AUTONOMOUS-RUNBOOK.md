@@ -57,11 +57,10 @@ proof for exact-source/branch adoption and corrupt-record refusal before claim.
 The canonical suite passed: `python tests/run.py` — 139 tests, exit 0,
 109.003s.
 
-Slice 3 was accepted on focused/full exit-code evidence after the operator
-explicitly authorized continuation despite four unavailable Claude review
-attempts. The review record remains explicit about that limitation. The next
-atomic step is Slice 4's read-only Telegram scaffold; it must contain no
-transport, credential, account, or mutation capability.
+Slice 4's read-only adapter scaffold is verified locally. It has no transport,
+credential, account, network, process, or mutation capability. The overnight
+hard stop is now active: do not begin Phase 5, add a live Telegram transport,
+or take external action without new operator direction.
 
 ## Safe Fan-Out
 

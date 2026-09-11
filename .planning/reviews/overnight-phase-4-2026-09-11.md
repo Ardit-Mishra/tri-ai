@@ -35,7 +35,7 @@ approval would defeat the project’s evidence rule.
 
 ## Next Immediate Task
 
-Have a separate read-only reviewer inspect the current uncommitted Slice 3
-diff. If accepted: rerun `python tests/run.py`, commit Slice 3 locally, update
-`STATE.md`, then implement the read-only Telegram scaffold. No push, merge,
-deployment, remote creation, or credential access occurred.
+This initial report was superseded by explicit operator continuation. Slice 3
+was committed as `a0ab9fc`; Slice 4's local read-only adapter scaffold is the
+next committed checkpoint. The hard stop remains: no live Telegram transport,
+Phase 5, push, merge, deployment, remote creation, or credential access.
