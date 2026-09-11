@@ -65,8 +65,10 @@ Hypotheses until shipped.
   claim untrue.
 - **Metered per-token APIs** — banned outright. Breaks the $0 rule.
 - **Creating accounts** — for any service, ever.
-- **Autonomous push, merge, deploy, or credential access** — work stays on feature branches and
-  waits for review.
+- **Autonomous push, remote/protected-branch merge, deploy, or credential access** — banned.
+  A separate local promotion process may merge a reviewed immutable source SHA only into a
+  dedicated local integration branch after a fresh operator-owned verifier passes; its contract
+  and evidence are defined in `research/capability-expansion-design.md`.
 - **A general agent framework** — this serves one operator's actual workflow. Generality is not a
   goal and would enlarge the surface that has to be trusted.
 

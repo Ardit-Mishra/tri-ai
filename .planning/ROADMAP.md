@@ -31,8 +31,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Planner + Bounded Concurrent Execution** - The strong model writes a real graph and exits; several workers execute it concurrently at a measured cap with proven per-branch failure isolation
 - [ ] **Phase 4: Read-Only Telegram Observability** - The board and full subtask output are inspectable from Telegram, no write capability yet (in progress)
 - [ ] **Phase 5: Memory, Telegram Control, and Intake** - Passive memory foundation plus cancel, retry, and confirmation-gated task assignment from Telegram
-- [ ] **Phase 6: JARVIS Dashboard and Evolution** - Read-only terminal/web dashboard and deterministic, citation-backed evolution
-- [ ] **Phase 7: Trusted Distributed Delegation** - A remote-worker protocol that preserves verify-gated acceptance
+- [ ] **Phase 6: JARVIS Dashboard** - Read-only terminal/web dashboard over board, ledger, and accepted memory evidence
+- [ ] **Phase 7: Planner Integration and Trusted Distributed Delegation** - Learned-pattern planner assistance plus a remote-worker protocol that preserves verify-gated acceptance
 - [ ] **Phase 8: Remote Offload and Phone Control** - Hardware-aware offload and confirmation-gated multi-node control
 
 ## Phase Details
@@ -110,15 +110,21 @@ Phase 6 placement of semantic memory and self-evolution with the detailed
 memory design's 5C/5D placement. The Phase 5 plan must choose one ordering,
 state dependencies, and define exit-code-backed proofs before either branch is
 treated as authoritative.
+**Approved capability direction (2026-09-11)**: semantic memory and constrained
+self-evolution are Phase 5C/5D; Phase 6 is dashboards. Local RAG and model
+routing first ship as evidence-producing probes, and local verified promotion
+is a separate post-Phase-4 gate. See
+`.planning/research/capability-expansion-design.md`.
 
-### Phase 6: JARVIS Dashboard and Evolution
-**Goal**: Present a read-only board/ledger/memory view and derive only deterministic,
-citation-backed memory rules. It depends on accepted Phase 5 memory evidence.
+### Phase 6: JARVIS Dashboard
+**Goal**: Present a read-only board/ledger/accepted-memory view. It does not
+derive, activate, or mutate memory rules; those responsibilities are Phase 5D.
+It depends on accepted Phase 5 memory evidence.
 
-### Phase 7: Trusted Distributed Delegation
-**Goal**: Coordinate remote execution without allowing a remote agent report to
-mark work verified. The accepting authority must possess an independently
-checkable verify result.
+### Phase 7: Planner Integration and Trusted Distributed Delegation
+**Goal**: Let the planner consume accepted crystallized patterns and coordinate
+remote execution without allowing a remote agent report to mark work verified.
+The accepting authority must possess an independently checkable verify result.
 
 ### Phase 8: Remote Offload and Phone Control
 **Goal**: Add measured hardware routing and confirmation-gated phone controls
@@ -138,6 +144,6 @@ Branch experiments do not change this order or count as completion.
 | 3. Planner + Bounded Concurrent Execution | 1/1 | Complete | 2026-09-10 |
 | 4. Read-Only Telegram Observability | 1/4 slices accepted | In progress | - |
 | 5. Memory, Telegram Control, and Intake | 0/TBD | Planned; candidate branch is partial | - |
-| 6. JARVIS Dashboard and Evolution | 0/TBD | Planned; candidate branch failing | - |
-| 7. Trusted Distributed Delegation | 0/TBD | Planned; candidate violates verify gate | - |
+| 6. JARVIS Dashboard | 0/TBD | Planned; candidate branch failing | - |
+| 7. Planner Integration and Trusted Distributed Delegation | 0/TBD | Planned; candidate violates verify gate | - |
 | 8. Remote Offload and Phone Control | 0/TBD | Planned | - |

@@ -115,6 +115,12 @@ evidence rather than a summary.
 - **Memory subsystem — episodic + procedural (gap #9):** SQLite run index + markdown summaries
   (compiled truth + timeline), rules engine with citation validation, skill files. Foundation for
   everything after Phase 4. Design at `.planning/research/memory-subsystem-design.md`.
+- **RAG and local model-routing probes:** both are evidence-producing, local-only probes before
+  either becomes worker input or route policy. Their graduated contracts live in
+  `.planning/research/capability-expansion-design.md`.
+- **Memory subsystem — semantic + constrained self-evolution:** provenance-derived knowledge graph,
+  citation/replay-gated advice rules, and template-based remediation. These are Phase 5C/5D, not
+  Phase 6.
 - **Telegram write control (#8's control half):** retry/cancel/pause, reachable and deliberately
   gated on the primitives being proven in Phase 4/5.
 - **Telegram inbox→execute (#3):** closes the `PROJECT.md:77-78` documented gap. After read-only
@@ -122,15 +128,13 @@ evidence rather than a summary.
 
 ## Phase 6 (preview, not started)
 
-- **Memory subsystem — semantic + self-evolution:** knowledge graph extraction (zero LLM calls),
-  post-mortem reflection, failure-driven rule creation, pattern crystallization.
 - **JARVIS dashboard:** terminal TUI + local web visualization — the neural network view of the
-  running graph. Reads board + ledger + memory system status. Never writes.
+  running graph. Reads board + ledger + accepted memory system status. Never writes.
 
 ## Phase 7 (preview, not started)
 
-- **Planner integration:** planner loads learned patterns and suggests macro templates. Gated on
-  the pattern crystallization being proven reliable.
+- **Planner integration:** planner loads accepted learned patterns and suggests macro templates.
+  Gated on the pattern crystallization being proven reliable.
 - **Distributed delegation — daemon foundation (gap #10):** tri-agent daemon on the desktop,
   HTTP API for remote workers, workspace sync via git archive. Design at
   `.planning/research/distributed-delegation-design.md`.
