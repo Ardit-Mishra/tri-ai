@@ -127,6 +127,11 @@ class TransportBoundaryIsNarrow(unittest.TestCase):
                     found.append(node.module)
         self.assertEqual(found, [])
 
+    def test_daemon_handler_seam_can_reach_control_without_direct_board_access(self):
+        source = self.source.read_text(encoding="utf-8")
+        self.assertIn("handler=", source)
+        self.assertNotIn("import board", source)
+
 
 if __name__ == "__main__":
     unittest.main()

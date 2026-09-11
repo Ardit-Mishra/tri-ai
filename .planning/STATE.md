@@ -5,22 +5,26 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Phase 4.5 — authorized implementation of the Telegram
-long-poll transport over the verified read-only adapter
+**Current focus:** Phase 5A-C — operator-authorized confirmed Telegram
+control, continuous local worker daemon, and measured local routing probe
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
 operator-configured cloud/free lanes and desktop-local failover, semantic memory,
-and constrained self-evolution. These features are approved. The current atomic
-step is a narrowly bounded transport daemon for Phase 4's read-only adapter. It
-does not start Phase 5: it introduces no Telegram write verb, board mutation,
-process spawn, service installation, or automated credential use.
+and constrained self-evolution. These features are approved. The operator
+authorized sequential implementation of Phase 5A-C on 2026-09-11. The active
+plan is .planning/phases/phase-5-control-worker-routing-plan.md. Each slice
+remains separately verified and committed; no live credential is inspected and
+no external proxy request is made during implementation.
 
 ## Current Position
 
-Phase: 4 of 8 (Read-Only Telegram Observability)
-Plan: `.planning/phases/phase-4-plan.md`
-Status: Phases 1-3 are complete; Phase 4 Slices 1 and 2 are accepted. Slice 2's
+Phase: 5 of 8 (Memory, Telegram Control, and Intake)
+Plan: .planning/phases/phase-5-control-worker-routing-plan.md
+Status: Phases 1-3 are complete. Phase 4's local adapter and HTTPS transport
+are verified; an operator independently exercised the read-only phone path on
+2026-09-11 against task t_baa70e9a, which reached done after two retained
+reclaims. Phase 5A-C is authorized implementation work. Slice 2's
 implementation/review correction (`a71ff9e` / `02b90f8`) is now covered by
 adversarial regression tests in `8ea0d03`. Slice 3 is accepted on local,
 exit-code evidence under the operator's explicit continuation instruction; the
@@ -29,9 +33,17 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **160 tests, exit
-0, 114.434s** (2026-09-11). This verifies the Phase 4.5 Telegram transport
-alongside every prior phase.
+**Latest canonical verification:** `python tests/run.py` → **168 tests, exit
+0, 118.068s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+control alongside every prior phase.
+
+**Phase 5A accepted locally:** confirmed Telegram control is implemented in
+`telegram_control.py` and `board.py`, with the HTTPS daemon selecting it
+only when an operator supplies an intake-policy JSON file. Run and retry create
+durable pending actions; confirm is chat-bound and idempotent; policy owns
+workspace, verify command, and timeout; cancel is compare-and-swap and refuses
+an unregistered or surviving worker PID. Focused control/transport tests: 22,
+exit 0, 5.175s. Next atomic step: Phase 5B continuous local worker daemon.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.

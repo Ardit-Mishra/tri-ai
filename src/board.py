@@ -32,6 +32,7 @@ import os
 import sqlite3
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional
 
@@ -161,6 +162,7 @@ def migrate(conn: sqlite3.Connection) -> dict[str, bool]:
     conn.execute(QUARANTINE_DDL)
     conn.execute(WORKTREE_DDL)
     conn.execute(ENVIRONMENT_BACKOFF_DDL)
+    conn.execute(PENDING_ACTIONS_DDL)
 
     conn.commit()
     return added
@@ -481,6 +483,249 @@ CREATE TABLE IF NOT EXISTS triai_environment_backoff (
     updated_at   INTEGER NOT NULL
 )
 """
+
+PENDING_ACTIONS_DDL = """
+CREATE TABLE IF NOT EXISTS triai_pending_actions (
+    id          TEXT PRIMARY KEY,
+    chat_id     TEXT NOT NULL,
+    action      TEXT NOT NULL,
+    payload     TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    result_id   TEXT,
+    created_at  INTEGER NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    confirmed_at INTEGER
+)
+"""
+
+
+@dataclass(frozen=True)
+class ControlResult:
+    """The durable result of a Telegram-originated board control action."""
+
+    changed: bool
+    status: str
+    task_id: Optional[str] = None
+    detail: str = ""
+
+
+def create_pending_action(
+    conn: sqlite3.Connection,
+    *,
+    action_id: str,
+    chat_id: str,
+    action: str,
+    payload: Mapping[str, Any],
+    expires_at: int,
+) -> ControlResult:
+    """Persist a confirmation request without creating or changing a task."""
+    if action not in {"run", "retry"}:
+        raise ValueError(f"unsupported pending action: {action!r}")
+    if not action_id or not chat_id:
+        raise ValueError("pending action id and chat id are required")
+    if int(expires_at) <= int(time.time()):
+        raise ValueError("pending action expiry must be in the future")
+    kb = kanban()
+    with kb.write_txn(conn):
+        existing = conn.execute(
+            "SELECT status, result_id FROM triai_pending_actions WHERE id = ?",
+            (action_id,),
+        ).fetchone()
+        if existing is None:
+            conn.execute(
+                "INSERT INTO triai_pending_actions "
+                "(id, chat_id, action, payload, status, created_at, expires_at) "
+                "VALUES (?, ?, ?, ?, 'pending', ?, ?)",
+                (
+                    action_id, chat_id, action, json.dumps(dict(payload)),
+                    int(time.time()), int(expires_at),
+                ),
+            )
+            return ControlResult(True, "pending", detail=action)
+        return ControlResult(
+            False, str(existing["status"]), existing["result_id"],
+            "pending action id already exists",
+        )
+
+
+def pending_action(conn: sqlite3.Connection, action_id: str) -> Optional[dict[str, Any]]:
+    """Return a durable confirmation request, decoded, or None."""
+    row = conn.execute(
+        "SELECT * FROM triai_pending_actions WHERE id = ?", (action_id,)
+    ).fetchone()
+    if row is None:
+        return None
+    out = dict(row)
+    out["payload"] = json.loads(out["payload"])
+    return out
+
+
+def _retry_task_in_txn(conn: sqlite3.Connection, task_id: str) -> ControlResult:
+    """Requeue one terminal task under the caller's existing write lock."""
+    row = conn.execute(
+        "SELECT status, claim_lock, workspace_path, verify_command, verify_timeout "
+        "FROM tasks WHERE id = ?",
+        (task_id,),
+    ).fetchone()
+    if row is None:
+        return ControlResult(False, "missing", task_id, "task does not exist")
+    if row["status"] not in {"failed", "blocked"} or row["claim_lock"] is not None:
+        return ControlResult(False, str(row["status"]), task_id, "task is not retryable")
+    workspace = row["workspace_path"]
+    if workspace and is_quarantined(conn, workspace):
+        return ControlResult(False, "quarantined", task_id, "workspace requires operator recovery")
+    if not (row["verify_command"] or "").strip() or row["verify_timeout"] is None:
+        return ControlResult(False, "unsafe", task_id, "task has no complete verify gate")
+    changed = conn.execute(
+        "UPDATE tasks SET status = 'todo', claim_lock = NULL, claim_expires = NULL, "
+        "worker_pid = NULL, consecutive_failures = 0, last_failure_error = NULL "
+        "WHERE id = ? AND status IN ('failed', 'blocked') AND claim_lock IS NULL",
+        (task_id,),
+    ).rowcount
+    if changed != 1:
+        return ControlResult(False, "raced", task_id, "task state changed during retry")
+    kb = kanban()
+    kb._append_event(conn, task_id, "retry_requested", {"source": "telegram"})
+    return ControlResult(True, "todo", task_id)
+
+
+def retry_task(conn: sqlite3.Connection, task_id: str) -> ControlResult:
+    """Requeue an eligible terminal task without changing its verify oracle."""
+    kb = kanban()
+    with kb.write_txn(conn):
+        result = _retry_task_in_txn(conn, task_id)
+    if result.changed:
+        kb.recompute_ready(conn)
+        row = conn.execute("SELECT status FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        return ControlResult(True, str(row["status"]), task_id)
+    return result
+
+
+def confirm_pending_action(
+    conn: sqlite3.Connection,
+    *,
+    action_id: str,
+    chat_id: str,
+    now: Optional[int] = None,
+) -> ControlResult:
+    """Apply exactly one pending action for its originating authorized chat."""
+    current = int(time.time()) if now is None else int(now)
+    kb = kanban()
+    needs_recompute = False
+    with kb.write_txn(conn, allow_nested=True):
+        row = conn.execute(
+            "SELECT * FROM triai_pending_actions WHERE id = ?", (action_id,)
+        ).fetchone()
+        if row is None:
+            return ControlResult(False, "missing", detail="confirmation request does not exist")
+        if str(row["chat_id"]) != str(chat_id):
+            return ControlResult(False, "forbidden", detail="confirmation belongs to another chat")
+        if row["status"] == "confirmed":
+            return ControlResult(False, "confirmed", row["result_id"], "already confirmed")
+        if row["status"] != "pending":
+            return ControlResult(False, str(row["status"]), row["result_id"], "request is not pending")
+        if int(row["expires_at"]) <= current:
+            conn.execute(
+                "UPDATE triai_pending_actions SET status = 'expired' "
+                "WHERE id = ? AND status = 'pending'",
+                (action_id,),
+            )
+            return ControlResult(False, "expired", detail="confirmation request expired")
+
+        payload = json.loads(row["payload"])
+        if row["action"] == "run":
+            task_id = create_task(
+                conn,
+                title=str(payload["title"]),
+                prompt=str(payload["prompt"]),
+                verify_command=str(payload["verify_command"]),
+                verify_timeout=int(payload["verify_timeout"]),
+                repo=str(payload["workspace"]),
+                idempotency_key=f"telegram-pending:{action_id}",
+            )
+            result = ControlResult(True, "confirmed", task_id)
+        elif row["action"] == "retry":
+            result = _retry_task_in_txn(conn, str(payload["task_id"]))
+            needs_recompute = result.changed
+        else:
+            return ControlResult(False, "unsafe", detail="unknown stored action")
+
+        conn.execute(
+            "UPDATE triai_pending_actions SET status = 'confirmed', result_id = ?, "
+            "confirmed_at = ? WHERE id = ? AND status = 'pending'",
+            (result.task_id, current, action_id),
+        )
+    if needs_recompute:
+        kb.recompute_ready(conn)
+        row = conn.execute(
+            "SELECT status FROM tasks WHERE id = ?", (result.task_id,)
+        ).fetchone()
+        return ControlResult(True, str(row["status"]), result.task_id)
+    return result
+
+
+def cancel_task(
+    conn: sqlite3.Connection,
+    task_id: str,
+    *,
+    signal_fn=None,
+    wait_seconds: float = 5.0,
+) -> ControlResult:
+    """Cancel one exact running claim, refusing to overwrite a completed race."""
+    row = conn.execute(
+        "SELECT status, claim_lock, worker_pid, current_run_id FROM tasks WHERE id = ?",
+        (task_id,),
+    ).fetchone()
+    if row is None:
+        return ControlResult(False, "missing", task_id, "task does not exist")
+    if row["status"] != "running" or row["claim_lock"] is None:
+        return ControlResult(False, str(row["status"]), task_id, "task is not running")
+
+    pid = row["worker_pid"]
+    if pid is None:
+        return ControlResult(False, "unknown", task_id, "running task has no worker PID")
+    try:
+        (signal_fn or posix_semantics_signal)(int(pid), 15)
+    except ProcessLookupError:
+        pass
+    except OSError as exc:
+        return ControlResult(False, "survived", task_id, f"worker termination failed: {type(exc).__name__}")
+
+    # A completed race is handled by the compare-and-swap below. A still-live
+    # worker is different: changing its board row while it can still write or
+    # complete is an unknown execution state, so retain the claim and refuse.
+    if signal_fn is None:
+        deadline = time.monotonic() + float(wait_seconds)
+        while kb_pid_alive(int(pid)):
+            if time.monotonic() >= deadline:
+                return ControlResult(False, "survived", task_id, "worker did not terminate")
+            time.sleep(0.05)
+
+    kb = kanban()
+    with kb.write_txn(conn):
+        changed = conn.execute(
+            "UPDATE tasks SET status = 'cancelled', claim_lock = NULL, "
+            "claim_expires = NULL, worker_pid = NULL "
+            "WHERE id = ? AND status = 'running' AND claim_lock IS ? "
+            "AND current_run_id IS ?",
+            (task_id, row["claim_lock"], row["current_run_id"]),
+        ).rowcount
+        if changed != 1:
+            current = conn.execute(
+                "SELECT status FROM tasks WHERE id = ?", (task_id,)
+            ).fetchone()
+            return ControlResult(False, str(current["status"]), task_id, "task completed or changed first")
+        kb._end_run(
+            conn, task_id, outcome="cancelled", status="cancelled",
+            error="telegram_cancel", metadata={"source": "telegram"},
+        )
+        kb._append_event(conn, task_id, "cancelled", {"source": "telegram"})
+    return ControlResult(True, "cancelled", task_id)
+
+
+def kb_pid_alive(pid: int) -> bool:
+    """Use the kernel's host-local liveness check without exposing it to callers."""
+    return bool(kanban()._pid_alive(int(pid)))
 
 
 def environment_backoff(conn: sqlite3.Connection, task_id: str) -> Optional[dict[str, Any]]:

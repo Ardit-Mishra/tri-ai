@@ -21,6 +21,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import telegram_read_surface
+import telegram_control
 
 
 TOKEN_ENV = "TRI_AI_TELEGRAM_BOT_TOKEN"
@@ -136,6 +137,7 @@ class TelegramDaemon:
         ledger_path: Path | str,
         runs_root: Path | str,
         renderer: Callable[..., str] = telegram_read_surface.dispatch_command,
+        handler: Optional[Callable[..., str]] = None,
     ) -> None:
         self._api = api
         self._settings = settings
@@ -143,6 +145,7 @@ class TelegramDaemon:
         self._ledger_path = ledger_path
         self._runs_root = runs_root
         self._renderer = renderer
+        self._handler = handler
 
     def poll_once(self, *, offset: Optional[int], timeout: int) -> Optional[int]:
         """Process one long-poll response and return the next Telegram offset."""
@@ -162,12 +165,22 @@ class TelegramDaemon:
             chat_id = str(chat.get("id", ""))
             if chat_id not in self._settings.authorized_chat_ids:
                 continue
-            rendered = self._renderer(
-                _normalized_command(text),
-                board_path=self._board_path,
-                ledger_path=self._ledger_path,
-                runs_root=self._runs_root,
-            )
+            command = _normalized_command(text)
+            if self._handler is not None:
+                rendered = self._handler(
+                    command,
+                    chat_id=chat_id,
+                    board_path=self._board_path,
+                    ledger_path=self._ledger_path,
+                    runs_root=self._runs_root,
+                )
+            else:
+                rendered = self._renderer(
+                    command,
+                    board_path=self._board_path,
+                    ledger_path=self._ledger_path,
+                    runs_root=self._runs_root,
+                )
             for chunk in _message_chunks(rendered):
                 self._api.send_message(chat_id=chat_id, text=chunk)
         return next_offset
@@ -184,6 +197,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--board", required=True, help="Tri-AI board SQLite path")
     parser.add_argument("--ledger", required=True, help="Tri-AI ledger JSONL path")
     parser.add_argument("--runs-dir", required=True, help="Root containing retained task logs")
+    parser.add_argument(
+        "--intake-policy",
+        help="operator-owned JSON policy; without it Telegram remains read-only",
+    )
     parser.add_argument("--poll-timeout", type=int, default=30, choices=range(1, 51))
     parser.add_argument("--once", action="store_true", help="Process one long-poll response, then exit")
     args = parser.parse_args(argv)
@@ -191,12 +208,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         settings = settings_from_environment(os.environ)
         transport = HttpsTelegramApi(settings.token)
+        handler = None
+        if args.intake_policy:
+            handler = telegram_control.TelegramControl(
+                telegram_control.load_policy(args.intake_policy)
+            ).dispatch
         daemon = TelegramDaemon(
             transport,
             settings,
             board_path=args.board,
             ledger_path=args.ledger,
             runs_root=args.runs_dir,
+            handler=handler,
         )
         if args.once:
             daemon.poll_once(offset=None, timeout=args.poll_timeout)
