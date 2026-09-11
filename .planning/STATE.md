@@ -21,7 +21,7 @@ accepted. Do not start Slice 3 until they exist and review passes.
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
 **Latest canonical verification:** `python tests/run.py` → **137 tests, exit
-0, 139.195s** (2026-09-10). This establishes the current base is green; it
+0, 123.881s** (2026-09-10). This establishes the current base is green; it
 does not prove Slice 2's two correction cases because no test drives them.
 
 **Phase 4 Slice 2 correction:** independent review of `a71ff9e` found that a
@@ -145,7 +145,7 @@ failure result.
   dispatcher (stops at first failed child) makes the sibling-completion assertion fail.
 
 **Current canonical test result:** `python tests/run.py` → **137 tests, exit 0,
-139.195s** (2026-09-10).
+123.881s** (2026-09-10).
 
 **Key design decisions (Slice 3):**
 - The failure test drives `worker.execute_task` (the real claim -> precheck -> gate -> agent -> verify

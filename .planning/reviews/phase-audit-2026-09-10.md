@@ -69,3 +69,11 @@ forked from `00671d9`, so none contains later Phase 4 work.
    verifier run on the authority that accepts the task, or otherwise provide
    an independently checkable exit-code artifact. A claimed result alone is
    not evidence.
+5. Phase 0 is a completed pre-roadmap generation-concurrency measurement, not
+   the unrelated `phase0a/safe-execution` scratch branch. It is now named in
+   the canonical roadmap.
+6. The coarse Phase 4 preview and the detailed memory design disagree about
+   later ordering: the preview places semantic memory and self-evolution in
+   Phase 6, while `memory-subsystem-design.md` labels them 5C and 5D. No branch
+   may use either ordering as authority until a Phase 5 plan resolves it with
+   dependency and proof criteria.

@@ -17,11 +17,15 @@ only, per the measured ~16% (not Nx) concurrent-generation ceiling on this hardw
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
+- Phase 0: completed feasibility input, not a delivery phase
+- Integer phases (1-8): delivery phases
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 Decimal phases appear between their surrounding integers in numeric order.
 
+- [x] **Phase 0: Concurrency Feasibility Measurement** - Measure this machine's
+  default local-generation ceiling before promising speedup from concurrent
+  model calls; this is a completed input, not a branch or deliverable
 - [x] **Phase 1: Verified Board Substrate** - Add the verify_command column and prove atomic claim/lease/reclaim under real contention, reusing the existing kanban kernel
 - [x] **Phase 2: Verify-Gated Single-Worker Execution** - One worker claims, runs, and accepts/reverts subtasks strictly by exit code, assignable from CLI, queue file, or a durable schedule
 - [x] **Phase 3: Planner + Bounded Concurrent Execution** - The strong model writes a real graph and exits; several workers execute it concurrently at a measured cap with proven per-branch failure isolation
@@ -32,6 +36,15 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 8: Remote Offload and Phone Control** - Hardware-aware offload and confirmation-gated multi-node control
 
 ## Phase Details
+
+### Phase 0: Concurrency Feasibility Measurement
+**Purpose**: Establish what the actual RTX 3060 configuration can do before
+designing around assumed model parallelism. `concurrency_results.json` records
+the measured default configuration: generation-bound requests reached about
+1.16x aggregate speedup at N=4 with flat VRAM, so they serialize rather than
+provide N-way speedup. This does not constrain CPU/IO verification chores.
+**Status**: Complete research input. The unrelated `phase0a/safe-execution`
+scratch worktree is not this phase and must not be merged.
 
 ### Phase 1: Verified Board Substrate
 **Goal**: The kanban board can durably store a task graph with a verify_command oracle per node, and its atomic claim/lease/reclaim mechanics are proven correct under real concurrent contention — reusing the existing kernel, not rebuilding it.
@@ -114,6 +127,7 @@ Branch experiments do not change this order or count as completion.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
+| 0. Concurrency Feasibility Measurement | measurement recorded | Complete research input | 2026-09-02 |
 | 1. Verified Board Substrate | 1/1 | Complete | 2026-09-08 |
 | 2. Verify-Gated Single-Worker Execution | 1/1 | Complete | 2026-09-10 |
 | 3. Planner + Bounded Concurrent Execution | 1/1 | Complete | 2026-09-10 |

@@ -5,6 +5,12 @@
 **Researched:** 2026-09-02
 **Confidence:** MEDIUM-HIGH overall — architecture is HIGH (verified against real, running, already-installed code); the central throughput question that all four research passes flagged as open has since been closed by an on-machine measurement, not left as a guess.
 
+> **Historical numbering notice (2026-09-10):** the "Implications for
+> Roadmap" phase labels below are the pre-implementation research sequence,
+> not the canonical execution roadmap. Phase 3's planner/concurrency work was
+> later combined and completed; the active Phase 1-8 order and status live in
+> `../ROADMAP.md` and `.planning/reviews/phase-audit-2026-09-10.md`.
+
 ## Executive Summary
 
 This is a personal job-orchestration system, not a general agent framework, and the research converges hard on that framing: every mainstream multi-agent framework surveyed (CrewAI, AutoGen/AG2, LangGraph, OpenAI Agents SDK, Letta, smolagents, Ray, Prefect, Dagster) was rejected, either because its core primitive is agent-to-agent messaging (explicitly banned in PROJECT.md) or because it duplicates persistence/verification machinery this project already owns and trusts. The right shape is small and boring: a persisted task graph, a shared claim/lease board, worker processes that pull work and are gated by nothing but a verify command's exit code, and a thin Telegram control surface layered on top last. Two things happened after the four research passes were briefed that materially change what the roadmap can assume, and both are treated as authoritative over the individual research files where they conflict.

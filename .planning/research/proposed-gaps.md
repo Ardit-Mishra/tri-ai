@@ -1,6 +1,8 @@
 # Proposed Gaps — blueprint review capture
 
-**Status:** capture — no slice or probe started
+**Status:** capture. The individual "Current state" paragraphs are frozen
+pre-implementation assessments; current execution status is in
+`.planning/reviews/phase-audit-2026-09-10.md`.
 **Origin:** 2026-09-10 independent Phase 3 review + a blueprint evaluation against Tri-AI's
 architecture. The blueprint's "honest gaps" list and the partial control-plane entry,
 each mapped to where it lives today and what would have to happen before it ships.
