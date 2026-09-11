@@ -5,10 +5,10 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Telegram proposal review and bounded procedural activation
-are verified locally. The next step is an operator-started live phone exercise;
-no live Telegram request was made during implementation. Route admission is
-complete, but executor routing remains intentionally disabled until an
+**Current focus:** operational worker/Telegram daemon tooling is verified
+locally. The next step is an operator-started live phone exercise; no live
+Telegram request was made during implementation. Route admission is complete,
+but executor routing remains intentionally disabled until an
 operator-configured Hermes profile has real measured evidence.
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
@@ -36,8 +36,8 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **224 tests, exit
-0, 177.333s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **230 tests, exit
+0, 147.921s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
 candidate-evolution and proposal-review gates alongside every prior phase.
@@ -132,6 +132,41 @@ choices to remove buttons. Citation drift expires the proposal and writes no
 activated rule. Focused tests: 36, exit 0, 22.178s. Next: operator-started
 mobile exercise with the existing daemon; no live network request was made in
 this implementation slice.
+
+**Operational daemon tooling accepted locally:** `scripts/run_daemons.ps1`
+starts the fixed-argv Python supervisor in the foreground. The supervisor owns
+only `worker_daemon.py` and `telegram_daemon.py`, preserves stdout/stderr in
+`~/.tri-ai/logs/worker.log` and `telegram.log`, timestamp-rotates large logs
+without deletion, records supervisor/child PIDs in `~/.tri-ai/logs/daemons.json`,
+and notices the Telegram daemon's normal pending-proposal push on every poll.
+`scripts/stop_daemons.ps1` creates the recorded stop-request file; the
+supervisor asks both child process groups to stop cleanly before a bounded
+forced-stop fallback. A partial launch stops the first child and retains logs.
+Focused operational tests: 6, exit 0, 0.046s; PowerShell `-WhatIf` exited 0.
+
+Start from `C:\Users\ardit\tri-ai` in the same PowerShell session that has
+the Telegram token and authorized chat environment variables:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_daemons.ps1
+```
+
+Add `-IntakePolicy <operator-owned-policy.json>` only to enable `/run` intake;
+proposal notifications and callback review work without it. Test with:
+
+```powershell
+python tests/run.py
+```
+
+Request a clean stop from another PowerShell session with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop_daemons.ps1
+```
+
+The operational slice performed no live start, credential inspection, or
+Telegram network request. Next: operator-started foreground exercise and
+inspection of retained logs/state.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.
