@@ -5,9 +5,10 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** plan/review the route-admission gate required before any
-executor routing adoption; Phase 5A-C's control, daemon, and diagnostic probe
-are complete.
+**Current focus:** build the approved episodic/procedural memory foundation
+from accepted board and ledger evidence. Route admission is complete, but
+executor routing remains intentionally disabled until an operator-configured
+Hermes profile has real measured evidence.
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
@@ -34,10 +35,10 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **181 tests, exit
-0, 141.429s** (2026-09-11). This verifies Phase 5A confirmed Telegram
-control, the Phase 5B local polling daemon, and the Phase 5C routing probe
-alongside every prior phase.
+**Latest canonical verification:** `python tests/run.py` → **189 tests, exit
+0, 141.214s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
+the route-admission gate alongside every prior phase.
 
 **Phase 5A accepted locally:** confirmed Telegram control is implemented in
 `telegram_control.py` and `board.py`, with the HTTPS daemon selecting it
@@ -69,6 +70,15 @@ route-admission gate before enabling executor routing.
 
 **Phase 5A-C commits:** `f72ea6f` (confirmed control), `37fe26d`
 (continuous daemon), and `ea026a1` (local routing probe).
+
+**Route admission accepted locally:** `src/route_admission.py` consumes
+only operator-owned policy plus verifier/resource evidence. It requires the
+exact policy route and model, every baseline and candidate verifier exit to be
+zero, one approved resident model, and compliance with the policy VRAM cap.
+Agent success narration is never consulted. Focused tests: 8, exit 0, 0.038s.
+No Hermes configuration, credential, endpoint, executor, worker, or board
+path is reachable. Next: a fresh episodic-memory plan using accepted
+board/ledger records, not the rejected candidate branch.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.
