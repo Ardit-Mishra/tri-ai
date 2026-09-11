@@ -6,7 +6,7 @@
   exit 0, 118.068s.
 - `37fe26d` - continuous local worker daemon. Full suite: 174 tests,
   exit 0, 179.409s.
-- This commit - evidence-only local routing probe. Full suite: 181 tests,
+- `ea026a1` - evidence-only local routing probe. Full suite: 181 tests,
   exit 0, 141.429s.
 
 ## Outcome

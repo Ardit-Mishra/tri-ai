@@ -67,6 +67,9 @@ no live proxy call was made. Focused probe tests: 7, exit 0, 0.035s. Next:
 plan/review a credential-free, operator-configured Hermes profile plus measured
 route-admission gate before enabling executor routing.
 
+**Phase 5A-C commits:** `f72ea6f` (confirmed control), `37fe26d`
+(continuous daemon), and `ea026a1` (local routing probe).
+
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.
 The daemon alone will read `TRI_AI_TELEGRAM_BOT_TOKEN` at operator-start time,
