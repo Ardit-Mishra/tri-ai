@@ -5,12 +5,13 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** the foreground worker/Telegram daemons and live phone path
-are operator-verified. The next milestone is Phase 5 live mutation acceptance:
-exercise the confirmed intake, retry, and cancel contracts against a disposable
-workspace, then reconcile whether confirmation creates one task or invokes the
-planner. Route admission is complete, but executor routing remains intentionally
-disabled until an operator-configured Hermes profile has real measured evidence.
+**Current focus:** Phase 5 is operator-accepted. The foreground worker/Telegram
+daemons and live phone path are verified, including confirmation of mobile
+draft `p_52ad147623592edf` into ready task `t_a17464db`. The configured-task
+intake contract is the accepted product decision; it does not invoke the
+planner. Phase 6 Slice 1 now builds the read-only JARVIS terminal dashboard.
+Route admission is complete, but executor routing remains intentionally disabled
+until an operator-configured Hermes profile has real measured evidence.
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
@@ -23,12 +24,28 @@ no external proxy request is made during implementation.
 
 ## Current Position
 
-Phase: 5 of 8 (Memory, Telegram Control, and Intake)
-Plan: .planning/phases/phase-5-control-worker-routing-plan.md
-Status: Phases 1-4 are complete. On 2026-09-11 the operator verified the live
+Phase: 6 of 8 (JARVIS Dashboard)
+Plan: .planning/phases/phase-6-jarvis-dashboard-plan.md
+Status: Phases 1-5 are complete. On 2026-09-11 the operator verified the live
 foreground runner, long-polling Telegram bot, outbound pending updates, and
-`/status`, `/task`, and `/logs` against task `t_baa70e9a`. Phase 5A-C is
-complete local implementation work; its mutation acceptance remains open.
+`/status`, `/task`, and `/logs` against task `t_baa70e9a`. The operator then
+confirmed mobile draft `p_52ad147623592edf`, creating ready task `t_a17464db`;
+this accepts the configured single-task intake contract in place of the old
+planner wording. Phase 6 Slice 1 is accepted locally; live daemons remain
+untouched.
+
+**Phase 6 Slice 1 accepted locally:** `src/dashboard/jarvis_terminal.py` reads
+the board through SQLite `mode=ro` plus `query_only`, tails bounded ledger
+evidence, and renders task/dependency state, activated-rule count, and
+supervisor health with Rich. It has no board API, network, credential, or
+process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
+→ **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
+tests, exit 0, 150.571s**. The first live read exposed retained state
+`stopped` with supervisor exit code 1 and no recorded child PIDs alive while
+task `t_a17464db` remains `running`. No retry, daemon restart, task mutation,
+or evidence cleanup was performed; inspect this retained operational failure
+before taking a recovery action. Next: review the Slice 1 commit, then decide
+whether to perform a separate, evidence-preserving daemon recovery.
 Slice 2's
 implementation/review correction (`a71ff9e` / `02b90f8`) is now covered by
 adversarial regression tests in `8ea0d03`. Slice 3 is accepted on local,
@@ -38,8 +55,8 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **246 tests, exit
-0, 179.950s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` -> **253 tests, exit
+0, 150.571s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
 candidate-evolution and proposal-review gates alongside every prior phase.

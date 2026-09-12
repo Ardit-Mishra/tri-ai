@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Verify-Gated Single-Worker Execution** - One worker claims, runs, and accepts/reverts subtasks strictly by exit code, assignable from CLI, queue file, or a durable schedule
 - [x] **Phase 3: Planner + Bounded Concurrent Execution** - The strong model writes a real graph and exits; several workers execute it concurrently at a measured cap with proven per-branch failure isolation
 - [x] **Phase 4: Read-Only Telegram Observability** - The board and full subtask output are inspectable from Telegram, no write capability yet
-- [ ] **Phase 5: Memory, Telegram Control, and Intake** - Passive memory foundation plus cancel, retry, and confirmation-gated task assignment from Telegram
+- [x] **Phase 5: Memory, Telegram Control, and Intake** - Passive memory foundation plus cancel, retry, and confirmation-gated task assignment from Telegram
 - [ ] **Phase 6: JARVIS Dashboard** - Read-only terminal/web dashboard over board, ledger, and accepted memory evidence
 - [ ] **Phase 7: Planner Integration and Trusted Distributed Delegation** - Learned-pattern planner assistance plus a remote-worker protocol that preserves verify-gated acceptance
 - [ ] **Phase 8: Remote Offload and Phone Control** - Hardware-aware offload and confirmation-gated multi-node control
@@ -106,10 +106,13 @@ already uses.
   3. Assigning a new task from Telegram requires an explicit confirmation step before the planner is invoked; an unconfirmed message creates zero board rows
   4. No Telegram handler contains a path to arbitrary shell execution, verify-command editing, or push/merge/deploy/credential access (grep/audit-verifiable)
 **Plans**: `.planning/phases/phase-5-control-worker-routing-plan.md` records
-the locally verified 5A-C implementation. Phase 5 remains open until its
-Telegram mutation criteria are exercised against the live board and the
-criterion's "planner" wording is reconciled with the current confirmed
-single-task intake implementation.
+the verified 5A-C implementation. The operator accepted Phase 5 on 2026-09-11
+after the mobile confirmation path created ready task `t_a17464db` from draft
+`p_52ad147623592edf`; the explicit product decision is that confirmation
+creates one configured verify-gated task, not a planner invocation. The
+cancel/retry contracts remain covered by their automated board/transport
+proofs; this acceptance does not misrepresent them as separately exercised by
+that mobile run.
 **Planning gate**: Before Phase 5 implementation, reconcile the preview's
 Phase 6 placement of semantic memory and self-evolution with the detailed
 memory design's 5C/5D placement. The Phase 5 plan must choose one ordering,
@@ -126,6 +129,13 @@ cloud/free routes always have a desktop-local fallback. See
 **Goal**: Present a read-only board/ledger/accepted-memory view. It does not
 derive, activate, or mutate memory rules; those responsibilities are Phase 5D.
 It depends on accepted Phase 5 memory evidence.
+
+**Slice 1 acceptance criteria:** a local Rich terminal snapshot renders task
+states and dependency edges from a SQLite read-only connection, newest bounded
+ledger evidence, activated-rule count, and supervisor health from its retained
+state file. A refresh loop reads fresh snapshots only. Structural tests reject
+board mutation, process spawn, network, and credential/config access; an
+unchanged board-file test proves the snapshot does not write.
 
 ### Phase 7: Planner Integration and Trusted Distributed Delegation
 **Goal**: Let the planner consume accepted crystallized patterns and coordinate
@@ -149,7 +159,7 @@ Branch experiments do not change this order or count as completion.
 | 2. Verify-Gated Single-Worker Execution | 1/1 | Complete | 2026-09-10 |
 | 3. Planner + Bounded Concurrent Execution | 1/1 | Complete | 2026-09-10 |
 | 4. Read-Only Telegram Observability | 4/4 slices + transport implementation verified | Complete; live operator exercise passed | 2026-09-11 |
-| 5. Memory, Telegram Control, and Intake | local implementation complete | Live mutation acceptance and planner-intake decision pending | - |
-| 6. JARVIS Dashboard | 0/TBD | Planned; candidate branch failing | - |
+| 5. Memory, Telegram Control, and Intake | 5A-C + memory/review slices | Complete; operator accepted mobile intake and configured-task decision | 2026-09-11 |
+| 6. JARVIS Dashboard | 1/3 planned slices | Slice 1 terminal dashboard accepted locally; live daemon failure retained for recovery | 2026-09-11 |
 | 7. Planner Integration and Trusted Distributed Delegation | 0/TBD | Planned; candidate violates verify gate | - |
 | 8. Remote Offload and Phone Control | 0/TBD | Planned | - |
