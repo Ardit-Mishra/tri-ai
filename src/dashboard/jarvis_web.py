@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -832,44 +833,84 @@ def create_server(
     return JarvisHTTPServer((host, int(port)), _handler(snapshot_fn, event_interval))
 
 
+def serve(servers: Sequence[JarvisHTTPServer]) -> None:
+    """Serve every bound interface until interrupted.
+
+    One socket cannot cover both loopback and a single named interface, and
+    binding 0.0.0.0 to get both would also publish the dashboard on every
+    other network this machine is attached to - the home Wi-Fi included. So
+    each requested interface gets its own server and the set is served
+    together, which keeps the reachable surface exactly the list the operator
+    named.
+    """
+    if not servers:
+        raise ValueError("no servers to serve")
+    threads = [
+        threading.Thread(target=server.serve_forever, name=f"jarvis-{index}", daemon=True)
+        for index, server in enumerate(servers[1:], start=1)
+    ]
+    for thread in threads:
+        thread.start()
+    try:
+        servers[0].serve_forever()
+    finally:
+        for server in servers[1:]:
+            server.shutdown()
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Serve the local read-only JARVIS dashboard.")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument(
         "--host",
-        default=LOOPBACK_HOST,
-        help="interface to bind; anything but 127.0.0.1 also needs --allow-non-loopback",
+        action="append",
+        dest="hosts",
+        metavar="ADDRESS",
+        help=(
+            "interface to bind; repeat for several (e.g. --host 127.0.0.1 "
+            "--host 100.118.189.88). Defaults to 127.0.0.1. Anything but "
+            "127.0.0.1 also needs --allow-non-loopback."
+        ),
     )
     parser.add_argument(
         "--allow-non-loopback",
         action="store_true",
         help=(
-            "bind a non-loopback interface (e.g. 0.0.0.0 for Tailscale access from a "
-            "phone). The dashboard stays read-only, but task titles, workspace paths "
-            "and live log tails become reachable from that network."
+            "bind non-loopback interfaces, e.g. a Tailscale address so the HUD is "
+            "reachable from a phone. The dashboard stays read-only, but task titles, "
+            "workspace paths and live log tails become reachable from those networks."
         ),
     )
     args = parser.parse_args(argv)
+    hosts: list[str] = []
+    for host in args.hosts or [LOOPBACK_HOST]:
+        if host not in hosts:
+            hosts.append(host)
+
+    servers: list[JarvisHTTPServer] = []
     try:
-        server = create_server(
-            host=args.host, port=args.port, allow_non_loopback=args.allow_non_loopback,
-        )
-        if args.host != LOOPBACK_HOST:
-            print(
-                f"JARVIS dashboard is reachable beyond this machine on {args.host}:"
-                f"{server.server_port} - read-only, but it exposes task titles, "
-                "workspace paths and live log tails to that network",
-                file=sys.stderr,
+        for host in hosts:
+            servers.append(
+                create_server(
+                    host=host, port=args.port, allow_non_loopback=args.allow_non_loopback,
+                )
             )
-        print(f"JARVIS dashboard listening on http://{args.host}:{server.server_port}")
-        server.serve_forever()
+            if host != LOOPBACK_HOST:
+                print(
+                    f"JARVIS dashboard is reachable beyond this machine on {host}:"
+                    f"{args.port} - read-only, but it exposes task titles, workspace "
+                    "paths and live log tails to that network",
+                    file=sys.stderr,
+                )
+            print(f"JARVIS dashboard listening on http://{host}:{servers[-1].server_port}")
+        serve(servers)
     except KeyboardInterrupt:
         return 0
     except (OSError, ValueError) as exc:
         print(f"jarvis web stopped: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     finally:
-        if "server" in locals():
+        for server in servers:
             server.server_close()
     return 0
 
