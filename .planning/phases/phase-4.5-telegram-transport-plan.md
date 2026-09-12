@@ -14,9 +14,11 @@ adding a webhook, or adding any board mutation.
 
 - The local read surface stays pure: no token lookup, transport, network,
   subprocess, or board mutation.
-- The daemon is the sole external-I/O caller. It reads
-  TRI_AI_TELEGRAM_BOT_TOKEN only when the operator starts it, reads an explicit
-  one-or-many chat-id allowlist, and passes authorized text to the adapter.
+- The daemon is the sole external-I/O caller. Its configuration resolver reads
+  the approved `TRI_AI_*` settings from the process environment, local
+  `~/.tri-ai/config.json`, or Windows User environment registry; the supervisor
+  calls the same resolver for no-spawn preflight. It passes only authorized text
+  to the adapter.
 - The daemon owns neither board writes nor process creation. It neither pushes,
   merges, deploys, reads other credentials, nor starts itself.
 - An unauthorized chat is silently dropped before adapter dispatch. A
@@ -51,5 +53,8 @@ adding a webhook, or adding any board mutation.
     python src/interfaces/telegram_daemon.py --board <board.db> --ledger <ledger.jsonl> --runs-dir <runs>
 
 TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS may instead contain a comma-separated
-allowlist. The process is intentionally foreground-only; service installation,
+allowlist. `~/.tri-ai/config.json` may persist the same values under
+`telegram.bot_token` and `telegram.authorized_chat_id`; environment variables
+win over config, then Windows User environment values provide the final
+fallback. The process is intentionally foreground-only; service installation,
 auto-start, and Telegram write commands remain out of scope.

@@ -36,8 +36,8 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **232 tests, exit
-0, 147.183s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **238 tests, exit
+0, 148.043s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
 candidate-evolution and proposal-review gates alongside every prior phase.
@@ -178,8 +178,26 @@ spawning either child, the supervisor will require
 their values. `-WhatIf` remains a no-spawn preview and does not require
 Telegram settings. Focused operational verification: `python -m unittest
 tests.test_daemon_supervisor` → **8 tests, exit 0, 0.466s**. Full verification:
-`python tests/run.py` → **232 tests, exit 0, 147.183s**. Next: local commit,
+`python tests/run.py` → **238 tests, exit 0, 148.043s**. Next: local commit,
 then operator-started foreground exercise using the canonical runtime paths.
+
+**Telegram startup diagnosis and persistent configuration accepted locally:** the
+generic `telegram daemon stopped: configuration or transport failure` log line
+was caused by `telegram_daemon.main()` replacing all caught `ValueError` and
+`TelegramTransportError` messages. It also resolved only the current process
+environment, so a PowerShell opened before a Windows User environment update
+could not see it. The shared resolver now uses this precedence: process
+environment, `~/.tri-ai/config.json`, then Windows User environment registry.
+It accepts only `TRI_AI_TELEGRAM_BOT_TOKEN` and either
+`TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID` or
+`TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS`; unprefixed `TELEGRAM_*` names are not
+supported. The supervisor and child use the same resolver before spawn, and
+safe failure type/reason reaches `telegram.log` without credential values.
+Focused tests are green: `python -m unittest tests.test_telegram_daemon
+tests.test_daemon_supervisor` → **24 tests, exit 0, 0.517s**. Full suite
+passed: `python tests/run.py` → **238 tests, exit 0, 148.043s**. Next: provide
+the token/chat ID through one approved source, then retry the normal runner
+command.
 
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.

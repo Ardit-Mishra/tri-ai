@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import io
+import json
 import os
 import subprocess
 import sys
@@ -114,7 +115,14 @@ class DaemonSupervisorTests(unittest.TestCase):
             "TRI_AI_TELEGRAM_BOT_TOKEN": "",
             "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID": "",
             "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS": "",
-        }, clear=False), redirect_stderr(stderr):
+        }, clear=False), mock.patch.object(
+            daemon_supervisor.telegram_daemon,
+            "settings_from_sources",
+            side_effect=ValueError(
+                "Telegram daemon requires: TRI_AI_TELEGRAM_BOT_TOKEN; "
+                "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID or TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS"
+            ),
+        ), redirect_stderr(stderr):
             result = daemon_supervisor.main([
                 "--board", str(self.root / "board.db"),
                 "--ledger", str(self.root / "ledger.jsonl"),
@@ -126,6 +134,16 @@ class DaemonSupervisorTests(unittest.TestCase):
         self.assertIn("TRI_AI_TELEGRAM_BOT_TOKEN", stderr.getvalue())
         self.assertIn("TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID", stderr.getvalue())
         self.assertFalse((log_dir / "daemons.json").exists())
+
+    def test_local_telegram_config_satisfies_preflight_without_process_environment(self):
+        config_path = self.root / "config.json"
+        config_path.write_text(json.dumps({"telegram": {
+            "bot_token": "test-token", "authorized_chat_id": "42",
+        }}), encoding="utf-8")
+
+        daemon_supervisor.validate_telegram_environment(
+            {}, config_path=config_path, user_environment={},
+        )
 
 
 class DaemonScriptBoundaryTests(unittest.TestCase):

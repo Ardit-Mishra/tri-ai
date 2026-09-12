@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import ast
+import io
 import json
 import sys
+import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -58,6 +62,77 @@ class TelegramDaemonTests(unittest.TestCase):
             daemon.settings_from_environment({daemon.AUTHORIZED_CHAT_ID_ENV: "42"})
         with self.assertRaisesRegex(ValueError, daemon.AUTHORIZED_CHAT_ID_ENV):
             daemon.settings_from_environment({daemon.TOKEN_ENV: "test-token"})
+
+    def test_settings_load_from_local_config_before_windows_user_environment(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "config.json"
+            config_path.write_text(json.dumps({"telegram": {
+                "bot_token": "config-token", "authorized_chat_id": "42",
+            }}), encoding="utf-8")
+            settings = daemon.settings_from_sources(
+                {}, config_path=config_path,
+                user_environment={
+                    daemon.TOKEN_ENV: "registry-token",
+                    daemon.AUTHORIZED_CHAT_ID_ENV: "99",
+                },
+            )
+
+        self.assertEqual(settings.token, "config-token")
+        self.assertEqual(settings.authorized_chat_ids, frozenset({"42"}))
+
+    def test_process_environment_overrides_local_config_and_user_environment(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "config.json"
+            config_path.write_text(json.dumps({"telegram": {
+                "bot_token": "config-token", "authorized_chat_id": "42",
+            }}), encoding="utf-8")
+            settings = daemon.settings_from_sources(
+                {
+                    daemon.TOKEN_ENV: "environment-token",
+                    daemon.AUTHORIZED_CHAT_IDS_ENV: "17,18",
+                },
+                config_path=config_path,
+                user_environment={
+                    daemon.TOKEN_ENV: "registry-token",
+                    daemon.AUTHORIZED_CHAT_ID_ENV: "99",
+                },
+            )
+
+        self.assertEqual(settings.token, "environment-token")
+        self.assertEqual(settings.authorized_chat_ids, frozenset({"17", "18"}))
+
+    def test_windows_user_environment_is_used_when_no_higher_priority_source_exists(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            settings = daemon.settings_from_sources(
+                {}, config_path=Path(temporary) / "missing.json",
+                user_environment={
+                    daemon.TOKEN_ENV: "registry-token",
+                    daemon.AUTHORIZED_CHAT_ID_ENV: "99",
+                },
+            )
+
+        self.assertEqual(settings.token, "registry-token")
+        self.assertEqual(settings.authorized_chat_ids, frozenset({"99"}))
+
+    def test_startup_diagnostic_keeps_the_configuration_reason(self):
+        self.assertEqual(
+            daemon.startup_diagnostic(ValueError("missing bot token")),
+            "telegram daemon stopped: ValueError: missing bot token",
+        )
+
+    def test_main_logs_the_actual_configuration_failure(self):
+        stderr = io.StringIO()
+        with mock.patch.object(
+            daemon, "settings_from_sources", side_effect=ValueError("missing bot token"),
+        ), redirect_stderr(stderr):
+            result = daemon.main([
+                "--board", "board.db", "--ledger", "ledger.jsonl", "--runs-dir", "runs", "--once",
+            ])
+
+        self.assertEqual(result, 1)
+        self.assertEqual(
+            stderr.getvalue(), "telegram daemon stopped: ValueError: missing bot token\n",
+        )
 
     def test_authorized_update_reaches_the_read_surface_and_returns_its_response(self):
         transport = FakeTransport([{"update_id": 10, "message": {"chat": {"id": 42}, "text": "/status"}}])

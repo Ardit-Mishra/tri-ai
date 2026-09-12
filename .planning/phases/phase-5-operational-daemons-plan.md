@@ -10,8 +10,34 @@ Before creating state or spawning either child, the supervisor checks only for
 the presence of `TRI_AI_TELEGRAM_BOT_TOKEN` and either
 `TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID` or
 `TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS`; it never writes their values to command
-lines, logs, or state. The Telegram child consumes the configuration itself
-only after this preflight passes.
+lines, logs, or state. The supervisor and Telegram child use the same resolver,
+so preflight cannot accept a source the child will reject.
+
+## Telegram Configuration
+
+Settings resolve in this order: the current process environment,
+`~/.tri-ai/config.json`, then the Windows User environment registry. This
+means a one-off shell setting wins, but a new PowerShell session can start the
+daemons without manually re-exporting the bot settings. Only the `TRI_AI_*`
+names above are supported; unprefixed `TELEGRAM_BOT_TOKEN` and
+`TELEGRAM_AUTHORIZED_CHAT_ID` are not aliases.
+
+The optional user-profile configuration file has this shape:
+
+```json
+{
+  "telegram": {
+    "bot_token": "<bot token>",
+    "authorized_chat_id": "<numeric chat id>"
+  }
+}
+```
+
+`authorized_chat_ids` may instead be a comma-separated string or a JSON array.
+The file is deliberately outside the repository and its values never enter git,
+command lines, daemon state, or logs. It is plaintext local configuration, not
+a vault; keep it within the Windows user profile and do not copy it into the
+workspace.
 
 The supervisor preserves child stdout/stderr in `~/.tri-ai/logs/worker.log`
 and `telegram.log`. At five MiB it timestamp-rotates an old log without
@@ -41,12 +67,21 @@ does not require Telegram configuration. A normal start with missing Telegram
 settings exits with a console message naming the required environment variables
 before it creates `daemons.json` or child logs.
 
+The daemon writes the actual safe failure class and reason to `telegram.log`
+(for example a missing configuration field or an HTTPS failure), rather than a
+generic configuration/transport message. Unexpected exceptions retain their
+normal traceback in the retained log.
+
 ## Evidence
 
 - `python -m unittest tests.test_daemon_supervisor` — 8 tests, exit 0,
   0.466s. This includes a no-spawn missing-environment preflight and an actual
   PowerShell `-WhatIf` assertion for canonical runtime defaults.
+- `python -m unittest tests.test_telegram_daemon tests.test_daemon_supervisor`
+  — 24 tests, exit 0, 0.517s. This proves the process/config/registry source
+  precedence, config-backed supervisor preflight, and reason-preserving daemon
+  startup diagnostics.
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_daemons.ps1
   -WhatIf` — exit 0; printed the two-daemon supervisor invocation without
   starting it.
-- `python tests/run.py` — 232 tests, exit 0, 147.183s.
+- `python tests/run.py` — 238 tests, exit 0, 148.043s.
