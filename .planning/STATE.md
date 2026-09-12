@@ -81,12 +81,20 @@ with the fixed `python tests/run.py` verifier and a 300-second timeout. Full
 suite after that operational change: `python tests/run.py` → **245 tests,
 exit 0, 149.093s**.
 
-**Live-startup correction in progress:** the operator-owned config file was
-valid JSON saved with a Windows UTF-8 BOM. The daemon read it as bare UTF-8
-and refused it before child launch. Config decoding now uses `utf-8-sig`, with
-a regression test; no credential value was printed or committed. Full suite:
-`python tests/run.py` → **246 tests, exit 0, 179.950s**. Next: launch the
-supervisor detached, then verify the Bot API and authorized chat response.
+**Live-startup correction accepted:** the operator-owned config file was valid
+JSON saved with a Windows UTF-8 BOM. The daemon read it as bare UTF-8 and
+refused it before child launch. Config decoding now uses `utf-8-sig`, with a
+regression test; no credential value was printed or committed. Full suite:
+`python tests/run.py` → **246 tests, exit 0, 179.950s**. The prior supervisor
+was stopped through its sentinel, then a detached supervisor launched with
+the default policy. Its state is `running`, all three recorded PIDs are alive,
+the Telegram child argv contains the policy, and the supervisor error log is
+empty. Direct Bot API `getMe` succeeded; `sendMessage` to the authorized chat
+was accepted as message 47 with `System verified and online by Codex. Intake
+policy active.` The default `tri-ai` workspace currently has retained
+untracked runtime files, so a confirmed task aimed at that repository will
+correctly skip at the worker's clean-tree precheck until a clean workspace is
+selected.
 
 **Phase 5B accepted locally:** `src/worker_daemon.py` is a foreground,
 resilient loop around exactly one existing `worker.run_once` tick. Empty
