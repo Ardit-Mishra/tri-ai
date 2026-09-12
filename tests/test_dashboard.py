@@ -6,6 +6,7 @@ import ast
 import io
 import json
 import os
+import subprocess
 import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -27,14 +28,17 @@ class DashboardFixture(BoardTestCase):
         self.ledger_path = self.tmp / "ledger.jsonl"
         self.state_path = self.tmp / "daemons.json"
         self.done = board.create_task(
-            self.conn, title="completed root", prompt="fixture", verify_command="true", verify_timeout=30,
+            self.conn, title="completed root", prompt="fixture", repo=self.tmp,
+            verify_command="true", verify_timeout=30,
         )
         self.ready = board.create_task(
-            self.conn, title="ready child", prompt="fixture", verify_command="true", verify_timeout=30,
+            self.conn, title="ready child", prompt="fixture", repo=self.tmp,
+            verify_command="true", verify_timeout=30,
             parents=(self.done,),
         )
         self.running = board.create_task(
-            self.conn, title="running sibling", prompt="fixture", verify_command="true", verify_timeout=30,
+            self.conn, title="running sibling", prompt="fixture", repo=self.tmp,
+            verify_command="true", verify_timeout=30,
         )
         self.kb.complete_task(self.conn, self.done, result="passed")
         self.assertIsNotNone(self.kb.claim_task(self.conn, self.running, claimer="fixture:7"))
@@ -64,6 +68,62 @@ class DashboardSnapshotTests(DashboardFixture):
     def test_default_liveness_probe_recognizes_the_current_process(self):
         self.assertTrue(jarvis._pid_alive(os.getpid()))
 
+    @unittest.skipUnless(os.name == "nt", "Windows process-object lifetime behaviour")
+    def test_exited_process_with_a_lingering_handle_reports_down(self):
+        """A handle that still opens is not liveness; the exit code decides."""
+        # Windows keeps the process object while Popen holds its handle, so
+        # OpenProcess keeps succeeding after the child is gone. Reporting that
+        # as "up" would show a dead daemon as healthy.
+        child = subprocess.Popen([sys.executable, "-c", "raise SystemExit(0)"])
+        self.addCleanup(child.wait)
+        child.wait()
+        self.assertFalse(jarvis._pid_alive(child.pid))
+
+    def test_snapshot_projects_run_phases_from_recorded_evidence(self):
+        by_id = {task.task_id: task for task in self.snapshot().tasks}
+        running = by_id[self.running].telemetry
+        self.assertIsNotNone(running)
+        self.assertEqual(running.run_status, "running")
+        phases = {phase.key: phase for phase in running.phases}
+        self.assertEqual(set(phases), set(jarvis.PHASE_ORDER))
+        self.assertIn(phases["claimed"].state, {"done", "active"})
+        # The fixture uses a directory workspace, so there is no worktree stage
+        # to reach; it must be reported as skipped rather than pending.
+        self.assertEqual(phases["worktree_prep"].state, "skipped")
+        self.assertIn("no worktree stage", phases["worktree_prep"].evidence)
+        # A task that never ran must not be given a fabricated lifecycle.
+        ready = by_id[self.ready].telemetry
+        self.assertIsNone(ready.run_id)
+        self.assertEqual(ready.logs, ())
+
+    def test_active_run_logs_are_read_from_the_runs_root_under_a_bound(self):
+        """The active run's retained log is tailed, bounded, and never summarised."""
+        claimed = next(task for task in self.snapshot().tasks if task.task_id == self.running)
+        run_id = claimed.telemetry.run_id
+        self.assertIsNotNone(run_id, "fixture claim must record a run")
+        run_dir = self.tmp / "runs" / self.running / str(run_id)
+        run_dir.mkdir(parents=True)
+        (run_dir / "agent.log").write_text(
+            "\n".join(f"line {index}" for index in range(1, 120)) + "\n", encoding="utf-8",
+        )
+        snapshot = jarvis.read_snapshot(
+            board_path=self.db_path,
+            ledger_path=self.ledger_path,
+            daemon_state_path=self.state_path,
+            ledger_limit=2,
+            pid_alive=lambda pid: False,
+            runs_root=self.tmp / "runs",
+        )
+        running = next(task for task in snapshot.tasks if task.task_id == self.running)
+        logs = {log.name: log for log in running.telemetry.logs}
+        self.assertEqual(set(logs), {"agent"})
+        self.assertEqual(len(logs["agent"].lines), jarvis.LOG_TAIL_LINES)
+        self.assertEqual(logs["agent"].lines[-1], "line 119")
+        self.assertTrue(logs["agent"].truncated)
+        # A finished task must not have its logs read at all.
+        done = next(task for task in snapshot.tasks if task.task_id == self.done)
+        self.assertEqual(done.telemetry.logs, ())
+
     def test_snapshot_reads_board_graph_ledger_and_daemon_health(self):
         snapshot = self.snapshot()
         task_statuses = {task.task_id: task.status for task in snapshot.tasks}
@@ -76,6 +136,41 @@ class DashboardSnapshotTests(DashboardFixture):
         self.assertEqual(snapshot.ledger_errors, ("ledger line 3 is not valid JSON",))
         self.assertEqual(snapshot.daemons.status, "running")
         self.assertEqual(snapshot.daemons.processes, (("supervisor", True), ("worker", True), ("telegram", False)))
+
+    def test_snapshot_projects_accepted_rule_checks_and_provenance(self):
+        proposal_id = "evolution:fixture"
+        raw_rule = {
+            "id": "fixture-clean-workspace",
+            "workspace": str(self.tmp),
+            "task_kind": "code",
+            "checks": ["confirm_workspace_clean", "inspect_last_verify_log"],
+            "citations": [{
+                "source_path": str(self.ledger_path), "source_line": 1,
+                "line_digest": "a" * 64,
+            }],
+            "expires_at": 9999999999,
+            "activation": "preflight_advice",
+        }
+        self.conn.execute(
+            "INSERT INTO triai_proposals "
+            "(id, kind, summary, suggested_action, payload_json, status, created_at) "
+            "VALUES (?, 'candidate_rule', 'fixture', 'activate_procedural_advice', '{}', 'approved', 1)",
+            (proposal_id,),
+        )
+        self.conn.execute(
+            "INSERT INTO triai_activated_procedural_rules (proposal_id, rule_json, activated_at) "
+            "VALUES (?, ?, 1)", (proposal_id, json.dumps(raw_rule)),
+        )
+        self.conn.commit()
+
+        snapshot = self.snapshot()
+
+        self.assertEqual(snapshot.activated_rule_count, 1)
+        self.assertEqual(snapshot.memory_errors, ())
+        self.assertEqual(snapshot.rules[0].rule_id, "fixture-clean-workspace")
+        self.assertEqual(snapshot.rules[0].checks, ("confirm_workspace_clean", "inspect_last_verify_log"))
+        self.assertEqual(snapshot.rules[0].citations[0].source_line, 1)
+        self.assertEqual(snapshot.tasks[0].workspace_path, str(self.tmp))
 
     def test_rich_rendering_contains_only_snapshot_evidence(self):
         stream = io.StringIO()

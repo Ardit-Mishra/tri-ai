@@ -56,6 +56,68 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**Phase 6 Slice 4 (spatial HUD) implemented locally, 2026-09-12:** the web
+dashboard gained hierarchical "site inspection" visuals over the same read-only
+snapshot contract. `jarvis_terminal` now projects `TaskTelemetry`, `PhaseView`,
+and `RunLogView` by reading `task_runs`, `triai_worktrees`, `task_events`, and
+eight further `tasks` columns - all `SELECT`, still `mode=ro` + `query_only=ON`,
+and the AST boundary test passes unchanged. Lifecycle phases
+(`CLAIMED -> WORKTREE_PREP -> AGENT_ACTIVE -> VERIFY_GATE`) are derived from
+recorded evidence only; a stage a `dir` workspace never reaches renders
+`skipped` with its reason rather than `pending`. Active-run `agent.log` and
+`verify.log` tails ride inside the snapshot (40 lines / 64KB / 240 chars per
+line, running runs only) rather than behind a `?task=` endpoint, so no
+caller-supplied text ever becomes a path under `~/.tri-ai/runs`. Canvas adds
+workspace convex hulls, room/stage node tiers, an arc-reactor core and
+four-segment phase ring on running nodes, and pan / wheel / double-tap zoom; the
+inspector becomes a bottom sheet below 768px. Verified live against the board:
+phases read `claimed=done worktree_prep=skipped agent_active=done
+verify_gate=active` for run 5 of `t_69cc6245`, with the real log line surfaced.
+
+**Operator-reported visual defects fixed:** the status-badge indicator carried
+the literal text `dot` and the node inspector carried the literal text
+`inspect-grid` - both were class names passed as the `text` argument of
+`make(tag, text, cls)`. Evidence outcomes are now tinted micro-badges. Without
+dependency edges the layout places nodes deterministically on the core orbit;
+the previous mutual-repulsion physics pinned them against the canvas walls,
+which was the "floating in deep space" complaint.
+
+**Windows liveness probe corrected (false-up defect):** `_pid_alive` reported a
+dead daemon as alive. Opening a process handle is not liveness - Windows keeps
+the process object while any handle to it remains open, so `OpenProcess`
+succeeds for an exited process. Confirmed live: PID 16436 (telegram) returned
+`OpenProcess OK, exit_code=1 (EXITED)` while the panel showed TELEGRAM UP. The
+probe now calls `GetExitCodeProcess` and requires `STILL_ACTIVE` (259); the
+residual ambiguity (a process genuinely exiting with code 259) is inherent to
+the Win32 contract and is documented in the code. Regression test spawns a
+child, waits for it, and asserts it reports down while `Popen` still holds the
+handle. This is the inverse of the earlier `os.kill(pid, 0)` false-down defect.
+
+**Known latent trap, not yet fixed:** `jarvis_web.py` declares `function
+render(data)` twice at the same scope. The second shadows the first, so the
+first is dead - but it calls `clear(byId('matrix'))` against an element that no
+longer exists and would throw if declaration order ever changed.
+
+**Live incident, unresolved at time of writing (2026-09-12):** the daemon fleet
+stopped during the session. `daemons.json` reports `status: stopped`; supervisor
+5544, worker 38148, and telegram 16436 are all dead, telegram having exited with
+code 1 (`supervisor.stderr.log` is empty). Task `t_69cc6245` remains `running`
+on the board with run 5 holding claim `Vivo-S14:38148` - a stranded claim
+against a dead worker. Its `agent.log` records `worker: skipped - working tree
+not clean (8 entries) - skipping`. No recovery action was taken: closing the
+claim is `board.abort_dead_worker_claim`, which refuses a live worker and is not
+a retry. The working tree of `C:\Users\ardit\tri-ai` is dirty and will keep
+failing the clean-tree precheck until staged or stashed.
+
+**Operating environment note:** Windows `allow_reuse_address` lets a second
+process bind port 8080 while the first keeps serving, so the dashboard must be
+stopped before restart or a stale template is served. The embedded HTML template
+is a Python r-string; shell heredocs mangle its escapes, so it must be patched
+with a Python script.
+
+**Latest verification:** `python tests/run.py` -> **276 tests, exit 0,
+173.931s** (2026-09-12).
+
 **Phase 6 Slice 2 accepted locally:** `src/dashboard/jarvis_web.py` is a
 loopback-only (`127.0.0.1`) standard-library web server. It reuses the terminal
 reader, exposes only immutable `/api/snapshot` and SSE `/events`, and serves a
