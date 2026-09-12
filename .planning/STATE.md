@@ -5,12 +5,18 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** Phase 5 is operator-accepted. The foreground worker/Telegram
-daemons and live phone path are verified, including confirmation of mobile
-draft `p_52ad147623592edf` into ready task `t_a17464db`. The configured-task
-intake contract is the accepted product decision; it does not invoke the
-planner. Phase 6 Slice 2 now adds the loopback-only, read-only JARVIS web
-dashboard over the same evidence snapshot.
+**Current focus:** **Phase 6 is complete and accepted (2026-09-12).** All four
+slices - terminal snapshot, loopback web surface, accepted-memory panels, and the
+spatial HUD with its surface audit - are accepted on exit-code and live evidence.
+Phase 5 remains operator-accepted, including the live phone path and the
+confirmation of mobile draft `p_52ad147623592edf` into ready task `t_a17464db`;
+the configured-task intake contract is the accepted product decision and does not
+invoke the planner. The next phase is 7 (Planner Integration and Trusted
+Distributed Delegation), whose existing candidate violates the verify gate and
+must not be merged.
+
+`genclarus` is now a registered governed workspace, and the five-project portfolio
+is documented in `.planning/PORTFOLIO_STRATEGY.md`.
 Route admission is complete, but executor routing remains intentionally disabled
 until an operator-configured Hermes profile has real measured evidence.
 
@@ -25,14 +31,84 @@ no external proxy request is made during implementation.
 
 ## Current Position
 
-Phase: 6 of 8 (JARVIS Dashboard)
+Phase: 6 of 8 COMPLETE (JARVIS Dashboard & Spatial HUD)
 Plan: .planning/phases/phase-6-jarvis-dashboard-plan.md
-Status: Phases 1-5 are complete. On 2026-09-11 the operator verified the live
-foreground runner, long-polling Telegram bot, outbound pending updates, and
-`/status`, `/task`, and `/logs` against task `t_baa70e9a`. The operator then
-confirmed mobile draft `p_52ad147623592edf`, creating ready task `t_a17464db`;
-this accepts the configured single-task intake contract in place of the old
-planner wording. Phase 6 Slices 1 and 2 are accepted locally.
+Status: Phases 1-6 are complete. Phase 6 closed out on 2026-09-12 with all four
+slices accepted; the canonical verification is `python tests/run.py` -> **324
+tests, exit 0, 159.988s**. The fleet is live and healthy, the stranded claim from
+the 2026-09-12 incident is closed, and its root cause is fixed rather than worked
+around.
+
+## 2026-09-12 Master Directive - Completed
+
+**Part 1, fleet recovery - root cause found in the logs, not inferred.** The
+Telegram child lost an HTTPS request and exited 1. `daemon_supervisor.supervise`
+was written to return on the first child exit and never retry, so it stopped the
+worker underneath run 5 of `t_69cc6245`, which had already claimed the task.
+`supervisor.stderr.log` was empty because that path is a plain `return`, not an
+exception - which is exactly why the earlier session could not diagnose it.
+
+- The stranded claim was closed with `board.abort_dead_worker_claim`: task and run
+  5 are `cancelled`, claim fields clear, `aborted` operator-recovery event id 16,
+  plus an appended diagnostic ledger line naming the clean-tree precheck, the
+  supervisor's child-exit return, and the dead PID 38148.
+- `supervise` now restarts a dead child with exponential backoff (2s doubling to
+  60s), a rolling restart budget (8/hour) after which it stops the fleet rather
+  than spinning on an unfixable child, and a healthy-uptime backoff reset. PIDs are
+  republished **by name**, so a child inside its backoff reports no PID rather than
+  a stale one - a positional reader would have attributed the surviving daemon's
+  PID to the dead one, and the dashboard would have shown a dead daemon as up.
+- `TelegramDaemon.run_forever` no longer treats one lost HTTPS request as fatal:
+  transport failures retry with the same backoff shape under a bounded budget, so a
+  network blip costs no process restart while a revoked token still exits non-zero.
+- **`src/process_liveness.py` now owns Windows liveness for both the supervisor and
+  the dashboard.** The supervisor's own `_is_alive` used `os.kill(pid, 0)`, which
+  was wrong in two opposite ways, both reproduced locally before being fixed: an
+  exited process whose handle is still open raises nothing and read as **alive**,
+  and a PID that never existed raises a bare `OSError` (WinError 87) that the guard
+  did not catch, so it escaped `main()`'s startup check as a traceback rather than a
+  diagnostic. This is the third and fourth Windows process-lifetime assumption to be
+  wrong in this project.
+- Fleet restarted and verified: supervisor 37492, worker 25108, telegram 3124, all
+  alive by direct probe, `restarts: 0`.
+
+**Parts 2 and 3, dashboard audit and semantic nodes.** The duplicate `render()` is
+deleted. SSE reconnects on exponential backoff (1s doubling to 30s) behind a
+`STREAM LIVE` / `RECONNECTING` badge carrying a complete atomic status message, kept
+outside the container `render()` clears each snapshot. Raw epoch timestamps became
+relative timers with the absolute value retained as the element `title`. Nodes lead
+with intent - task title primary, hex id demoted, workspace as a path-derived tag
+and tint, so a project added later is tagged without a palette edit - and hover or
+tap raises a micro-card with prompt, workspace, branch, phase and runtime.
+
+**The lesson worth keeping from this slice:** a green suite is not a rendered
+surface. Three defects here were invisible to the tests. An edit produced two `else`
+clauses in one `if` and the page served an empty HUD while every substring assertion
+still passed; name plates drawn rightward hid a left-hand node's plate under its
+neighbour; and two workspace hull labels landed on the same line at phone width. The
+first is now structurally impossible to ship - `tests/test_dashboard_template_syntax.py`
+parses the embedded script with `node --check` (skipping explicitly, never quietly,
+when Node is absent). The other two were found only by opening the page.
+
+**Part 4, portfolio.** All five projects located and their git state read. One
+correction that matters: **genclarus's checkout is `C:\Users\ardit\projects\genelens`**
+- the directory was never renamed. It is now registered in
+`~/.tri-ai/intake_policy.json` as alias `genclarus` with verify profile
+`genclarus-vitest` (`npm test`, 600s), measured before registration at 36 files /
+333 tests / exit 0 / 4.17s. `default_workspace` remains `tri-ai`.
+`.planning/PORTFOLIO_STRATEGY.md` records each project's path, branch, verify gate
+and remaining work, and marks which gates were executed here versus read from CI.
+
+**Part 5, network reach.** The dashboard binds `127.0.0.1` **and** the Tailscale
+address `100.118.189.88`, as two servers rather than one wildcard bind - `0.0.0.0`
+would have published the HUD on the home Wi-Fi as well. Proven by probe: loopback
+reachable, Tailscale reachable, `192.168.0.36:8080` refused. Non-loopback binding
+requires `--allow-non-loopback`, so a typo or a port argument can never widen it.
+
+**Known follow-up, not a blocker:** the `genclarus` working tree has one
+uncommitted entry, so Tri-AI runs against that workspace will fail the clean-tree
+precheck until it is staged or stashed - the same precheck that stranded
+`t_69cc6245`.
 
 **Daemon incident and evidence-preserving recovery:** task `t_a17464db` entered
 `running`, then its clean-tree precheck retained `agent.log` and `verify.log`
@@ -479,7 +555,8 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-10
+Last session: 2026-09-12 (master directive: fleet recovery, dashboard audit,
+portfolio alignment, Phase 6 closeout)
 Phase/plan audit complete on canonical `phase-2/worker-assign`; audit record
 commit `75e188f`.
 Read `.planning/reviews/phase-audit-2026-09-10.md` before touching any feature
@@ -498,8 +575,8 @@ failure result.
   `done` in the same run with valid worker/run ledger identities, and a deliberately broken
   dispatcher (stops at first failed child) makes the sibling-completion assertion fail.
 
-**Current canonical test result:** `python tests/run.py` → **137 tests, exit 0,
-136.158s** (2026-09-11).
+**Current canonical test result:** `python tests/run.py` -> **324 tests, exit 0,
+159.988s** (2026-09-12). The Phase 3 figure below is historical.
 
 **Key design decisions (Slice 3):**
 - The failure test drives `worker.execute_task` (the real claim -> precheck -> gate -> agent -> verify
@@ -517,8 +594,7 @@ failure result.
 **Slice 1 commit:** `a86f331` — planner graph writer. 98 tests, exit 0, 104.808s.
 **Phase 2 commit:** `ea44258` — worker/ledger/assign/chores. 89 tests, exit 0, 93.951s.
 
-Next: Phase 4 Slice 2 adversarial correction tests, then independent review.
-Do not merge any branch or start Slice 3 before that gate passes.
+Superseded: Phase 4 completed and was operator-accepted on 2026-09-11.
 
 Phase 1 carries two defects found by self-audit and fixed (non-atomic `create_task`; the `setdefault`
 board pin), one found by review and fixed (`migrate` silently accepting a same-named column of a
@@ -535,7 +611,11 @@ Omniroute Claude session created a separate temporary clone under
 clone as a handoff source. Every autonomous session must pass the path gate in
 `.planning/AUTONOMOUS-RUNBOOK.md` before modifying anything.
 
-Next: execute `.planning/AUTONOMOUS-RUNBOOK.md` for Phase 4.
+Next: Phase 7 (Planner Integration and Trusted Distributed Delegation). Its
+existing candidate can fabricate a passing verification result and applies remote
+diffs directly - do not merge it. Before any Phase 7 work, turn the approved
+delegation design into a reviewed atomic plan, and read
+`.planning/reviews/phase-audit-2026-09-10.md` first.
 
 Note: `~/.claude/skills/` was destroyed in the 2026-09-06 incident and is NOT in the `S5-claude-r3`
 archive — that archive stopped at `./profiles/`, before reaching `./skills/`. So the whole GSD suite

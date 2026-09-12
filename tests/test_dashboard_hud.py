@@ -181,6 +181,27 @@ class NetworkBindingTests(unittest.TestCase):
             )
         self.assertEqual(raised.exception.code, 404)
 
+    def test_several_interfaces_can_be_bound_without_widening_to_every_network(self):
+        """0.0.0.0 would also publish the HUD on the home Wi-Fi.
+
+        Binding loopback plus one named interface keeps the reachable surface
+        exactly the list the operator gave, which a wildcard bind cannot do.
+        """
+        loopback = web.create_server(port=0, snapshot_fn=fixture_snapshot)
+        self.addCleanup(loopback.server_close)
+        self.assertEqual(loopback.server_address[0], "127.0.0.1")
+        # A second interface is a second server, not a wider single bind.
+        named = web.create_server(
+            host="127.0.0.2", port=0, snapshot_fn=fixture_snapshot, allow_non_loopback=True,
+        )
+        self.addCleanup(named.server_close)
+        self.assertEqual(named.server_address[0], "127.0.0.2")
+        self.assertNotEqual(loopback.server_address[0], "0.0.0.0")
+
+    def test_serve_refuses_an_empty_server_set(self):
+        with self.assertRaisesRegex(ValueError, "no servers"):
+            web.serve([])
+
     def test_an_empty_host_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "host"):
             web.create_server(
@@ -207,6 +228,9 @@ class NetworkBindingTests(unittest.TestCase):
             _argparse.ArgumentParser.parse_args = real_parse
         self.assertIn("--host", parser_flags)
         self.assertIn("--allow-non-loopback", parser_flags)
+        # --host repeats, so loopback and a Tailscale address can both be named
+        # without falling back to a wildcard bind.
+        self.assertIn('action="append"', Path(web.__file__).read_text(encoding="utf-8").replace("'", '"'))
 
     def test_the_warning_names_what_becomes_reachable(self):
         source = Path(web.__file__).read_text(encoding="utf-8")

@@ -45,7 +45,7 @@ operator, not a nicety.
 python tests/run.py
 ```
 
-Must exit 0. Current baseline: **276 tests**. A change that does not keep this
+Must exit 0. Current baseline: **324 tests**. A change that does not keep this
 green is not done.
 
 ## Runtime layout
@@ -94,3 +94,10 @@ would only restate what you already intend, skip it.
   heredocs mangles `\n` escapes — patch it with a Python script instead.
 - A worker that dies mid-run leaves a stranded claim. `board.abort_dead_worker_claim`
   refuses a live worker and closes a proven-dead one. It is not a retry.
+- Windows liveness has exactly one correct implementation here: `src/process_liveness.py`.
+  Do not reach for `os.kill(pid, 0)` or a bare `OpenProcess` - both have already shipped
+  wrong answers, in opposite directions.
+- The dashboard template is JavaScript embedded in a Python r-string, and substring
+  assertions pass on a script that does not parse. `tests/test_dashboard_template_syntax.py`
+  runs `node --check` over it. Keep that gate, and open the page after a UI change -
+  geometry defects (overlapping labels, colliding plates) are invisible to the suite.

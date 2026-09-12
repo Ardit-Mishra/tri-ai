@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Planner + Bounded Concurrent Execution** - The strong model writes a real graph and exits; several workers execute it concurrently at a measured cap with proven per-branch failure isolation
 - [x] **Phase 4: Read-Only Telegram Observability** - The board and full subtask output are inspectable from Telegram, no write capability yet
 - [x] **Phase 5: Memory, Telegram Control, and Intake** - Passive memory foundation plus cancel, retry, and confirmation-gated task assignment from Telegram
-- [ ] **Phase 6: JARVIS Dashboard** - Read-only terminal/web dashboard over board, ledger, and accepted memory evidence
+- [x] **Phase 6: JARVIS Dashboard & Spatial HUD** - Read-only terminal/web dashboard over board, ledger, accepted memory evidence, and per-run lifecycle telemetry
 - [ ] **Phase 7: Planner Integration and Trusted Distributed Delegation** - Learned-pattern planner assistance plus a remote-worker protocol that preserves verify-gated acceptance
 - [ ] **Phase 8: Remote Offload and Phone Control** - Hardware-aware offload and confirmation-gated multi-node control
 
@@ -125,7 +125,7 @@ promotion is a separate post-Phase-4 gate. Optional operator-configured
 cloud/free routes always have a desktop-local fallback. See
 `.planning/research/capability-expansion-design.md`.
 
-### Phase 6: JARVIS Dashboard
+### Phase 6: JARVIS Dashboard & Spatial HUD
 **Goal**: Present a read-only board/ledger/accepted-memory view. It does not
 derive, activate, or mutate memory rules; those responsibilities are Phase 5D.
 It depends on accepted Phase 5 memory evidence.
@@ -143,6 +143,24 @@ metrics, bounded evidence terminal, JSON endpoint, and live SSE feed. Tests
 prove non-loopback binding is refused, endpoint serialization is faithful, and
 the web module has no board mutation, credential, external-network, or process
 spawn capability.
+
+**Slice 3 acceptance criteria:** accepted procedural rules render with task kind,
+checks, and provenance citations from the same read-only snapshot, linked to tasks
+only by resolved workspace path. The panel derives and activates nothing.
+
+**Slice 4 acceptance criteria:** per-run lifecycle telemetry (claim, worktree prep,
+agent, verify gate) is derived from recorded evidence only, with a stage a `dir`
+workspace never reaches rendering `skipped` and its reason rather than `pending`.
+Nodes are identified by task title with the hex id demoted and the workspace tagged.
+Bounded active-run log tails ride inside the snapshot, so no caller-supplied text
+becomes a path. The SSE client reconnects on exponential backoff behind a stream
+status badge, and the server binds loopback unless a wider interface is named
+explicitly. The embedded client script is parsed by a real JavaScript parser, because
+substring assertions pass on a script that does not parse.
+
+**Status: COMPLETE, accepted 2026-09-12.** `python tests/run.py` -> 324 tests,
+exit 0, 159.988s. Verified live against the real board, at desktop and 375px, with
+the bind surface probed (loopback and Tailscale reachable; home Wi-Fi refused).
 
 ### Phase 7: Planner Integration and Trusted Distributed Delegation
 **Goal**: Let the planner consume accepted crystallized patterns and coordinate
@@ -167,6 +185,6 @@ Branch experiments do not change this order or count as completion.
 | 3. Planner + Bounded Concurrent Execution | 1/1 | Complete | 2026-09-10 |
 | 4. Read-Only Telegram Observability | 4/4 slices + transport implementation verified | Complete; live operator exercise passed | 2026-09-11 |
 | 5. Memory, Telegram Control, and Intake | 5A-C + memory/review slices | Complete; operator accepted mobile intake and configured-task decision | 2026-09-11 |
-| 6. JARVIS Dashboard | 2/3 planned slices | Slices 1 terminal and 2 loopback web dashboard accepted locally; daemon incident recovered with retained evidence | 2026-09-11 |
+| 6. JARVIS Dashboard & Spatial HUD | 4/4 slices | **Complete**; terminal, web, memory panels and spatial HUD accepted. Daemon incident recovered and its root cause fixed (supervisor now restarts children with a bounded budget) | 2026-09-12 |
 | 7. Planner Integration and Trusted Distributed Delegation | 0/TBD | Planned; candidate violates verify gate | - |
 | 8. Remote Offload and Phone Control | 0/TBD | Planned | - |
