@@ -38,8 +38,8 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **245 tests, exit
-0, 149.093s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **246 tests, exit
+0, 179.950s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
 candidate-evolution and proposal-review gates alongside every prior phase.
@@ -80,6 +80,13 @@ The local default currently maps alias `tri-ai` to the canonical repository
 with the fixed `python tests/run.py` verifier and a 300-second timeout. Full
 suite after that operational change: `python tests/run.py` → **245 tests,
 exit 0, 149.093s**.
+
+**Live-startup correction in progress:** the operator-owned config file was
+valid JSON saved with a Windows UTF-8 BOM. The daemon read it as bare UTF-8
+and refused it before child launch. Config decoding now uses `utf-8-sig`, with
+a regression test; no credential value was printed or committed. Full suite:
+`python tests/run.py` → **246 tests, exit 0, 179.950s**. Next: launch the
+supervisor detached, then verify the Bot API and authorized chat response.
 
 **Phase 5B accepted locally:** `src/worker_daemon.py` is a foreground,
 resilient loop around exactly one existing `worker.run_once` tick. Empty

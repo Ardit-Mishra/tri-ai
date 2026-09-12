@@ -80,6 +80,19 @@ class TelegramDaemonTests(unittest.TestCase):
         self.assertEqual(settings.token, "config-token")
         self.assertEqual(settings.authorized_chat_ids, frozenset({"42"}))
 
+    def test_settings_accept_a_windows_utf8_bom_config_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "config.json"
+            config_path.write_text(json.dumps({"telegram": {
+                "bot_token": "config-token", "authorized_chat_id": "42",
+            }}), encoding="utf-8-sig")
+            settings = daemon.settings_from_sources(
+                {}, config_path=config_path, user_environment={},
+            )
+
+        self.assertEqual(settings.token, "config-token")
+        self.assertEqual(settings.authorized_chat_ids, frozenset({"42"}))
+
     def test_process_environment_overrides_local_config_and_user_environment(self):
         with tempfile.TemporaryDirectory() as temporary:
             config_path = Path(temporary) / "config.json"
