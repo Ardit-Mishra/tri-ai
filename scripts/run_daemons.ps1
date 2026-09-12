@@ -6,6 +6,7 @@ param(
     [string]$RunsDir,
     [string]$LogDir = (Join-Path $HOME ".tri-ai\logs"),
     [string]$IntakePolicy,
+    [string]$DashboardUrl,
     [switch]$WhatIf
 )
 
@@ -30,6 +31,7 @@ $Arguments = @(
     "--log-dir", $LogDir
 )
 if ($IntakePolicy) { $Arguments += @("--intake-policy", $IntakePolicy) }
+if ($DashboardUrl) { $Arguments += @("--dashboard-url", $DashboardUrl) }
 
 if ($WhatIf) {
     Write-Output ("Would run: {0} {1}" -f $Python, ($Arguments -join " "))
