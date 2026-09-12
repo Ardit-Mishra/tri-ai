@@ -443,6 +443,72 @@ def _read_board(
         conn.close()
 
 
+@dataclass(frozen=True)
+class ArtifactView:
+    """One produced file, already proven to sit inside its task's workspace."""
+    task_id: str
+    run_id: int
+    index: int
+    path: str
+    absolute: str
+    change: str
+    size_bytes: Optional[int]
+
+
+def read_task_artifacts(board_path: Path | str, task_id: str) -> tuple[ArtifactView, ...]:
+    """Read a task's produced artifacts from the board, newest run only.
+
+    The workspace and the relative path both come from the board. A recorded
+    path that escapes its own workspace is dropped rather than served - the
+    containment check is the security boundary, so it fails closed.
+    """
+    conn = _readonly_board(board_path)
+    try:
+        if not _table_exists(conn, "triai_run_artifacts"):
+            return ()
+        task = conn.execute(
+            "SELECT workspace_path FROM tasks WHERE id = ?", (str(task_id),)
+        ).fetchone()
+        if task is None or not task["workspace_path"]:
+            return ()
+        rows = conn.execute(
+            "SELECT task_id, run_id, path, change, size_bytes FROM triai_run_artifacts "
+            "WHERE task_id = ? AND run_id = ("
+            "  SELECT MAX(run_id) FROM triai_run_artifacts WHERE task_id = ?"
+            ") ORDER BY path",
+            (str(task_id), str(task_id)),
+        ).fetchall()
+    except sqlite3.Error:
+        return ()
+    finally:
+        conn.close()
+
+    try:
+        workspace = Path(str(task["workspace_path"])).resolve()
+    except OSError:
+        return ()
+
+    views: list[ArtifactView] = []
+    for index, row in enumerate(rows):
+        relative = str(row["path"])
+        try:
+            resolved = (workspace / relative).resolve()
+        except OSError:
+            continue
+        if not resolved.is_relative_to(workspace):
+            continue
+        views.append(ArtifactView(
+            task_id=str(row["task_id"]),
+            run_id=int(row["run_id"]),
+            index=index,
+            path=relative,
+            absolute=str(resolved),
+            change=str(row["change"]),
+            size_bytes=_optional_int(row["size_bytes"]),
+        ))
+    return tuple(views)
+
+
 def _read_ledger(path: Path | str, *, limit: int) -> tuple[tuple[LedgerEvent, ...], int, tuple[str, ...]]:
     if limit < 1:
         raise ValueError("ledger_limit must be positive")

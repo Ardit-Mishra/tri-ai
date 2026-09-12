@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 import board
+import completion_report
 import proposals
 import telegram_read_surface
 
@@ -258,6 +259,37 @@ class TelegramControl:
         conn = board.connect(Path(board_path))
         try:
             return tuple(proposals.render(item) for item in board.pending_proposals_for_chat(conn, chat_id))
+        finally:
+            conn.close()
+
+    def pending_completions(
+        self, *, chat_id: str, board_path: Path | str, dashboard_url: Optional[str] = None,
+    ) -> tuple[completion_report.CompletionCard, ...]:
+        """Return finished runs this chat has not been told about yet."""
+        conn = board.connect(Path(board_path))
+        try:
+            return tuple(
+                completion_report.render(row, dashboard_url=dashboard_url)
+                for row in board.pending_completions_for_chat(conn, chat_id)
+            )
+        finally:
+            conn.close()
+
+    def record_completion(
+        self,
+        *,
+        task_id: str,
+        run_id: int,
+        chat_id: str,
+        message_id: int,
+        board_path: Path | str,
+    ) -> bool:
+        """Persist a delivered completion; an undelivered one stays retryable."""
+        conn = board.connect(Path(board_path))
+        try:
+            return board.record_completion_notification(
+                conn, task_id=task_id, run_id=run_id, chat_id=chat_id, message_id=message_id,
+            )
         finally:
             conn.close()
 

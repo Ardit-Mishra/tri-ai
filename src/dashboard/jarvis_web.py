@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import threading
 import time
@@ -740,7 +741,19 @@ def snapshot_payload(snapshot: jarvis_terminal.DashboardSnapshot) -> dict[str, o
     }
 
 
-def _handler(snapshot_fn: SnapshotReader, event_interval: float) -> type[BaseHTTPRequestHandler]:
+ARTIFACT_ROUTE = re.compile(r"^/artifact/([A-Za-z0-9_.-]{1,64})/(\d{1,4})$")
+ARTIFACT_MAX_BYTES = 25 * 1024 * 1024
+ARTIFACT_TYPES = {
+    ".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8", ".txt": "text/plain; charset=utf-8",
+    ".md": "text/plain; charset=utf-8", ".csv": "text/plain; charset=utf-8",
+    ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".pdf": "application/pdf",
+}
+
+
+def _handler(snapshot_fn: SnapshotReader, event_interval: float, artifact_fn=None) -> type[BaseHTTPRequestHandler]:
     class JarvisHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
@@ -759,6 +772,44 @@ def _handler(snapshot_fn: SnapshotReader, event_interval: float) -> type[BaseHTT
         def _snapshot(self) -> dict[str, object]:
             return snapshot_payload(snapshot_fn())
 
+        def _serve_artifact(self, task_id: str, index: int) -> None:
+            """Serve one recorded artifact. The URL selects; it never supplies a path."""
+            if artifact_fn is None:
+                self.send_error(404, "not found")
+                return
+            artifacts = artifact_fn(task_id)
+            if index >= len(artifacts):
+                self.send_error(404, "not found")
+                return
+            artifact = artifacts[index]
+            target = Path(artifact.absolute)
+            try:
+                if not target.is_file():
+                    self.send_error(404, "not found")
+                    return
+                size = target.stat().st_size
+                if size > ARTIFACT_MAX_BYTES:
+                    self.send_error(413, "artifact too large to serve")
+                    return
+                body = target.read_bytes()
+            except OSError:
+                self.send_error(404, "not found")
+                return
+            content_type = ARTIFACT_TYPES.get(target.suffix.lower())
+            self.send_response(200)
+            if content_type is None:
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header(
+                    "Content-Disposition", f'attachment; filename="{target.name}"',
+                )
+            else:
+                self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(body)
+
         def do_GET(self) -> None:
             if self.path == "/":
                 body = HTML.encode("utf-8")
@@ -771,6 +822,10 @@ def _handler(snapshot_fn: SnapshotReader, event_interval: float) -> type[BaseHTT
                 return
             if self.path == "/api/snapshot":
                 self._json(self._snapshot())
+                return
+            match = ARTIFACT_ROUTE.match(self.path)
+            if match is not None:
+                self._serve_artifact(match.group(1), int(match.group(2)))
                 return
             if self.path == "/events":
                 self.send_response(200)
@@ -801,6 +856,7 @@ def create_server(
     snapshot_fn: Optional[SnapshotReader] = None,
     event_interval: float = 2.0,
     allow_non_loopback: bool = False,
+    artifact_fn=None,
 ) -> JarvisHTTPServer:
     """Create the read-only dashboard server; loopback unless told otherwise.
 
@@ -830,7 +886,13 @@ def create_server(
             daemon_state_path=runtime / "logs" / "daemons.json",
             runs_root=runtime / "runs",
         )
-    return JarvisHTTPServer((host, int(port)), _handler(snapshot_fn, event_interval))
+        if artifact_fn is None:
+            artifact_fn = lambda task_id: jarvis_terminal.read_task_artifacts(
+                runtime / "board.db", task_id,
+            )
+    return JarvisHTTPServer(
+        (host, int(port)), _handler(snapshot_fn, event_interval, artifact_fn),
+    )
 
 
 def serve(servers: Sequence[JarvisHTTPServer]) -> None:

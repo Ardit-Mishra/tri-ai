@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sqlite3
 import sys
 import time
 from dataclasses import dataclass, field
@@ -331,6 +332,7 @@ def execute_task(
                 ledger_path=lp, agent_log=agent_log, verify_log=verify_log,
                 seconds=seconds, skip_board=True,
             )
+        _record_artifacts(conn, task_id, run_id, repo)
         entry = _entry(
             claimed, run_id=run_id, repo=repo, branch=branch,
             outcome="passed", verify_exit=0, verify_outcome="passed",
@@ -664,6 +666,54 @@ def _board_failure(
             end_run=False,
         )
     return owned
+
+
+def _porcelain_artifacts(repo: Path | str) -> list[dict[str, Any]]:
+    """Parse `git status --porcelain` into produced-artifact records.
+
+    Observation only: the tree is read, never modified. A rename reports its
+    destination, which is the path that now exists.
+    """
+    try:
+        code, out = executor.git(["status", "--porcelain"], cwd=repo)
+    except (executor.DisallowedGitCommand, OSError):
+        return []
+    if code != 0:
+        return []
+    artifacts: list[dict[str, Any]] = []
+    for line in out.splitlines():
+        if not line.strip() or len(line) < 4:
+            continue
+        change = line[:2].strip() or "?"
+        path = line[3:].strip()
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        path = path.strip().strip('"')
+        if not path:
+            continue
+        size: Optional[int] = None
+        try:
+            candidate = Path(repo) / path
+            if candidate.is_file():
+                size = candidate.stat().st_size
+        except OSError:
+            size = None
+        artifacts.append({"path": path, "change": change, "size_bytes": size})
+    return artifacts
+
+
+def _record_artifacts(conn, task_id: str, run_id: int, repo: Path | str) -> int:
+    """Record produced artifacts; never fail the run over bookkeeping."""
+    artifacts = _porcelain_artifacts(repo)
+    if not artifacts:
+        return 0
+    try:
+        return board.record_run_artifacts(
+            conn, task_id=task_id, run_id=run_id, artifacts=artifacts,
+        )
+    except (ValueError, sqlite3.Error):
+        # Bookkeeping must never turn a verified pass into a failure.
+        return 0
 
 
 def _quarantine_stop(

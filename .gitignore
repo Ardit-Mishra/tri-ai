@@ -17,3 +17,4 @@ triai-ledger.jsonl
 # lives at ~/.tri-ai/board.db and is never version controlled.
 .planning/board.db
 .planning/board.db.init.lock
+diwali.html

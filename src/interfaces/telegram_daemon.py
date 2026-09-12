@@ -269,6 +269,9 @@ class TelegramDaemon:
         callback_handler: Optional[Callable[..., Any]] = None,
         notifier: Optional[Callable[..., Sequence[Any]]] = None,
         notification_recorder: Optional[Callable[..., bool]] = None,
+        completion_notifier: Optional[Callable[..., Sequence[Any]]] = None,
+        completion_recorder: Optional[Callable[..., bool]] = None,
+        dashboard_url: Optional[str] = None,
     ) -> None:
         self._api = api
         self._settings = settings
@@ -280,6 +283,9 @@ class TelegramDaemon:
         self._callback_handler = callback_handler
         self._notifier = notifier
         self._notification_recorder = notification_recorder
+        self._completion_notifier = completion_notifier
+        self._completion_recorder = completion_recorder
+        self._dashboard_url = dashboard_url
 
     def publish_pending(self) -> None:
         """Push each pending card once per authorized chat through an injected control seam."""
@@ -294,6 +300,32 @@ class TelegramDaemon:
                     raise TelegramTransportError("proposal notification did not return a message ID")
                 self._notification_recorder(
                     proposal_id=card.proposal_id, chat_id=chat_id,
+                    message_id=message_id, board_path=self._board_path,
+                )
+
+    def publish_completions(self) -> None:
+        """Push each finished run once per authorized chat.
+
+        A send that fails leaves the run unrecorded, so it is retried on the
+        next poll rather than silently lost.
+        """
+        if self._completion_notifier is None or self._completion_recorder is None:
+            return
+        for chat_id in sorted(self._settings.authorized_chat_ids):
+            for card in self._completion_notifier(
+                chat_id=chat_id,
+                board_path=self._board_path,
+                dashboard_url=self._dashboard_url,
+            ):
+                message_id: Optional[int] = None
+                for chunk in _message_chunks(card.text):
+                    sent = self._api.send_message(chat_id=chat_id, text=chunk)
+                    if message_id is None:
+                        message_id = sent
+                if message_id is None:
+                    raise TelegramTransportError("completion notice did not return a message ID")
+                self._completion_recorder(
+                    task_id=card.task_id, run_id=card.run_id, chat_id=chat_id,
                     message_id=message_id, board_path=self._board_path,
                 )
 
@@ -338,6 +370,7 @@ class TelegramDaemon:
             for chunk in _message_chunks(rendered):
                 self._api.send_message(chat_id=chat_id, text=chunk)
         self.publish_pending()
+        self.publish_completions()
         return next_offset
 
     def _handle_callback(self, callback: Mapping[str, Any]) -> None:
@@ -426,6 +459,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="operator-owned JSON policy; without it Telegram remains read-only",
     )
     parser.add_argument("--poll-timeout", type=int, default=30, choices=range(1, 51))
+    parser.add_argument(
+        "--dashboard-url",
+        help="Base URL of the read-only dashboard, used to link produced artifacts",
+    )
     parser.add_argument("--once", action="store_true", help="Process one long-poll response, then exit")
     args = parser.parse_args(argv)
 
@@ -448,6 +485,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             callback_handler=callback_handler,
             notifier=notifier,
             notification_recorder=notification_recorder,
+            completion_notifier=control.pending_completions,
+            completion_recorder=control.record_completion,
+            dashboard_url=args.dashboard_url,
         )
         if args.once:
             daemon.poll_once(offset=None, timeout=args.poll_timeout)

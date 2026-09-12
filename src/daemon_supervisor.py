@@ -40,6 +40,7 @@ def commands(
     ledger_path: Path,
     runs_root: Path,
     intake_policy: Optional[Path],
+    dashboard_url: Optional[str] = None,
 ) -> DaemonCommands:
     """Build the only two child argv forms the supervisor may execute."""
     worker = (
@@ -52,6 +53,8 @@ def commands(
     ]
     if intake_policy is not None:
         telegram.extend(("--intake-policy", str(intake_policy)))
+    if dashboard_url:
+        telegram.extend(("--dashboard-url", str(dashboard_url)))
     return DaemonCommands(worker, tuple(telegram))
 
 
@@ -346,6 +349,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--runs-dir", type=Path, required=True)
     parser.add_argument("--log-dir", type=Path, default=Path.home() / ".tri-ai" / "logs")
     parser.add_argument("--intake-policy", type=Path)
+    parser.add_argument(
+        "--dashboard-url",
+        help="Read-only dashboard base URL; completion notices link artifacts through it",
+    )
     args = parser.parse_args(argv)
     intake_policy = resolve_intake_policy(args.intake_policy)
 
@@ -417,6 +424,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 root=root, board_path=args.board.resolve(), ledger_path=args.ledger.resolve(),
                 runs_root=args.runs_dir.resolve(),
                 intake_policy=intake_policy.resolve() if intake_policy else None,
+                dashboard_url=args.dashboard_url,
             ),
             log_dir=log_dir, run_id=run_id, stop_path=stop_path,
             on_started=children_started, on_change=children_changed,
