@@ -34,7 +34,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional, Sequence
 
 from memory import episodic, procedural
 
@@ -168,6 +168,8 @@ def migrate(conn: sqlite3.Connection) -> dict[str, bool]:
     conn.execute(PROPOSALS_DDL)
     conn.execute(PROPOSAL_NOTIFICATIONS_DDL)
     conn.execute(ACTIVATED_PROCEDURAL_RULES_DDL)
+    conn.execute(RUN_ARTIFACTS_DDL)
+    conn.execute(COMPLETION_NOTIFICATIONS_DDL)
 
     conn.commit()
     return added
@@ -529,6 +531,29 @@ CREATE TABLE IF NOT EXISTS triai_proposal_notifications (
 )
 """
 
+RUN_ARTIFACTS_DDL = """
+CREATE TABLE IF NOT EXISTS triai_run_artifacts (
+    task_id     TEXT NOT NULL,
+    run_id      INTEGER NOT NULL,
+    path        TEXT NOT NULL,
+    change      TEXT NOT NULL,
+    size_bytes  INTEGER,
+    recorded_at INTEGER NOT NULL,
+    PRIMARY KEY (task_id, run_id, path)
+)
+"""
+
+COMPLETION_NOTIFICATIONS_DDL = """
+CREATE TABLE IF NOT EXISTS triai_completion_notifications (
+    task_id     TEXT NOT NULL,
+    run_id      INTEGER NOT NULL,
+    chat_id     TEXT NOT NULL,
+    message_id  INTEGER NOT NULL,
+    notified_at INTEGER NOT NULL,
+    PRIMARY KEY (task_id, run_id, chat_id)
+)
+"""
+
 ACTIVATED_PROCEDURAL_RULES_DDL = """
 CREATE TABLE IF NOT EXISTS triai_activated_procedural_rules (
     proposal_id  TEXT PRIMARY KEY REFERENCES triai_proposals(id),
@@ -681,6 +706,121 @@ def record_proposal_notification(
             "INSERT OR IGNORE INTO triai_proposal_notifications "
             "(proposal_id, chat_id, message_id, notified_at) VALUES (?, ?, ?, ?)",
             (proposal_id, str(chat_id), message_id, int(time.time()) if now is None else int(now)),
+        ).rowcount
+    return inserted == 1
+
+
+def record_run_artifacts(
+    conn: sqlite3.Connection,
+    *,
+    task_id: str,
+    run_id: int,
+    artifacts: Sequence[Mapping[str, Any]],
+    now: Optional[int] = None,
+) -> int:
+    """Record what a run actually produced, as observed in the workspace.
+
+    ``artifacts`` carries ``path`` (workspace-relative), ``change`` (the porcelain
+    code), and optional ``size_bytes``. Paths are recorded, never resolved or
+    opened here; readers resolve them against the task's own workspace.
+    """
+    if isinstance(run_id, bool) or not isinstance(run_id, int) or run_id < 1:
+        raise ValueError("run_id must be a positive integer")
+    stamp = int(time.time()) if now is None else int(now)
+    rows = []
+    for item in artifacts:
+        path = item.get("path")
+        change = item.get("change")
+        if not isinstance(path, str) or not path.strip():
+            raise ValueError("artifact path must be a non-empty string")
+        if not isinstance(change, str) or not change.strip():
+            raise ValueError("artifact change must be a non-empty string")
+        size = item.get("size_bytes")
+        if size is not None and (isinstance(size, bool) or not isinstance(size, int)):
+            raise ValueError("artifact size_bytes must be an integer or None")
+        rows.append((str(task_id), run_id, path.strip(), change.strip(), size, stamp))
+    if not rows:
+        return 0
+    kb = kanban()
+    with kb.write_txn(conn):
+        conn.executemany(
+            "INSERT OR REPLACE INTO triai_run_artifacts "
+            "(task_id, run_id, path, change, size_bytes, recorded_at) VALUES (?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+    return len(rows)
+
+
+def run_artifacts(
+    conn: sqlite3.Connection, *, task_id: str, run_id: Optional[int] = None,
+) -> tuple[dict[str, Any], ...]:
+    """Read the artifacts a run produced, newest run first when unscoped."""
+    if run_id is None:
+        rows = conn.execute(
+            "SELECT task_id, run_id, path, change, size_bytes, recorded_at "
+            "FROM triai_run_artifacts WHERE task_id = ? ORDER BY run_id DESC, path",
+            (str(task_id),),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT task_id, run_id, path, change, size_bytes, recorded_at "
+            "FROM triai_run_artifacts WHERE task_id = ? AND run_id = ? ORDER BY path",
+            (str(task_id), int(run_id)),
+        ).fetchall()
+    return tuple(dict(row) for row in rows)
+
+
+def pending_completions_for_chat(
+    conn: sqlite3.Connection, chat_id: str, *, limit: int = 5,
+) -> tuple[dict[str, Any], ...]:
+    """Finished tasks this chat has not been told about yet.
+
+    A task qualifies once its run reaches a terminal state. The notification
+    ledger makes delivery exactly-once per chat, so polling cannot spam.
+    """
+    rows = conn.execute(
+        "SELECT t.id AS task_id, t.title, t.body, t.status, t.workspace_path, "
+        "       t.result, r.id AS run_id, r.outcome, r.summary, r.error, "
+        "       r.started_at, r.ended_at, r.metadata "
+        "FROM tasks AS t JOIN task_runs AS r ON r.task_id = t.id "
+        "WHERE r.status IN ('done', 'failed', 'cancelled') "
+        "  AND r.ended_at IS NOT NULL "
+        "  AND NOT EXISTS ("
+        "    SELECT 1 FROM triai_completion_notifications AS n "
+        "    WHERE n.task_id = t.id AND n.run_id = r.id AND n.chat_id = ?"
+        "  ) "
+        "ORDER BY r.ended_at ASC, r.id ASC LIMIT ?",
+        (str(chat_id), int(limit)),
+    ).fetchall()
+    results = []
+    for row in rows:
+        item = dict(row)
+        item["artifacts"] = run_artifacts(conn, task_id=item["task_id"], run_id=item["run_id"])
+        results.append(item)
+    return tuple(results)
+
+
+def record_completion_notification(
+    conn: sqlite3.Connection,
+    *,
+    task_id: str,
+    run_id: int,
+    chat_id: str,
+    message_id: int,
+    now: Optional[int] = None,
+) -> bool:
+    """Remember one delivered completion message so it is never sent twice."""
+    if isinstance(message_id, bool) or not isinstance(message_id, int) or message_id < 1:
+        raise ValueError("Telegram message_id must be a positive integer")
+    if isinstance(run_id, bool) or not isinstance(run_id, int) or run_id < 1:
+        raise ValueError("run_id must be a positive integer")
+    kb = kanban()
+    with kb.write_txn(conn):
+        inserted = conn.execute(
+            "INSERT OR IGNORE INTO triai_completion_notifications "
+            "(task_id, run_id, chat_id, message_id, notified_at) VALUES (?, ?, ?, ?, ?)",
+            (str(task_id), run_id, str(chat_id), message_id,
+             int(time.time()) if now is None else int(now)),
         ).rowcount
     return inserted == 1
 
