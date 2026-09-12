@@ -72,7 +72,8 @@ HTML = r"""<!doctype html>
     .event:first-child { color:var(--muted); font-size:10px; text-transform:uppercase; }
     .pass { color:var(--emerald); } .fail { color:var(--crimson); } .warn { color:var(--amber); }
     .state { color:var(--muted); font-family:"JetBrains Mono","Fira Code",ui-monospace,monospace; font-size:10px; margin-top:10px; }
-    @media (max-width:760px) { .shell { padding:14px; } header { align-items:flex-start; flex-direction:column; } .services { justify-content:flex-start; } .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .matrix { grid-template-columns:repeat(4,minmax(220px,1fr)); } }
+    @media (max-width:1000px) { header { align-items:flex-start; flex-direction:column; } .services { justify-content:flex-start; } .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .matrix { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:600px) { .shell { padding:14px; } .matrix { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -94,7 +95,7 @@ HTML = r"""<!doctype html>
     <div class="state" id="connection">Connecting to local evidence stream...</div>
   </main>
   <script>
-    const lanes = [['ready','Ready'],['running','Running'],['done','Done'],['failed','Failed'],['other','Other']];
+    const lanes = [['ready','Ready'],['running','Running'],['done','Done'],['failed','Failed']];
     const byId = id => document.getElementById(id);
     const monoTime = ts => typeof ts === 'number' ? new Date(ts * 1000).toLocaleTimeString() : '-';
     const clear = node => { while (node.firstChild) node.removeChild(node.firstChild); };
@@ -107,7 +108,7 @@ HTML = r"""<!doctype html>
       const services=byId('services'); clear(services);
       for (const [name, alive] of Object.entries(data.daemons.processes)) { const item=make('div','',`service ${alive ? 'up' : 'down'}`); item.append(make('i','dot','dot'), make('span',`${name} ${alive ? 'up' : 'down'}`)); services.append(item); }
       const matrix=byId('matrix'); clear(matrix); const buckets=Object.fromEntries(lanes.map(([key])=>[key,[]]));
-      for (const task of data.tasks) buckets[buckets[task.status] ? task.status : 'other'].push(task);
+      for (const task of data.tasks) buckets[buckets[task.status] ? task.status : 'failed'].push(task);
       const last=Object.fromEntries(data.ledger_events.map(event=>[event.task_id,event]));
       for (const [key,label] of lanes) { const lane=make('section','', 'lane'); lane.append(make('h2', `${label} / ${buckets[key].length}`)); for (const task of buckets[key]) { const event=last[task.id]; const card=make('article','',`task ${task.status}`); card.append(make('div',task.id,'task-id'),make('div',task.title,'task-title')); const meta=make('div','', 'meta'); meta.append(make('span',task.run_id === null ? 'run -' : `run ${task.run_id}`)); const badge=make('span',event ? event.outcome : task.status,event && event.outcome === 'passed' ? 'badge passed' : event ? 'badge failed' : 'badge pending'); meta.append(badge); card.append(meta); lane.append(card); } matrix.append(lane); }
       const events=byId('events'); clear(events); const header=make('div','', 'event'); ['Time','Task','Outcome','Verify','Duration'].forEach(label=>header.append(make('span',label))); events.append(header);

@@ -66,10 +66,12 @@ disconnects are quiet without suppressing real server errors. The terminal
 reader now reports the complete valid ledger-entry count alongside its bounded
 evidence tail. A live read caught `os.kill(pid, 0)` reporting Windows daemon
 PIDs as down; the reader now uses a query-only Windows process handle and has
-a current-PID regression test. Full suite: `python tests/run.py` -> **259
-tests, exit 0, 162.772s**. Next: restart the local web process with the
-corrected liveness reader and verify the restored daemon fleet; do not enqueue
-a retry for the cancelled task.
+a current-PID regression test. Medium and mobile widths stack the header,
+metrics, and four requested task lanes without clipping; cancelled tasks stay
+visible in the Failed lane. Full suite: `python tests/run.py` -> **259 tests,
+exit 0, 180.472s**. Next: restart the local web process with the corrected
+liveness reader and responsive layout, then verify the restored daemon fleet;
+do not enqueue a retry for the cancelled task.
 Slice 2's
 implementation/review correction (`a71ff9e` / `02b90f8`) is now covered by
 adversarial regression tests in `8ea0d03`. Slice 3 is accepted on local,
@@ -80,7 +82,7 @@ separate review service was unavailable and is recorded as such.
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
 **Latest canonical verification:** `python tests/run.py` -> **259 tests, exit
-0, 162.772s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+0, 180.472s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
 candidate-evolution and proposal-review gates alongside every prior phase.

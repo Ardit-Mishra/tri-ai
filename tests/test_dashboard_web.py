@@ -60,6 +60,8 @@ class WebSerializationTests(unittest.TestCase):
         self.assertIn("TRI-AI // JARVIS CORE", page)
         self.assertIn("EventSource", page)
         self.assertIn("#09090b", page)
+        self.assertIn("['ready','Ready'],['running','Running'],['done','Done'],['failed','Failed']", page)
+        self.assertNotIn("['other','Other']", page)
 
         with request.urlopen(base + "/api/snapshot", timeout=2) as response:
             api_payload = json.loads(response.read().decode("utf-8"))

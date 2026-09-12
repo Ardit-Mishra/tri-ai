@@ -74,12 +74,15 @@ started, stopped, nor reconfigured by this slice.
 - `python -m unittest tests.test_dashboard tests.test_dashboard_web
   tests.test_telegram_control tests.test_telegram_daemon tests.test_worker_daemon`
   -> 47 tests, exit 0, 16.484s.
-- `python tests/run.py` -> 259 tests, exit 0, 162.772s.
+- `python tests/run.py` -> 259 tests, exit 0, 180.472s.
 - The web server suppresses only ordinary Windows client disconnect exceptions;
   all other request-handler exceptions continue through the standard server
   error path.
 - Windows daemon liveness uses a query-only process handle, not `os.kill(pid,
   0)`, which gave false-down readings for live processes in local validation.
+- At medium/mobile widths the header and metrics reflow without clipping; the
+  four specified task lanes remain the only lane categories, with terminal
+  non-success states retained in Failed.
 - The concurrent daemon incident was recovered separately through
   `board.abort_dead_worker_claim`: it refuses a live worker and closes a proven
   dead claim with a durable board event. It is not a retry mechanism.
