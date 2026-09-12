@@ -38,8 +38,8 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **238 tests, exit
-0, 148.043s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **243 tests, exit
+0, 166.899s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
 candidate-evolution and proposal-review gates alongside every prior phase.
@@ -61,6 +61,23 @@ zero task rows; same-chat `/confirm` creates the configured verify-gated task;
 completion race. The roadmap currently says confirmation invokes the planner,
 while the shipped policy intentionally creates one preconfigured task. This is
 an explicit decision/acceptance gap, not a claim that Phase 5 is complete.
+
+**Telegram intake ergonomics and worker diagnostics accepted locally:** the live
+`/run` report exposed a misleading reply, not a whitespace parser defect:
+`split(maxsplit=2)` already preserves multi-word prompts, but missing policy
+or unknown aliases were reported as generic usage. `/run` now distinguishes
+missing intake policy, malformed syntax, and unknown aliases; `/workspaces`
+and `/help` list the bounded, policy-owned aliases. Plain text creates only a
+confirmation-required draft in a policy default workspace (a single workspace
+is default automatically; multi-workspace policies may set
+`default_workspace`). Exact status phrases remain read-only. `worker_daemon`
+now retains an exception type and reason in `worker.log`, matching Telegram
+diagnostics. Focused tests: `python -m unittest tests.test_telegram_control
+tests.test_telegram_daemon tests.test_worker_daemon` → **34 tests, exit 0,
+8.464s**. Full suite: `python tests/run.py` → **243 tests, exit 0,
+166.899s**. The next operator action is a clean restart of the foreground
+daemons to load the new code; retain the existing intake-policy argument when
+using `/run`.
 
 **Phase 5B accepted locally:** `src/worker_daemon.py` is a foreground,
 resilient loop around exactly one existing `worker.run_once` tick. Empty

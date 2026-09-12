@@ -21,7 +21,14 @@ import telegram_read_surface
 
 
 PENDING_SECONDS = 15 * 60
-READ_COMMANDS = {"/status", "/task", "/logs", "/help"}
+READ_COMMANDS = {"/status", "/task", "/logs"}
+NATURAL_READ_COMMANDS = {
+    "status": "/status",
+    "board status": "/status",
+    "show status": "/status",
+    "what is the status": "/status",
+    "what's the status": "/status",
+}
 
 
 @dataclass(frozen=True)
@@ -41,6 +48,7 @@ class WorkspacePolicy:
 @dataclass(frozen=True)
 class IntakePolicy:
     workspaces: Mapping[str, WorkspacePolicy]
+    default_workspace: Optional[str]
 
 
 @dataclass(frozen=True)
@@ -89,7 +97,13 @@ def load_policy(path: Path | str) -> IntakePolicy:
         workspaces[alias] = WorkspacePolicy(alias, workspace.resolve(), profiles[profile_name])
     if not workspaces:
         raise ValueError("intake policy has no workspaces")
-    return IntakePolicy(workspaces)
+    default_workspace = raw.get("default_workspace")
+    if default_workspace is None and len(workspaces) == 1:
+        default_workspace = next(iter(workspaces))
+    if default_workspace is not None:
+        if not isinstance(default_workspace, str) or default_workspace not in workspaces:
+            raise ValueError("default_workspace must name an allowed workspace alias")
+    return IntakePolicy(workspaces, default_workspace)
 
 
 class TelegramControl:
@@ -118,6 +132,48 @@ class TelegramControl:
         )
         return action_id
 
+    def _pending_run(self, conn, *, chat_id: str, workspace: WorkspacePolicy, prompt: str) -> str:
+        action_id = self._pending(
+            conn,
+            chat_id=chat_id,
+            action="run",
+            payload={
+                "title": f"Telegram: {workspace.alias}",
+                "prompt": prompt,
+                "workspace": str(workspace.path),
+                "verify_command": workspace.profile.command,
+                "verify_timeout": workspace.profile.timeout,
+            },
+        )
+        return f"Pending intake {action_id}. Confirm with /confirm {action_id}"
+
+    def _workspaces(self) -> str:
+        if self._policy is None:
+            return "Task intake is not configured. Read commands remain available."
+        aliases = [
+            f"{alias} (default)" if alias == self._policy.default_workspace else alias
+            for alias in sorted(self._policy.workspaces)
+        ]
+        return "Workspaces: " + ", ".join(aliases) + ". Use /run <workspace-alias> <prompt>."
+
+    def _help(self) -> str:
+        commands = [
+            "/status",
+            "/task <task-id>",
+            "/logs <task-id>",
+            "/workspaces",
+            "/run <workspace-alias> <prompt>",
+            "/retry <task-id>",
+            "/cancel <task-id>",
+            "/confirm <request-id>",
+        ]
+        suffix = " Plain text creates a confirmation-required draft in the default workspace."
+        if self._policy is None:
+            suffix = " Task intake is not configured."
+        elif self._policy.default_workspace is None:
+            suffix = " Plain text needs default_workspace configured; use /workspaces."
+        return "Commands: " + ", ".join(commands) + "." + suffix
+
     def dispatch(
         self,
         text: str,
@@ -128,31 +184,50 @@ class TelegramControl:
         runs_root: Path | str,
     ) -> str:
         """Return one honest command response; no command accepts shell text."""
-        parts = text.strip().split(maxsplit=2)
-        command = parts[0].lower() if parts else "/help"
+        normalized = text.strip()
+        if not normalized:
+            return self._help()
+        natural_read = NATURAL_READ_COMMANDS.get(normalized.casefold())
+        if natural_read is not None:
+            return telegram_read_surface.dispatch_command(
+                natural_read, board_path=board_path, ledger_path=ledger_path, runs_root=runs_root
+            )
+        if not normalized.startswith("/"):
+            if self._policy is None:
+                return "Task intake is not configured. Use /status or /help."
+            if self._policy.default_workspace is None:
+                return "No default workspace is configured. Use /workspaces, then /run <workspace-alias> <prompt>."
+            conn = board.connect(Path(board_path))
+            try:
+                return self._pending_run(
+                    conn, chat_id=chat_id,
+                    workspace=self._policy.workspaces[self._policy.default_workspace],
+                    prompt=normalized,
+                )
+            finally:
+                conn.close()
+
+        parts = normalized.split(maxsplit=2)
+        command = parts[0].lower()
+        if command == "/help":
+            return self._help()
+        if command == "/workspaces":
+            return self._workspaces()
         if command in READ_COMMANDS:
             return telegram_read_surface.dispatch_command(
-                text, board_path=board_path, ledger_path=ledger_path, runs_root=runs_root
+                normalized, board_path=board_path, ledger_path=ledger_path, runs_root=runs_root
             )
         conn = board.connect(Path(board_path))
         try:
             if command == "/run":
-                if self._policy is None or len(parts) != 3 or parts[1] not in self._policy.workspaces:
+                if self._policy is None:
+                    return "Task intake is not configured. Use /status or /help."
+                if len(parts) != 3:
                     return "Usage: /run <workspace-alias> <prompt>"
+                if parts[1] not in self._policy.workspaces:
+                    return f"Unknown workspace alias: {parts[1]}. Use /workspaces."
                 workspace = self._policy.workspaces[parts[1]]
-                action_id = self._pending(
-                    conn,
-                    chat_id=chat_id,
-                    action="run",
-                    payload={
-                        "title": f"Telegram: {workspace.alias}",
-                        "prompt": parts[2],
-                        "workspace": str(workspace.path),
-                        "verify_command": workspace.profile.command,
-                        "verify_timeout": workspace.profile.timeout,
-                    },
-                )
-                return f"Pending intake {action_id}. Confirm with /confirm {action_id}"
+                return self._pending_run(conn, chat_id=chat_id, workspace=workspace, prompt=parts[2])
             if command == "/retry":
                 if len(parts) != 2:
                     return "Usage: /retry <task-id>"

@@ -22,6 +22,11 @@ class DaemonSummary:
     stopped: bool
 
 
+def startup_diagnostic(exc: Exception) -> str:
+    """Preserve the failure class and reason in retained worker output."""
+    return f"worker daemon stopped: {type(exc).__name__}: {exc}"
+
+
 def serve(
     tick: Callable[[], object | None],
     *,
@@ -93,8 +98,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             idle_max_seconds=args.idle_max,
             max_ticks=1 if args.once else None,
         )
-    except Exception:
-        print("worker daemon stopped: unexpected worker error", file=sys.stderr)
+    except Exception as exc:
+        print(startup_diagnostic(exc), file=sys.stderr)
         return worker.EXIT_ERROR
     finally:
         if conn is not None:

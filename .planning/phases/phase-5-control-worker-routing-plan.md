@@ -14,8 +14,16 @@ handle.
 - A local JSON policy maps a workspace alias to a canonical, preconfigured
   workspace and named verifier profile. A profile owns a fixed verify command
   and positive timeout. Telegram text never supplies a shell command.
+- A policy with one workspace uses it as the default. A multi-workspace policy
+  may name `default_workspace` with one allowed alias; only then can plain text
+  create a pending intake draft. Without a default, the daemon remains usable
+  and directs the operator to `/workspaces` and explicit `/run` syntax.
 - /run <workspace-alias> <prompt> creates a durable pending intake record, not
   a task. It returns a request id.
+- Plain text is an ergonomic alias for `/run` against the policy default. It
+  still creates only a pending intake and requires `/confirm`; exact status
+  phrases stay read-only. `/workspaces` and `/help` expose the allowed aliases
+  and bounded command surface without revealing workspace paths.
 - /confirm <request-id> creates one normal verify-gated task through
   board.create_task; a second confirmation is a no-op reporting the same task
   id. A pending request expires without creating a task.
