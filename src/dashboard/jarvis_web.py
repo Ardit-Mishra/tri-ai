@@ -1,4 +1,9 @@
-"""Loopback-only read-only web surface for the JARVIS evidence snapshot."""
+"""Read-only web surface for the JARVIS evidence snapshot.
+
+Loopback by default; a wider binding exists for reaching the HUD from a phone
+over a trusted network, and has to be asked for explicitly. There is no
+mutating endpoint at any binding.
+"""
 
 from __future__ import annotations
 
@@ -147,7 +152,7 @@ HTML = r"""<!doctype html>
     .panel-head { align-items:center; color:var(--muted); display:flex; font-size:10px; justify-content:space-between; margin-bottom:10px; text-transform:uppercase; } .panel-head strong { color:var(--cyan); font-weight:700; } .graph-panel { min-height:480px; } #neuralGraph { cursor:crosshair; display:block; height:420px; touch-action:none; width:100%; } .graph-legend { color:var(--muted); display:flex; flex-wrap:wrap; font-size:9px; gap:12px; margin-top:8px; text-transform:uppercase; } .legend-dot { border-radius:50%; display:inline-block; height:7px; margin-right:4px; width:7px; }
     .inspector-empty,.memory-empty { color:var(--muted); font-size:11px; line-height:1.6; } .inspect-title { color:var(--cyan); font-size:14px; margin:0 0 10px; overflow-wrap:anywhere; } .inspect-grid { display:grid; gap:8px; } .inspect-row { border-top:1px solid rgba(0,240,255,.12); padding-top:8px; } .inspect-row label { color:var(--muted); display:block; font-size:9px; margin-bottom:4px; text-transform:uppercase; } .inspect-row div { color:var(--text); font-size:11px; overflow-wrap:anywhere; } .chip { border:1px solid rgba(255,183,3,.42); color:var(--amber); display:inline-block; font-size:9px; margin:0 4px 4px 0; padding:3px 5px; }
     .memory-list { display:grid; gap:9px; max-height:318px; overflow:auto; } .memory-rule { border-left:2px solid var(--amber); padding:8px 0 8px 9px; } .memory-rule h3 { color:var(--amber); font-size:11px; margin:0 0 5px; overflow-wrap:anywhere; } .memory-rule p { color:var(--muted); font-size:9px; line-height:1.5; margin:0; overflow-wrap:anywhere; }
-    #matrix { display:none; } .section-title { color:var(--cyan); font-family:"JetBrains Mono","Fira Code",ui-monospace,monospace; } .evidence { background:var(--surface); border-color:var(--line); } .event { border-color:rgba(0,240,255,.12); } .pass { color:var(--emerald); } .fail { color:var(--crimson); } .warn { color:var(--amber); } .state { color:var(--muted); }
+    .section-title { color:var(--cyan); font-family:"JetBrains Mono","Fira Code",ui-monospace,monospace; } .evidence { background:var(--surface); border-color:var(--line); } .event { border-color:rgba(0,240,255,.12); } .pass { color:var(--emerald); } .fail { color:var(--crimson); } .warn { color:var(--amber); } .state { color:var(--muted); }
     @media (max-width:1000px) { .hud-grid { grid-template-columns:1fr; } .hud-aside { grid-template-columns:repeat(2,minmax(0,1fr)); } } @media (max-width:650px) { .hud-aside { grid-template-columns:1fr; } .graph-panel { min-height:390px; } #neuralGraph { height:330px; } }
     .service { align-items:center; display:inline-flex; gap:6px; }
     .dot { border-radius:9999px; flex-shrink:0; height:8px; width:8px; }
@@ -174,12 +179,18 @@ HTML = r"""<!doctype html>
     .room-log h4 { color:var(--muted); font-size:9px; margin:0 0 4px; text-transform:uppercase; }
     .room-log pre { color:#bfe9ff; font-family:"JetBrains Mono","Fira Code",ui-monospace,monospace; font-size:10px; line-height:1.5; margin:0 0 8px; white-space:pre-wrap; word-break:break-word; }
     .room-note { color:var(--amber); font-size:9px; }
+    .header-right { align-items:flex-end; display:flex; flex-direction:column; gap:8px; }
+    .stream-badge { border-radius:9999px; font-size:9px; letter-spacing:.06em; padding:4px 10px; text-transform:uppercase; white-space:nowrap; }
+    .stream-badge.live { background:rgba(0,255,157,.10); border:1px solid rgba(0,255,157,.45); color:var(--emerald); }
+    .stream-badge.down { background:rgba(255,183,3,.10); border:1px solid rgba(255,183,3,.45); color:var(--amber); }
+    /* Removes the 300ms synthetic click delay without disabling pinch zoom. */
+    .sheet-handle, .memory-rule, .room-window > summary { touch-action:manipulation; }
     .sheet-handle { display:none; }
     @media (max-width:767px) {
       .hud-grid { grid-template-columns:1fr; }
       .hud-aside { background:rgba(4,7,11,.97); border-top:1px solid var(--cyan); bottom:0; box-shadow:0 -14px 34px rgba(0,0,0,.55); gap:10px; grid-template-columns:1fr; left:0; max-height:78vh; overflow-y:auto; padding:0 12px 16px; position:fixed; right:0; transform:translateY(calc(100% - 44px)); transition:transform .26s ease; z-index:40; }
       .hud-aside.open { transform:translateY(0); }
-      .sheet-handle { background:rgba(4,7,11,.97); cursor:pointer; display:block; padding:10px 0 8px; position:sticky; text-align:center; top:0; }
+      .sheet-handle { align-content:center; background:rgba(4,7,11,.97); cursor:pointer; display:block; min-height:48px; padding:10px 0 8px; position:sticky; text-align:center; top:0; }
       .sheet-handle span { background:rgba(0,240,255,.45); border-radius:9999px; display:inline-block; height:4px; width:46px; }
       .sheet-handle em { color:var(--muted); display:block; font-size:9px; font-style:normal; margin-top:5px; text-transform:uppercase; }
       .shell { padding-bottom:64px; }
@@ -190,7 +201,12 @@ HTML = r"""<!doctype html>
   <main class="shell">
     <header>
       <div class="brand">TRI-AI // JARVIS CORE <span>READ ONLY</span></div>
-      <div class="services" id="services" aria-label="Daemon service state"></div>
+      <div class="header-right">
+        <!-- Outside #services on purpose: render() clears that container on
+             every snapshot, and the stream badge must survive a re-render. -->
+        <span class="stream-badge down" id="streamBadge" role="status" aria-atomic="true">Evidence stream connecting</span>
+        <div class="services" id="services" aria-label="Daemon service state"></div>
+      </div>
     </header>
     <section class="metrics" aria-label="System metrics">
       <div class="metric"><label>Total tasks</label><strong id="total">-</strong></div>
@@ -216,28 +232,30 @@ HTML = r"""<!doctype html>
     <div class="state" id="connection">Connecting to local evidence stream...</div>
   </main>
   <script>
-    const lanes = [['ready','Ready'],['running','Running'],['done','Done'],['failed','Failed']];
     const byId = id => document.getElementById(id);
-    const monoTime = ts => typeof ts === 'number' ? new Date(ts * 1000).toLocaleTimeString() : '-';
     const clear = node => { while (node.firstChild) node.removeChild(node.firstChild); };
     const make = (tag, text, cls) => { const node=document.createElement(tag); node.textContent=text; if(cls) node.className=cls; return node; };
-    function render(data) {
-      byId('total').textContent=data.metrics.total_tasks;
-      byId('active').textContent=data.metrics.active_runs;
-      byId('ledger').textContent=data.metrics.ledger_entries;
-      byId('rules').textContent=data.metrics.accepted_rules;
-      const services=byId('services'); clear(services);
-      for (const [name, alive] of Object.entries(data.daemons.processes)) { const item=make('div','',`service ${alive ? 'up' : 'down'}`); item.append(make('i','','dot'), make('span',`${name} ${alive ? 'up' : 'down'}`)); services.append(item); }
-      const matrix=byId('matrix'); clear(matrix); const buckets=Object.fromEntries(lanes.map(([key])=>[key,[]]));
-      for (const task of data.tasks) buckets[buckets[task.status] ? task.status : 'failed'].push(task);
-      const last=Object.fromEntries(data.ledger_events.map(event=>[event.task_id,event]));
-      for (const [key,label] of lanes) { const lane=make('section','', 'lane'); lane.append(make('h2', `${label} / ${buckets[key].length}`)); for (const task of buckets[key]) { const event=last[task.id]; const card=make('article','',`task ${task.status}`); card.append(make('div',task.id,'task-id'),make('div',task.title,'task-title')); const meta=make('div','', 'meta'); meta.append(make('span',task.run_id === null ? 'run -' : `run ${task.run_id}`)); const badge=make('span',event ? event.outcome : task.status,event && event.outcome === 'passed' ? 'badge passed' : event ? 'badge failed' : 'badge pending'); meta.append(badge); card.append(meta); lane.append(card); } matrix.append(lane); }
-      const events=byId('events'); clear(events); const header=make('div','', 'event'); ['Time','Task','Outcome','Verify','Duration'].forEach(label=>header.append(make('span',label))); events.append(header);
-      for (const event of data.ledger_events) { const row=make('div','', 'event'); row.append(make('span',monoTime(event.timestamp)),make('span',event.task_id),make('span',event.outcome,event.outcome === 'passed' ? 'pass' : 'fail')); const exit=event.verify_exit === 0 ? '0' : event.verify_exit === null ? '-' : String(event.verify_exit); row.append(make('span',exit,event.verify_exit === 0 ? 'pass' : event.verify_exit === null ? 'warn' : 'fail'),make('span',event.seconds === null ? '-' : `${event.seconds}s`)); events.append(row); }
-      if (data.ledger_errors.length) { const issue=make('div',data.ledger_errors.join(' | '),'event warn'); issue.style.gridTemplateColumns='1fr'; events.append(issue); }
-      byId('connection').textContent=`Supervisor state: ${data.daemons.status} | snapshot refreshed ${new Date().toLocaleTimeString()}`;
+    // Relative time is what an operator glancing at a phone actually reads;
+    // the exact clock value stays reachable as the element's title so nothing
+    // is lost. Both come from the same recorded epoch seconds.
+    const absoluteTime = ts => typeof ts==='number' ? new Date(ts*1000).toLocaleString() : 'not recorded';
+    function timeAgo(ts) {
+      if(typeof ts!=='number')return '-';
+      const span=Math.max(0,Math.floor(Date.now()/1000-ts));
+      if(span<5)return 'just now';
+      if(span<60)return `${span}s ago`;
+      if(span<3600)return `${Math.floor(span/60)}m ago`;
+      if(span<86400)return `${Math.floor(span/3600)}h ${Math.floor((span%3600)/60)}m ago`;
+      return `${Math.floor(span/86400)}d ago`;
     }
-    const hud={data:null,nodes:[],nodeById:new Map(),edges:[],groups:[],selected:null,dragging:null,view:{x:0,y:0,k:1},panning:null,lastTapAt:0,moved:false};
+    function duration(seconds) {
+      if(typeof seconds!=='number')return '-';
+      if(seconds<60)return `${seconds.toFixed(seconds<10?1:0)}s`;
+      if(seconds<3600)return `${Math.floor(seconds/60)}m ${Math.round(seconds%60)}s`;
+      return `${Math.floor(seconds/3600)}h ${Math.floor((seconds%3600)/60)}m`;
+    }
+    const timeCell = ts => { const cell=make('span',timeAgo(ts)); cell.title=absoluteTime(ts); return cell; };
+    const hud={data:null,nodes:[],nodeById:new Map(),edges:[],groups:[],selected:null,hover:null,dragging:null,view:{x:0,y:0,k:1},panning:null,lastTapAt:0,moved:false};
     const canvas=byId('neuralGraph'); const ctx=canvas.getContext('2d');
     const PHASE_LABEL={claimed:'CLAIMED',worktree_prep:'WORKTREE_PREP',agent_active:'AGENT_ACTIVE',verify_gate:'VERIFY_GATE'};
     const PHASE_COLOR={done:'#00ff9d',active:'#00f0ff',pending:'rgba(148,163,184,.40)',skipped:'rgba(148,163,184,.18)'};
@@ -391,6 +409,54 @@ HTML = r"""<!doctype html>
       for(let ring=1;ring<=3;ring++){ctx.beginPath();ctx.arc(cx,cy,span*ring/3,0,Math.PI*2);ctx.stroke();}
       ctx.restore();
     }
+    // A hex task id tells an operator checking in from a phone nothing at all,
+    // so intent leads: the title is the primary label, the id is demoted to a
+    // muted subtitle, and the workspace becomes a colour-coded tag. The colour
+    // is derived from the workspace path rather than configured, so a project
+    // added later is tagged without anyone editing a palette.
+    const WORKSPACE_TINTS=[[0,240,255],[255,183,3],[167,139,250],[0,255,157],[255,122,182],[125,211,252]];
+    const workspaceTints=new Map();
+    function workspaceTint(path) {
+      if(!path)return [148,163,184];
+      const key=String(path).replace(/\\/g,'/').toLowerCase();
+      if(!workspaceTints.has(key))workspaceTints.set(key,WORKSPACE_TINTS[workspaceTints.size%WORKSPACE_TINTS.length]);
+      return workspaceTints.get(key);
+    }
+    const workspaceTag = path => path ? `[${String(path).replace(/\\/g,'/').split('/').filter(Boolean).pop().toUpperCase()}]` : '[UNSCOPED]';
+    function truncate(text,limit) {
+      const value=String(text==null?'':text).trim();
+      if(!value)return '(untitled)';
+      return value.length<=limit?value:`${value.slice(0,limit-1).trimEnd()}…`;
+    }
+    const shortId = id => { const value=String(id); return value.length>12?`${value.slice(0,10)}…`:value; };
+    function drawNamePlate(node,x,y,bounds,leftward) {
+      if(node.kind!=='task'){drawLabelPill(node.label,x,y,bounds);return;}
+      const title=truncate(node.detail.title,22),id=shortId(node.detail.id);
+      const tag=workspaceTag(node.detail.workspace_path),tint=workspaceTint(node.detail.workspace_path);
+      ctx.save(); ctx.shadowBlur=0; ctx.textBaseline='middle';
+      ctx.font='700 11px "JetBrains Mono", monospace'; const titleWidth=ctx.measureText(title).width;
+      ctx.font='9px "JetBrains Mono", monospace';
+      const width=Math.max(titleWidth,ctx.measureText(id).width,ctx.measureText(tag).width)+12;
+      // Plates anchor outward from the core. With nodes on one orbit and no
+      // dependency edges, a plate drawn to the right of a left-hand node lands
+      // underneath its neighbour - which is what hid the cancelled task's name.
+      const height=40; let left=leftward?x-width+5:x-5; const top=y-height/2;
+      if(bounds){
+        if(left+width>bounds.x1-4)left=Math.max(bounds.x0+4,bounds.x1-4-width);
+        if(left<bounds.x0+4)left=Math.min(bounds.x1-4-width,bounds.x0+4);
+      }
+      ctx.beginPath();
+      if(ctx.roundRect)ctx.roundRect(left,top,width,height,4); else ctx.rect(left,top,width,height);
+      ctx.fillStyle='rgba(5,7,10,.82)'; ctx.fill();
+      ctx.strokeStyle=`rgba(${tint[0]},${tint[1]},${tint[2]},.34)`; ctx.lineWidth=1/hud.view.k; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left,top+2); ctx.lineTo(left,top+height-2);
+      ctx.strokeStyle=`rgba(${tint[0]},${tint[1]},${tint[2]},.85)`; ctx.lineWidth=2/hud.view.k; ctx.stroke();
+      ctx.fillStyle=`rgba(${tint[0]},${tint[1]},${tint[2]},.86)`;
+      ctx.font='9px "JetBrains Mono", monospace'; ctx.fillText(tag,left+6,top+9);
+      ctx.fillStyle='#eaffff'; ctx.font='700 11px "JetBrains Mono", monospace'; ctx.fillText(title,left+6,top+21);
+      ctx.fillStyle='rgba(148,163,184,.92)'; ctx.font='9px "JetBrains Mono", monospace'; ctx.fillText(id,left+6,top+32);
+      ctx.restore();
+    }
     function drawLabelPill(text,x,y,bounds) {
       ctx.save(); ctx.shadowBlur=0; ctx.font='10px "JetBrains Mono", monospace'; ctx.textBaseline='middle';
       const width=ctx.measureText(text).width+10,height=15,top=y-height/2;
@@ -420,7 +486,10 @@ HTML = r"""<!doctype html>
       lower.pop(); upper.pop(); return lower.concat(upper);
     }
     function drawHulls(bounds) {
-      hud.groups.forEach(group=>{
+      // Two workspaces whose hulls top out at a similar height put their
+      // labels on the same line and overlap - visible immediately at phone
+      // width, where the canvas is narrow. Stagger by group index.
+      hud.groups.forEach((group,groupIndex)=>{
         const hull=convexHull(group.members.map(node=>({x:node.x,y:node.y})));
         if(!hull.length)return;
         ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
@@ -431,7 +500,7 @@ HTML = r"""<!doctype html>
         ctx.strokeStyle='rgba(0,240,255,.16)'; ctx.lineWidth=66; ctx.setLineDash([7,9]); ctx.stroke(); ctx.setLineDash([]);
         ctx.restore();
         const anchor=hull.reduce((best,point)=>point.y<best.y?point:best,hull[0]);
-        drawLabelPill(`[ ${shortPath(group.path)} ]`,anchor.x-6,anchor.y-42,bounds);
+        drawLabelPill(`[ ${shortPath(group.path)} ]`,anchor.x-6,anchor.y-42-groupIndex*17,bounds);
       });
     }
     function drawPhaseRing(node,radius) {
@@ -486,24 +555,79 @@ HTML = r"""<!doctype html>
         ctx.shadowBlur=0;
         if(node.tier==='room')drawRoomFrame(node,radius);
         if(status==='running'){drawReactorCore(node,radius);drawPhaseRing(node,radius);}
-        if(hud.nodes.length<26||selected){drawLabelPill(node.label,node.x+radius+(status==='running'?14:6),node.y,bounds);}
+        if(hud.nodes.length<26||selected){
+          const gap=radius+(status==='running'?14:6),leftward=node.x<coreGeometry(rect).cx;
+          drawNamePlate(node,leftward?node.x-gap:node.x+gap,node.y,bounds,leftward);
+        }
         ctx.restore();
+      });
+      drawMicroCard(bounds);
+      ctx.restore();
+    }
+    // The floating card answers "what is this, and what is it doing right now"
+    // without committing the operator to opening the inspector - the question a
+    // hover or a tap is actually asking. Every line is recorded evidence; a
+    // field with nothing behind it says so rather than rendering blank.
+    function microCardLines(node) {
+      if(node.kind!=='task')return [['RULE',node.detail.rule_id],['SCOPE',shortPath(node.detail.workspace_path||'')]];
+      const telemetry=telemetryOf(node)||{phases:[],logs:[]};
+      const active=(telemetry.phases||[]).find(phase=>phase.state==='active');
+      const runtime=elapsed(telemetry.started_at,telemetry.ended_at);
+      return [
+        ['TASK',node.detail.id],
+        ['WORKSPACE',node.detail.workspace_path?shortPath(node.detail.workspace_path):'not recorded'],
+        ['BRANCH',telemetry.branch_name||telemetry.worktree_path||`${telemetry.workspace_kind||'dir'} workspace // no branch recorded`],
+        ['PHASE',active?(PHASE_LABEL[active.key]||active.key):(telemetry.run_status||node.detail.status)],
+        ['RUNTIME',runtime?(telemetry.ended_at?runtime:`running for ${runtime}`):'not started'],
+      ];
+    }
+    function drawMicroCard(bounds) {
+      const node=hud.nodeById.get(hud.hover); if(!node)return;
+      const title=truncate(node.kind==='task'?node.detail.title:node.detail.rule_id,44);
+      const lines=microCardLines(node);
+      ctx.save(); ctx.shadowBlur=0; ctx.textBaseline='middle';
+      ctx.font='700 11px "JetBrains Mono", monospace';
+      let width=ctx.measureText(title).width;
+      ctx.font='9px "JetBrains Mono", monospace';
+      lines.forEach(([label,value])=>{width=Math.max(width,ctx.measureText(`${label}  ${value}`).width);});
+      width+=18; const height=26+lines.length*13;
+      let left=node.x+nodeRadius(node)+10,top=node.y-height-12;
+      if(bounds){
+        if(left+width>bounds.x1-6)left=Math.max(bounds.x0+6,node.x-nodeRadius(node)-10-width);
+        if(top<bounds.y0+6)top=Math.min(bounds.y1-6-height,node.y+nodeRadius(node)+12);
+      }
+      ctx.beginPath();
+      if(ctx.roundRect)ctx.roundRect(left,top,width,height,5); else ctx.rect(left,top,width,height);
+      ctx.fillStyle='rgba(3,6,10,.94)'; ctx.fill();
+      ctx.strokeStyle='rgba(0,240,255,.45)'; ctx.lineWidth=1/hud.view.k; ctx.stroke();
+      ctx.fillStyle='#eaffff'; ctx.font='700 11px "JetBrains Mono", monospace'; ctx.fillText(title,left+9,top+14);
+      ctx.font='9px "JetBrains Mono", monospace';
+      lines.forEach(([label,value],index)=>{
+        const y=top+30+index*13;
+        ctx.fillStyle='rgba(148,163,184,.9)'; ctx.fillText(label,left+9,y);
+        ctx.fillStyle='#bfe9ff'; ctx.fillText(value,left+9+ctx.measureText(`${label}  `).width,y);
       });
       ctx.restore();
     }
     canvas.addEventListener('pointerdown',event=>{
       const node=hitNode(graphPoint(event)); hud.moved=false;
-      if(node){hud.selected=node.id;hud.dragging=node.id;renderInspector();if(isPhone())openSheet(true);}
-      else {const point=screenPoint(event);hud.panning={px:point.x,py:point.y,ox:hud.view.x,oy:hud.view.y};}
+      if(node){hud.selected=node.id;hud.hover=node.id;hud.dragging=node.id;renderInspector();if(isPhone())openSheet(true);}
+      else {hud.hover=null;const point=screenPoint(event);hud.panning={px:point.x,py:point.y,ox:hud.view.x,oy:hud.view.y};}
       canvas.setPointerCapture(event.pointerId);
     });
     canvas.addEventListener('pointermove',event=>{
       if(hud.dragging){const node=hud.nodeById.get(hud.dragging),point=graphPoint(event);node.x=point.x;node.y=point.y;node.vx=node.vy=0;hud.moved=true;return;}
-      if(!hud.panning)return;
+      if(!hud.panning){
+        const node=hitNode(graphPoint(event));
+        const next=node?node.id:null;
+        if(next!==hud.hover){hud.hover=next;canvas.style.cursor=next?'pointer':'crosshair';}
+        return;
+      }
       const point=screenPoint(event);
       if(Math.hypot(point.x-hud.panning.px,point.y-hud.panning.py)>4)hud.moved=true;
       hud.view.x=hud.panning.ox+(point.x-hud.panning.px); hud.view.y=hud.panning.oy+(point.y-hud.panning.py);
     });
+    canvas.addEventListener('pointerleave',()=>{hud.hover=null;});
     canvas.addEventListener('pointerup',event=>{
       const now=Date.now(),point=screenPoint(event);
       if(!hud.moved&&now-hud.lastTapAt<320)zoomAt(point.x,point.y,hud.view.k>1.4?1:2);
@@ -517,11 +641,43 @@ HTML = r"""<!doctype html>
     function render(data) {
       hud.data=data; setText(byId('total'),data.metrics.total_tasks);setText(byId('active'),data.metrics.active_runs);setText(byId('ledger'),data.metrics.ledger_entries);setText(byId('rules'),data.metrics.accepted_rules);
       const services=byId('services');clear(services);for(const [name,alive] of Object.entries(data.daemons.processes)){const item=make('div','',`service ${alive?'up':'down'}`);item.append(make('i','','dot'),make('span',`${name} ${alive?'up':'down'}`));services.append(item);} syncGraph(data);
-      const events=byId('events');clear(events);const heading=make('div','','event');['Time','Task','Outcome','Verify','Duration'].forEach(label=>heading.append(make('span',label)));events.append(heading);data.ledger_events.forEach(event=>{const row=make('div','','event'),exit=event.verify_exit===0?'0':event.verify_exit===null?'-':String(event.verify_exit);row.append(make('span',monoTime(event.timestamp)),make('span',event.task_id),make('span',event.outcome,`outcome-badge ${event.outcome==='passed'?'pass':event.outcome==='skipped'?'warn':'fail'}`),make('span',exit,event.verify_exit===0?'pass':event.verify_exit===null?'warn':'fail'),make('span',event.seconds===null?'-':`${event.seconds}s`));events.append(row);}); if(data.ledger_errors.length){const issue=make('div',data.ledger_errors.join(' | '),'event warn');issue.style.gridTemplateColumns='1fr';events.append(issue);} setText(byId('connection'),`Supervisor state: ${data.daemons.status} // SSE snapshot ${new Date().toLocaleTimeString()}`);
+      const events=byId('events');clear(events);const heading=make('div','','event');['Time','Task','Outcome','Verify','Duration'].forEach(label=>heading.append(make('span',label)));events.append(heading);data.ledger_events.forEach(event=>{const row=make('div','','event'),exit=event.verify_exit===0?'0':event.verify_exit===null?'-':String(event.verify_exit);row.append(timeCell(event.timestamp),make('span',event.task_id),make('span',event.outcome,`outcome-badge ${event.outcome==='passed'?'pass':event.outcome==='skipped'?'warn':'fail'}`),make('span',exit,event.verify_exit===0?'pass':event.verify_exit===null?'warn':'fail'),make('span',duration(event.seconds)));events.append(row);}); if(data.ledger_errors.length){const issue=make('div',data.ledger_errors.join(' | '),'event warn');issue.style.gridTemplateColumns='1fr';events.append(issue);}
+      hud.lastSnapshotAt=Date.now()/1000;
+      setText(byId('connection'),`Supervisor state: ${data.daemons.status} // snapshot ${timeAgo(hud.lastSnapshotAt)}`);
     }
-    const stream=new EventSource('/events');
-    stream.addEventListener('snapshot', event => render(JSON.parse(event.data)));
-    stream.onerror=() => { byId('connection').textContent='Evidence stream reconnecting...'; };
+    // EventSource reconnects on its own, but on a fixed short interval - which
+    // against a server that is down means a steady stream of failed requests
+    // and no way for the operator to tell a live page from a frozen one. So
+    // the stream is closed on error and reopened on a doubling delay, and the
+    // badge states which of the two the page currently is.
+    const streamState={source:null,attempt:0,timer:null};
+    function setStreamBadge(live,detail) {
+      const badge=byId('streamBadge'); if(!badge)return;
+      badge.className=`stream-badge ${live?'live':'down'}`;
+      setText(badge,live?'STREAM LIVE':detail||'RECONNECTING...');
+    }
+    function openStream() {
+      if(streamState.timer){clearTimeout(streamState.timer);streamState.timer=null;}
+      const source=new EventSource('/events'); streamState.source=source;
+      source.addEventListener('snapshot',event=>{
+        streamState.attempt=0; setStreamBadge(true);
+        render(JSON.parse(event.data));
+      });
+      source.onopen=()=>{streamState.attempt=0;setStreamBadge(true);};
+      source.onerror=()=>{
+        source.close();
+        if(streamState.source===source)streamState.source=null;
+        streamState.attempt+=1;
+        const delay=Math.min(30000,1000*Math.pow(2,streamState.attempt-1));
+        setStreamBadge(false,`RECONNECTING IN ${Math.round(delay/1000)}S`);
+        setText(byId('connection'),`Evidence stream lost - retry ${streamState.attempt} in ${Math.round(delay/1000)}s`);
+        streamState.timer=setTimeout(openStream,delay);
+      };
+    }
+    // Relative labels go stale on a page that is no longer receiving snapshots,
+    // which is exactly when an operator most needs to know how old the view is.
+    setInterval(()=>{ if(hud.lastSnapshotAt&&!streamState.source){ setText(byId('connection'),`Evidence stream lost - last snapshot ${timeAgo(hud.lastSnapshotAt)}`);} },5000);
+    openStream();
   </script>
 </body>
 </html>"""
@@ -634,16 +790,35 @@ def _handler(snapshot_fn: SnapshotReader, event_interval: float) -> type[BaseHTT
     return JarvisHandler
 
 
+LOOPBACK_HOST = "127.0.0.1"
+
+
 def create_server(
     *,
-    host: str = "127.0.0.1",
+    host: str = LOOPBACK_HOST,
     port: int = 8080,
     snapshot_fn: Optional[SnapshotReader] = None,
     event_interval: float = 2.0,
+    allow_non_loopback: bool = False,
 ) -> JarvisHTTPServer:
-    """Create a loopback-only server with no control-plane endpoints."""
-    if host != "127.0.0.1":
-        raise ValueError("JARVIS web server must bind loopback 127.0.0.1")
+    """Create the read-only dashboard server; loopback unless told otherwise.
+
+    The dashboard has no control-plane endpoint and no credential access, but
+    it does expose task titles, workspace paths, and live agent/verify log
+    tails - so who can reach it is a real decision, not an implementation
+    detail. It therefore stays on loopback by default and binds anything wider
+    only when a caller passes ``allow_non_loopback`` explicitly. That flag is
+    the operator saying "this network is one I trust" (a Tailscale interface,
+    say); it is deliberately awkward enough that it cannot happen by accident
+    or by a typo in a port argument.
+    """
+    if host != LOOPBACK_HOST and not allow_non_loopback:
+        raise ValueError(
+            "JARVIS web server binds loopback 127.0.0.1 unless non-loopback "
+            "binding is explicitly allowed (--host with --allow-non-loopback)"
+        )
+    if not str(host).strip():
+        raise ValueError("host must not be empty")
     if event_interval <= 0:
         raise ValueError("event_interval must be positive")
     if snapshot_fn is None:
@@ -660,10 +835,33 @@ def create_server(
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Serve the local read-only JARVIS dashboard.")
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument(
+        "--host",
+        default=LOOPBACK_HOST,
+        help="interface to bind; anything but 127.0.0.1 also needs --allow-non-loopback",
+    )
+    parser.add_argument(
+        "--allow-non-loopback",
+        action="store_true",
+        help=(
+            "bind a non-loopback interface (e.g. 0.0.0.0 for Tailscale access from a "
+            "phone). The dashboard stays read-only, but task titles, workspace paths "
+            "and live log tails become reachable from that network."
+        ),
+    )
     args = parser.parse_args(argv)
     try:
-        server = create_server(port=args.port)
-        print(f"JARVIS dashboard listening on http://127.0.0.1:{server.server_port}")
+        server = create_server(
+            host=args.host, port=args.port, allow_non_loopback=args.allow_non_loopback,
+        )
+        if args.host != LOOPBACK_HOST:
+            print(
+                f"JARVIS dashboard is reachable beyond this machine on {args.host}:"
+                f"{server.server_port} - read-only, but it exposes task titles, "
+                "workspace paths and live log tails to that network",
+                file=sys.stderr,
+            )
+        print(f"JARVIS dashboard listening on http://{args.host}:{server.server_port}")
         server.serve_forever()
     except KeyboardInterrupt:
         return 0

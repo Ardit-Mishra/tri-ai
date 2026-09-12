@@ -68,6 +68,8 @@ class WebSerializationTests(unittest.TestCase):
         self.assertEqual(len(payload["rule_task_links"]), 3)
 
     def test_server_is_loopback_only_and_serves_html_json_and_sse(self):
+        # Non-loopback is refused unless the operator asks for it by name: a
+        # typo, a default, or a port argument can never widen the binding.
         with self.assertRaisesRegex(ValueError, "loopback"):
             web.create_server(host="0.0.0.0", port=0, snapshot_fn=fixture_snapshot)
 
@@ -115,7 +117,7 @@ class WebBoundaryTests(unittest.TestCase):
         source = self.source.read_text(encoding="utf-8")
         self.assertNotIn("TRI_AI_TELEGRAM_BOT_TOKEN", source)
         self.assertNotIn("create_task", source)
-        self.assertIn('"127.0.0.1"', source)
+        self.assertIn("127.0.0.1", source)
 
 
 class WebPresentationTests(unittest.TestCase):
@@ -147,7 +149,7 @@ class WebPresentationTests(unittest.TestCase):
         self.assertIn("[TRI-AI CORE]", web.HTML)
         # The anchor is suppressed once real dependency edges connect the nodes.
         self.assertIn("if(!anchoredLayout())return;", web.HTML)
-        self.assertIn("drawLabelPill(node.label,node.x+radius+(status==='running'?14:6),node.y,bounds);", web.HTML)
+        self.assertIn("drawNamePlate(node,leftward?node.x-gap:node.x+gap,node.y,bounds,leftward);", web.HTML)
         # Without dependency edges the layout holds nodes on the core orbit
         # instead of letting mutual repulsion push them to the canvas edges.
         self.assertIn("function anchoredLayout() { return !hud.edges.some(edge=>edge.kind==='dependency'); }", web.HTML)
