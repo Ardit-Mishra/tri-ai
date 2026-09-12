@@ -38,8 +38,8 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **243 tests, exit
-0, 166.899s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **245 tests, exit
+0, 149.093s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
 candidate-evolution and proposal-review gates alongside every prior phase.
@@ -74,10 +74,12 @@ is default automatically; multi-workspace policies may set
 now retains an exception type and reason in `worker.log`, matching Telegram
 diagnostics. Focused tests: `python -m unittest tests.test_telegram_control
 tests.test_telegram_daemon tests.test_worker_daemon` → **34 tests, exit 0,
-8.464s**. Full suite: `python tests/run.py` → **243 tests, exit 0,
-166.899s**. The next operator action is a clean restart of the foreground
-daemons to load the new code; retain the existing intake-policy argument when
-using `/run`.
+8.464s**. The launcher/supervisor use `~/.tri-ai/intake_policy.json`
+automatically when it exists; an explicit policy path still takes precedence.
+The local default currently maps alias `tri-ai` to the canonical repository
+with the fixed `python tests/run.py` verifier and a 300-second timeout. Full
+suite after that operational change: `python tests/run.py` → **245 tests,
+exit 0, 149.093s**.
 
 **Phase 5B accepted locally:** `src/worker_daemon.py` is a foreground,
 resilient loop around exactly one existing `worker.run_once` tick. Empty

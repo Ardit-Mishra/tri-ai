@@ -15,6 +15,12 @@ $RuntimeRoot = Join-Path $HOME ".tri-ai"
 if (-not $Board) { $Board = Join-Path $RuntimeRoot "board.db" }
 if (-not $Ledger) { $Ledger = Join-Path $RuntimeRoot "ledger.jsonl" }
 if (-not $RunsDir) { $RunsDir = Join-Path $RuntimeRoot "runs" }
+if (-not $IntakePolicy) {
+    $DefaultIntakePolicy = Join-Path $RuntimeRoot "intake_policy.json"
+    if (Test-Path -LiteralPath $DefaultIntakePolicy -PathType Leaf) {
+        $IntakePolicy = $DefaultIntakePolicy
+    }
+}
 
 $Arguments = @(
     (Join-Path $Root "src\daemon_supervisor.py"),

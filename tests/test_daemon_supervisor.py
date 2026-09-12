@@ -55,6 +55,21 @@ class DaemonSupervisorTests(unittest.TestCase):
         self.assertIn("--intake-policy", result.telegram)
         self.assertNotIn("shell", " ".join((*result.worker, *result.telegram)).lower())
 
+    def test_missing_default_intake_policy_keeps_telegram_read_only(self):
+        missing = self.root / "intake_policy.json"
+        self.assertIsNone(daemon_supervisor.resolve_intake_policy(None, default_path=missing))
+
+    def test_existing_default_intake_policy_is_selected_without_a_cli_argument(self):
+        default = self.root / "intake_policy.json"
+        default.write_text("{}", encoding="utf-8")
+        self.assertEqual(
+            daemon_supervisor.resolve_intake_policy(None, default_path=default), default,
+        )
+        requested = self.root / "other-policy.json"
+        self.assertEqual(
+            daemon_supervisor.resolve_intake_policy(requested, default_path=default), requested,
+        )
+
     def test_rotation_retains_old_log_without_deleting_it(self):
         log = self.root / "worker.log"
         log.write_text("old evidence", encoding="utf-8")
@@ -163,6 +178,7 @@ class DaemonScriptBoundaryTests(unittest.TestCase):
         start = (self.root / "scripts" / "run_daemons.ps1").read_text(encoding="utf-8")
         stop = (self.root / "scripts" / "stop_daemons.ps1").read_text(encoding="utf-8")
         self.assertIn("daemon_supervisor.py", start)
+        self.assertIn("intake_policy.json", start)
         self.assertIn("$WhatIf", start)
         self.assertNotIn("Start-Process", start)
         self.assertIn("stop_path", stop)

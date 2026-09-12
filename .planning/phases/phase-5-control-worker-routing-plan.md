@@ -18,6 +18,9 @@ handle.
   may name `default_workspace` with one allowed alias; only then can plain text
   create a pending intake draft. Without a default, the daemon remains usable
   and directs the operator to `/workspaces` and explicit `/run` syntax.
+- The operational launcher and supervisor resolve `~/.tri-ai/intake_policy.json`
+  only when it exists and no explicit `--intake-policy` is supplied. An explicit
+  path remains authoritative; a missing default preserves read-only operation.
 - /run <workspace-alias> <prompt> creates a durable pending intake record, not
   a task. It returns a request id.
 - Plain text is an ergonomic alias for `/run` against the policy default. It
