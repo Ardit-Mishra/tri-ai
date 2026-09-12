@@ -11,9 +11,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-if (-not $Board) { $Board = Join-Path $Root ".planning\board.db" }
-if (-not $Ledger) { $Ledger = Join-Path $Root ".planning\ledger.jsonl" }
-if (-not $RunsDir) { $RunsDir = Join-Path $Root ".planning\runs" }
+$RuntimeRoot = Join-Path $HOME ".tri-ai"
+if (-not $Board) { $Board = Join-Path $RuntimeRoot "board.db" }
+if (-not $Ledger) { $Ledger = Join-Path $RuntimeRoot "ledger.jsonl" }
+if (-not $RunsDir) { $RunsDir = Join-Path $RuntimeRoot "runs" }
 
 $Arguments = @(
     (Join-Path $Root "src\daemon_supervisor.py"),

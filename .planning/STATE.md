@@ -36,8 +36,8 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` → **230 tests, exit
-0, 147.921s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` → **232 tests, exit
+0, 147.183s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
 candidate-evolution and proposal-review gates alongside every prior phase.
@@ -168,12 +168,26 @@ The operational slice performed no live start, credential inspection, or
 Telegram network request. Next: operator-started foreground exercise and
 inspection of retained logs/state.
 
+**Operational startup correction accepted locally:** `run_daemons.ps1`
+now defaults board, ledger, and retained run paths to `~/.tri-ai/` rather than
+the repository's `.planning/` fixtures. Before creating daemon state or
+spawning either child, the supervisor will require
+`TRI_AI_TELEGRAM_BOT_TOKEN` and either
+`TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID` or
+`TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS`; it checks presence only and never logs
+their values. `-WhatIf` remains a no-spawn preview and does not require
+Telegram settings. Focused operational verification: `python -m unittest
+tests.test_daemon_supervisor` → **8 tests, exit 0, 0.466s**. Full verification:
+`python tests/run.py` → **232 tests, exit 0, 147.183s**. Next: local commit,
+then operator-started foreground exercise using the canonical runtime paths.
+
 **Current implementation:** operator authorized Phase 4.5 Telegram long-poll
 transport. Plan: `.planning/phases/phase-4.5-telegram-transport-plan.md`.
-The daemon alone will read `TRI_AI_TELEGRAM_BOT_TOKEN` at operator-start time,
-will require an explicit chat-id allowlist before invoking the adapter, and
-will hard-stop on transport failure. No live credential or Telegram request is
-used during implementation or tests.
+The supervisor validates the presence of the Telegram settings at
+operator-start time; the daemon alone consumes their values, requires an
+explicit chat-id allowlist before invoking the adapter, and hard-stops on
+transport failure. No live credential or Telegram request is used during
+implementation or tests.
 
 **Phase 4.5 verification:** focused adapter/transport proof
 `python -m unittest tests.test_phase4_observability tests.test_telegram_daemon`

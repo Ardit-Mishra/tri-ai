@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import ast
+import io
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -102,6 +107,26 @@ class DaemonSupervisorTests(unittest.TestCase):
             )
         self.assertEqual(first.returncode, 0)
 
+    def test_missing_telegram_environment_fails_before_state_or_child_spawn(self):
+        log_dir = self.root / "logs"
+        stderr = io.StringIO()
+        with mock.patch.dict(os.environ, {
+            "TRI_AI_TELEGRAM_BOT_TOKEN": "",
+            "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID": "",
+            "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS": "",
+        }, clear=False), redirect_stderr(stderr):
+            result = daemon_supervisor.main([
+                "--board", str(self.root / "board.db"),
+                "--ledger", str(self.root / "ledger.jsonl"),
+                "--runs-dir", str(self.root / "runs"),
+                "--log-dir", str(log_dir),
+            ])
+
+        self.assertEqual(result, 2)
+        self.assertIn("TRI_AI_TELEGRAM_BOT_TOKEN", stderr.getvalue())
+        self.assertIn("TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID", stderr.getvalue())
+        self.assertFalse((log_dir / "daemons.json").exists())
+
 
 class DaemonScriptBoundaryTests(unittest.TestCase):
     root = Path(__file__).resolve().parents[1]
@@ -124,6 +149,25 @@ class DaemonScriptBoundaryTests(unittest.TestCase):
         self.assertNotIn("Start-Process", start)
         self.assertIn("stop_path", stop)
         self.assertNotIn("Stop-Process", stop)
+
+    def test_powershell_runner_defaults_to_tri_ai_runtime_paths(self):
+        script = self.root / "scripts" / "run_daemons.ps1"
+        completed = subprocess.run(
+            [
+                "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                str(script), "-WhatIf",
+            ],
+            cwd=self.root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        expected_root = Path.home() / ".tri-ai"
+        self.assertIn(str(expected_root / "board.db"), completed.stdout)
+        self.assertIn(str(expected_root / "ledger.jsonl"), completed.stdout)
+        self.assertIn(str(expected_root / "runs"), completed.stdout)
 
 
 if __name__ == "__main__":
