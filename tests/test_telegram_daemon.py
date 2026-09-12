@@ -208,6 +208,12 @@ class TelegramDaemonTests(unittest.TestCase):
         with self.assertRaises(daemon.TelegramTransportError):
             rejected.send_message(chat_id="42", text="status")
 
+        timed_out = daemon.HttpsTelegramApi(
+            "test-token", opener=lambda *args, **kwargs: (_ for _ in ()).throw(TimeoutError()),
+        )
+        with self.assertRaisesRegex(daemon.TelegramTransportError, "TimeoutError"):
+            timed_out.get_updates(offset=None, timeout=1)
+
     def test_authorized_callback_edits_the_origin_message_and_unauthorized_actor_is_dropped(self):
         allowed = {
             "update_id": 11,

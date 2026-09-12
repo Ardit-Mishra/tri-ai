@@ -68,6 +68,7 @@ class DashboardSnapshotTests(DashboardFixture):
         })
         self.assertEqual(snapshot.edges, (jarvis.TaskEdge(self.done, self.ready),))
         self.assertEqual([event.task_id for event in snapshot.ledger_events], [self.running, self.done])
+        self.assertEqual(snapshot.ledger_entry_count, 2)
         self.assertEqual(snapshot.ledger_errors, ("ledger line 3 is not valid JSON",))
         self.assertEqual(snapshot.daemons.status, "running")
         self.assertEqual(snapshot.daemons.processes, (("supervisor", True), ("worker", True), ("telegram", False)))

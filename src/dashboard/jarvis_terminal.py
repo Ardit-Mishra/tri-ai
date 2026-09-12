@@ -53,6 +53,7 @@ class LedgerEvent:
     task_id: str
     outcome: str
     verify_exit: object
+    seconds: object
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,7 @@ class DashboardSnapshot:
     tasks: tuple[TaskView, ...]
     edges: tuple[TaskEdge, ...]
     ledger_events: tuple[LedgerEvent, ...]
+    ledger_entry_count: int
     ledger_errors: tuple[str, ...]
     activated_rule_count: int
     daemons: DaemonHealth
@@ -118,18 +120,18 @@ def _read_board(board_path: Path | str) -> tuple[tuple[TaskView, ...], tuple[Tas
         conn.close()
 
 
-def _read_ledger(path: Path | str, *, limit: int) -> tuple[tuple[LedgerEvent, ...], tuple[str, ...]]:
+def _read_ledger(path: Path | str, *, limit: int) -> tuple[tuple[LedgerEvent, ...], int, tuple[str, ...]]:
     if limit < 1:
         raise ValueError("ledger_limit must be positive")
     target = Path(path)
     if not target.is_file():
-        return (), (f"ledger does not exist: {target}",)
+        return (), 0, (f"ledger does not exist: {target}",)
     events: list[LedgerEvent] = []
     errors: list[str] = []
     try:
         lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError as exc:
-        return (), (f"ledger is unreadable: {target} ({type(exc).__name__})",)
+        return (), 0, (f"ledger is unreadable: {target} ({type(exc).__name__})",)
     for line_number, line in enumerate(lines, start=1):
         if not line.strip():
             continue
@@ -146,8 +148,10 @@ def _read_ledger(path: Path | str, *, limit: int) -> tuple[tuple[LedgerEvent, ..
         if not isinstance(task_id, str) or not isinstance(outcome, str):
             errors.append(f"ledger line {line_number} lacks task_id or outcome")
             continue
-        events.append(LedgerEvent(raw.get("ts"), task_id, outcome, raw.get("verify_exit")))
-    return tuple(reversed(events[-limit:])), tuple(errors)
+        events.append(LedgerEvent(
+            raw.get("ts"), task_id, outcome, raw.get("verify_exit"), raw.get("seconds"),
+        ))
+    return tuple(reversed(events[-limit:])), len(events), tuple(errors)
 
 
 def _pid_alive(pid: int) -> bool:
@@ -191,11 +195,12 @@ def read_snapshot(
 ) -> DashboardSnapshot:
     """Read one immutable dashboard snapshot from the authoritative sources."""
     tasks, edges, activated_rule_count = _read_board(board_path)
-    events, ledger_errors = _read_ledger(ledger_path, limit=ledger_limit)
+    events, ledger_entry_count, ledger_errors = _read_ledger(ledger_path, limit=ledger_limit)
     return DashboardSnapshot(
         tasks=tasks,
         edges=edges,
         ledger_events=events,
+        ledger_entry_count=ledger_entry_count,
         ledger_errors=ledger_errors,
         activated_rule_count=activated_rule_count,
         daemons=_read_daemon_health(daemon_state_path, pid_alive=pid_alive),
@@ -212,7 +217,10 @@ def _status_counts(tasks: Sequence[TaskView]) -> str:
 def _renderable(snapshot: DashboardSnapshot) -> Group:
     heading = Panel(
         Text("TRI-AI JARVIS | Read-only evidence dashboard", style="bold cyan"),
-        subtitle=f"tasks={len(snapshot.tasks)} ({_status_counts(snapshot.tasks)}) | accepted rules={snapshot.activated_rule_count}",
+        subtitle=(
+            f"tasks={len(snapshot.tasks)} ({_status_counts(snapshot.tasks)}) | "
+            f"ledger={snapshot.ledger_entry_count} | accepted rules={snapshot.activated_rule_count}"
+        ),
     )
     tasks = Table(title="Board", expand=True)
     tasks.add_column("Task", style="cyan", no_wrap=True)

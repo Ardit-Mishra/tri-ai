@@ -9,6 +9,7 @@ import sys
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -213,6 +214,29 @@ class RetryAndCancel(ControlFixture):
         self.assertFalse(refused.changed)
         self.assertEqual(refused.status, "unknown")
         self.assertEqual(self.task_row(task_id)["status"], "running")
+
+    def test_operator_recovery_aborts_only_a_proven_dead_worker_claim(self):
+        task_id = self.task()
+        self.assertIsNotNone(self.kb.claim_task(self.conn, task_id, claimer=self.host_local_claimer(12348)))
+        self.kb._set_worker_pid(self.conn, task_id, 12348)
+
+        with mock.patch.object(board, "kb_pid_alive", return_value=True):
+            live = board.abort_dead_worker_claim(self.conn, task_id, reason="supervisor stopped")
+        self.assertFalse(live.changed)
+        self.assertEqual(live.status, "survived")
+        self.assertEqual(self.task_row(task_id)["status"], "running")
+
+        with mock.patch.object(board, "kb_pid_alive", return_value=False):
+            recovered = board.abort_dead_worker_claim(self.conn, task_id, reason="supervisor stopped")
+        self.assertTrue(recovered.changed)
+        self.assertEqual(recovered.status, "aborted")
+        self.assertEqual(self.task_row(task_id)["status"], "cancelled")
+        run = self.conn.execute(
+            "SELECT status, outcome, error FROM task_runs WHERE task_id = ?", (task_id,)
+        ).fetchone()
+        self.assertEqual((run["status"], run["outcome"], run["error"]), (
+            "cancelled", "cancelled", "supervisor stopped",
+        ))
 
 
 class ProposalCallbacks(ControlFixture):

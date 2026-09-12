@@ -199,7 +199,9 @@ class HttpsTelegramApi:
             with self._opener(req, timeout=timeout) as response:
                 decoded = json.loads(response.read().decode("utf-8"))
         except (OSError, ValueError) as exc:
-            raise TelegramTransportError("Telegram HTTPS request failed") from exc
+            raise TelegramTransportError(
+                f"Telegram HTTPS request failed: {type(exc).__name__}"
+            ) from exc
         if not isinstance(decoded, dict) or decoded.get("ok") is not True:
             raise TelegramTransportError("Telegram Bot API rejected the request")
         return decoded.get("result")
