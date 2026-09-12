@@ -94,7 +94,7 @@ def _config_values(path: Path) -> Mapping[str, str]:
     if not path.exists():
         return {}
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"Telegram configuration file is unreadable or invalid: {path}") from exc
     if not isinstance(raw, dict) or not isinstance(raw.get("telegram", {}), dict):
