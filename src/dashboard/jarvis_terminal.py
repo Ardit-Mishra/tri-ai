@@ -9,6 +9,7 @@ credential, task-control, or process-spawn capability.
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 import sqlite3
@@ -156,6 +157,29 @@ def _read_ledger(path: Path | str, *, limit: int) -> tuple[tuple[LedgerEvent, ..
 
 def _pid_alive(pid: int) -> bool:
     """Read one process-liveness fact without signalling or controlling it."""
+    if pid < 1:
+        return False
+    if os.name == "nt":
+        # ``os.kill(pid, 0)`` is not a reliable existence probe on Windows.
+        # A query-only process handle is read-only and does not start, signal,
+        # or otherwise control the daemon being observed.
+        try:
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            open_process = kernel32.OpenProcess
+            open_process.argtypes = (ctypes.c_uint32, ctypes.c_bool, ctypes.c_uint32)
+            open_process.restype = ctypes.c_void_p
+            close_handle = kernel32.CloseHandle
+            close_handle.argtypes = (ctypes.c_void_p,)
+            close_handle.restype = ctypes.c_bool
+            handle = open_process(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        except OSError:
+            return False
+        if not handle:
+            return False
+        try:
+            return True
+        finally:
+            close_handle(handle)
     try:
         os.kill(pid, 0)
     except (ProcessLookupError, PermissionError, OSError):

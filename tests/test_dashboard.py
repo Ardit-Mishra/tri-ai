@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import io
 import json
+import os
 import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -60,6 +61,9 @@ class DashboardFixture(BoardTestCase):
 
 
 class DashboardSnapshotTests(DashboardFixture):
+    def test_default_liveness_probe_recognizes_the_current_process(self):
+        self.assertTrue(jarvis._pid_alive(os.getpid()))
+
     def test_snapshot_reads_board_graph_ledger_and_daemon_health(self):
         snapshot = self.snapshot()
         task_statuses = {task.task_id: task.status for task in snapshot.tasks}
