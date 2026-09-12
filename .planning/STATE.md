@@ -39,6 +39,16 @@ tests, exit 0, 159.988s**. The fleet is live and healthy, the stranded claim fro
 the 2026-09-12 incident is closed, and its root cause is fixed rather than worked
 around.
 
+**Phase 7 planning update (2026-09-12):**
+`.planning/phases/phase-7-plan.md` is a new draft, not implementation progress.
+It replaces the unsafe remote-daemon candidate with four reviewable slices:
+read-only planner assistance, fenced remote leases, desktop-owned candidate
+result verification, and a local two-node evidence exercise. A remote report or
+diff cannot complete a task; the desktop must materialize the task worktree and
+run the existing board-recorded verifier. No live Tailscale transport, remote
+credential, auto-commit, merge, push, or offload work is authorized by this
+plan. Next atomic action: independent plan review, then Slice 1 only.
+
 ## 2026-09-12 Master Directive - Completed
 
 **Part 1, fleet recovery - root cause found in the logs, not inferred.** The

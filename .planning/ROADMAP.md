@@ -186,5 +186,5 @@ Branch experiments do not change this order or count as completion.
 | 4. Read-Only Telegram Observability | 4/4 slices + transport implementation verified | Complete; live operator exercise passed | 2026-09-11 |
 | 5. Memory, Telegram Control, and Intake | 5A-C + memory/review slices | Complete; operator accepted mobile intake and configured-task decision | 2026-09-11 |
 | 6. JARVIS Dashboard & Spatial HUD | 4/4 slices | **Complete**; terminal, web, memory panels and spatial HUD accepted. Daemon incident recovered and its root cause fixed (supervisor now restarts children with a bounded budget) | 2026-09-12 |
-| 7. Planner Integration and Trusted Distributed Delegation | 0/TBD | Planned; candidate violates verify gate | - |
+| 7. Planner Integration and Trusted Distributed Delegation | 1 draft plan | Plan review pending; legacy candidate violates verify gate | - |
 | 8. Remote Offload and Phone Control | 0/TBD | Planned | - |
