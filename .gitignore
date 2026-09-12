@@ -11,3 +11,9 @@ __pycache__/
 # a repo-local ledger, when TRIAI_RUNS_DIR / TRIAI_LEDGER point inside the repo.
 triai-runs/
 triai-ledger.jsonl
+
+# Runtime board artifacts created when HERMES_KANBAN_DB resolves inside the
+# repo (an entry point that skipped board.kanban()). The authoritative board
+# lives at ~/.tri-ai/board.db and is never version controlled.
+.planning/board.db
+.planning/board.db.init.lock
