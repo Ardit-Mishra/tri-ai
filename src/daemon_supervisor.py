@@ -23,6 +23,7 @@ from interfaces import telegram_daemon
 
 LOG_LIMIT_BYTES = 5 * 1024 * 1024
 SHUTDOWN_SECONDS = 15.0
+DEFAULT_INTAKE_POLICY_PATH = Path.home() / ".tri-ai" / "intake_policy.json"
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,19 @@ def commands(
     if intake_policy is not None:
         telegram.extend(("--intake-policy", str(intake_policy)))
     return DaemonCommands(worker, tuple(telegram))
+
+
+def resolve_intake_policy(
+    requested: Optional[Path], *, default_path: Path = DEFAULT_INTAKE_POLICY_PATH,
+) -> Optional[Path]:
+    """Use the operator-owned runtime policy only when it exists.
+
+    An explicit path remains authoritative so a typo fails in the Telegram
+    daemon rather than being silently replaced by the default policy.
+    """
+    if requested is not None:
+        return requested
+    return default_path if default_path.is_file() else None
 
 
 def rotate_log(path: Path, *, limit_bytes: int = LOG_LIMIT_BYTES) -> None:
@@ -188,6 +202,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--log-dir", type=Path, default=Path.home() / ".tri-ai" / "logs")
     parser.add_argument("--intake-policy", type=Path)
     args = parser.parse_args(argv)
+    intake_policy = resolve_intake_policy(args.intake_policy)
 
     try:
         validate_telegram_environment(os.environ)
@@ -239,7 +254,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             commands(
                 root=root, board_path=args.board.resolve(), ledger_path=args.ledger.resolve(),
                 runs_root=args.runs_dir.resolve(),
-                intake_policy=args.intake_policy.resolve() if args.intake_policy else None,
+                intake_policy=intake_policy.resolve() if intake_policy else None,
             ),
             log_dir=log_dir, run_id=run_id, stop_path=stop_path, on_started=children_started,
         )
