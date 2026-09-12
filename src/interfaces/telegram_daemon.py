@@ -27,6 +27,7 @@ import telegram_control
 TOKEN_ENV = "TRI_AI_TELEGRAM_BOT_TOKEN"
 AUTHORIZED_CHAT_IDS_ENV = "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS"
 AUTHORIZED_CHAT_ID_ENV = "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID"
+DEFAULT_CONFIG_PATH = Path.home() / ".tri-ai" / "config.json"
 MAX_MESSAGE_CHARS = 4000
 
 
@@ -58,19 +59,119 @@ class TelegramSettings:
 
 
 def settings_from_environment(env: Mapping[str, str]) -> TelegramSettings:
-    """Read only the daemon's explicit credential and authorization settings."""
-    token = env.get(TOKEN_ENV, "").strip()
-    if not token:
-        raise ValueError(f"{TOKEN_ENV} must be set")
+    """Read only the daemon's explicit process-environment settings."""
+    return _settings_from_values(env.get(TOKEN_ENV, ""), _authorized_values(env))
 
-    raw_ids = [env.get(AUTHORIZED_CHAT_ID_ENV, "")]
-    raw_ids.extend(env.get(AUTHORIZED_CHAT_IDS_ENV, "").split(","))
-    chat_ids = frozenset(value.strip() for value in raw_ids if value.strip())
+
+def _authorized_values(values: Mapping[str, str]) -> tuple[str, ...]:
+    return tuple(
+        value.strip()
+        for value in (
+            values.get(AUTHORIZED_CHAT_ID_ENV, ""),
+            *values.get(AUTHORIZED_CHAT_IDS_ENV, "").split(","),
+        )
+        if value.strip()
+    )
+
+
+def _settings_from_values(token: str, authorized_chat_ids: Sequence[str]) -> TelegramSettings:
+    token = token.strip()
+    chat_ids = frozenset(value.strip() for value in authorized_chat_ids if value.strip())
+    missing: list[str] = []
+    if not token:
+        missing.append(TOKEN_ENV)
     if not chat_ids:
+        missing.append(f"{AUTHORIZED_CHAT_ID_ENV} or {AUTHORIZED_CHAT_IDS_ENV}")
+    if missing:
         raise ValueError(
-            f"set {AUTHORIZED_CHAT_ID_ENV} or {AUTHORIZED_CHAT_IDS_ENV} to at least one chat ID"
+            "Telegram daemon requires: " + "; ".join(missing)
         )
     return TelegramSettings(token=token, authorized_chat_ids=chat_ids)
+
+
+def _config_values(path: Path) -> Mapping[str, str]:
+    """Read the optional, user-profile configuration without exposing values."""
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Telegram configuration file is unreadable or invalid: {path}") from exc
+    if not isinstance(raw, dict) or not isinstance(raw.get("telegram", {}), dict):
+        raise ValueError(f"Telegram configuration file has no object at telegram: {path}")
+    telegram = raw.get("telegram", {})
+    values: dict[str, str] = {}
+    for key, environment_name in (
+        ("bot_token", TOKEN_ENV),
+        ("authorized_chat_id", AUTHORIZED_CHAT_ID_ENV),
+        ("authorized_chat_ids", AUTHORIZED_CHAT_IDS_ENV),
+    ):
+        value = telegram.get(key)
+        if value is None:
+            continue
+        if key == "authorized_chat_ids" and isinstance(value, list) and all(
+            isinstance(item, str) for item in value
+        ):
+            values[environment_name] = ",".join(value)
+        elif isinstance(value, str):
+            values[environment_name] = value
+        else:
+            raise ValueError(f"Telegram configuration field {key} must be a string: {path}")
+    return values
+
+
+def _windows_user_environment() -> Mapping[str, str]:
+    """Read only Tri-AI's named Windows user variables when process env lacks them."""
+    if os.name != "nt":
+        return {}
+    try:
+        import winreg
+
+        values: dict[str, str] = {}
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment") as key:
+            for name in (TOKEN_ENV, AUTHORIZED_CHAT_ID_ENV, AUTHORIZED_CHAT_IDS_ENV):
+                try:
+                    value, _ = winreg.QueryValueEx(key, name)
+                except FileNotFoundError:
+                    continue
+                if isinstance(value, str):
+                    values[name] = value
+        return values
+    except OSError:
+        return {}
+
+
+def settings_from_sources(
+    env: Mapping[str, str],
+    *,
+    config_path: Optional[Path] = None,
+    user_environment: Optional[Mapping[str, str]] = None,
+) -> TelegramSettings:
+    """Resolve settings from process env, local config, then Windows user env.
+
+    Process environment wins so a deliberate per-session override is honored.
+    Config and registry values are used only for missing fields. Values are kept
+    in memory only and never included in diagnostics, argv, logs, or state.
+    """
+    environment_token = env.get(TOKEN_ENV, "").strip()
+    environment_ids = _authorized_values(env)
+    if environment_token and environment_ids:
+        return _settings_from_values(environment_token, environment_ids)
+
+    configured = _config_values(config_path or DEFAULT_CONFIG_PATH)
+    registry = _windows_user_environment() if user_environment is None else user_environment
+    token = environment_token or configured.get(TOKEN_ENV, "").strip() or registry.get(TOKEN_ENV, "").strip()
+    authorized = (
+        environment_ids
+        or _authorized_values(configured)
+        or _authorized_values(registry)
+    )
+    return _settings_from_values(token, authorized)
+
+
+def startup_diagnostic(exc: Exception) -> str:
+    """Name the failure class and safe reason without printing configuration values."""
+    return f"telegram daemon stopped: {type(exc).__name__}: {exc}"
 
 
 class HttpsTelegramApi:
@@ -289,7 +390,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        settings = settings_from_environment(os.environ)
+        settings = settings_from_sources(os.environ)
         transport = HttpsTelegramApi(settings.token)
         policy = telegram_control.load_policy(args.intake_policy) if args.intake_policy else None
         control = telegram_control.TelegramControl(policy)
@@ -312,8 +413,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             daemon.poll_once(offset=None, timeout=args.poll_timeout)
         else:
             daemon.run_forever(poll_timeout=args.poll_timeout)
-    except (TelegramTransportError, ValueError):
-        print("telegram daemon stopped: configuration or transport failure", file=sys.stderr)
+    except (TelegramTransportError, ValueError) as exc:
+        print(startup_diagnostic(exc), file=sys.stderr)
         return 1
     return 0
 

@@ -19,12 +19,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Sequence
 
+from interfaces import telegram_daemon
 
 LOG_LIMIT_BYTES = 5 * 1024 * 1024
 SHUTDOWN_SECONDS = 15.0
-TELEGRAM_TOKEN_ENV = "TRI_AI_TELEGRAM_BOT_TOKEN"
-TELEGRAM_AUTHORIZED_CHAT_ID_ENV = "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID"
-TELEGRAM_AUTHORIZED_CHAT_IDS_ENV = "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS"
 
 
 @dataclass(frozen=True)
@@ -77,28 +75,24 @@ def _write_state(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 
 
-def validate_telegram_environment(env: Mapping[str, str]) -> None:
-    """Reject missing Telegram settings before state creation or child launch.
+def validate_telegram_environment(
+    env: Mapping[str, str],
+    *,
+    config_path: Optional[Path] = None,
+    user_environment: Optional[Mapping[str, str]] = None,
+) -> None:
+    """Resolve the daemon's approved config sources before child launch.
 
-    This checks only whether the required settings are present; it never logs or
-    passes their values through the operational state or child command lines.
+    Resolution is shared with the daemon so the supervisor cannot accept a
+    source that the child will reject. The resolved settings never reach argv,
+    logs, or the retained supervisor state.
     """
-    missing: list[str] = []
-    if not env.get(TELEGRAM_TOKEN_ENV, "").strip():
-        missing.append(TELEGRAM_TOKEN_ENV)
-    authorized = (
-        env.get(TELEGRAM_AUTHORIZED_CHAT_ID_ENV, "").strip()
-        or env.get(TELEGRAM_AUTHORIZED_CHAT_IDS_ENV, "").strip()
-    )
-    if not authorized:
-        missing.append(
-            f"{TELEGRAM_AUTHORIZED_CHAT_ID_ENV} or {TELEGRAM_AUTHORIZED_CHAT_IDS_ENV}"
+    try:
+        telegram_daemon.settings_from_sources(
+            env, config_path=config_path, user_environment=user_environment,
         )
-    if missing:
-        raise RuntimeError(
-            "Telegram daemon will not start until these environment variables are set: "
-            + "; ".join(missing)
-        )
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 def _is_alive(pid: object) -> bool:
