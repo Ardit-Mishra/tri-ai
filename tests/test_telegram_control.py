@@ -77,8 +77,40 @@ class ConfirmedIntake(ControlFixture):
         self.assertIn("already confirmed", self.dispatch(f"/confirm {request_id}").lower())
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 1)
 
+    def test_multi_word_run_prompt_is_retained_as_one_pending_prompt(self):
+        request_id = self.pending_id(self.dispatch("/run demo smoke test task"))
+        payload = json.loads(self.conn.execute(
+            "SELECT payload FROM triai_pending_actions WHERE id = ?", (request_id,)
+        ).fetchone()[0])
+        self.assertEqual(payload["prompt"], "smoke test task")
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 0)
+
+    def test_plain_text_creates_a_confirmed_intake_draft_in_the_default_workspace(self):
+        request_id = self.pending_id(self.dispatch("smoke test task"))
+        payload = json.loads(self.conn.execute(
+            "SELECT payload FROM triai_pending_actions WHERE id = ?", (request_id,)
+        ).fetchone()[0])
+        self.assertEqual(payload["workspace"], str(self.repo))
+        self.assertEqual(payload["prompt"], "smoke test task")
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 0)
+
+    def test_workspaces_and_help_expose_the_operator_owned_aliases(self):
+        self.assertIn("demo (default)", self.dispatch("/workspaces"))
+        help_text = self.dispatch("/help")
+        self.assertIn("/workspaces", help_text)
+        self.assertIn("/run <workspace-alias> <prompt>", help_text)
+
+    def test_unknown_or_unconfigured_intake_is_reported_without_creating_a_pending_action(self):
+        self.assertIn("Unknown workspace alias", self.dispatch("/run missing smoke test task"))
+        disabled = telegram_control.TelegramControl().dispatch(
+            "/run demo smoke test task", chat_id="42", board_path=self.db_path,
+            ledger_path=self.ledger, runs_root=self.runs,
+        )
+        self.assertIn("not configured", disabled)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM triai_pending_actions").fetchone()[0], 0)
+
     def test_expired_or_unknown_workspace_run_creates_no_task(self):
-        self.assertIn("Usage", self.dispatch("/run C:\\outside prompt"))
+        self.assertIn("Unknown workspace alias", self.dispatch("/run C:\\outside prompt"))
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 0)
 
         now = int(time.time())
@@ -111,6 +143,22 @@ class ConfirmedIntake(ControlFixture):
         }), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "unknown profile"):
             telegram_control.load_policy(unknown)
+
+        no_default = self.tmp / "no-default-policy.json"
+        no_default.write_text(json.dumps({
+            "verify_profiles": {"p": {"command": "x", "timeout": 1}},
+            "workspaces": {
+                "first": {"path": str(self.repo), "profile": "p"},
+                "second": {"path": str(self.repo), "profile": "p"},
+            },
+        }), encoding="utf-8")
+        policy = telegram_control.load_policy(no_default)
+        control = telegram_control.TelegramControl(policy)
+        response = control.dispatch(
+            "plain task prompt", chat_id="42", board_path=self.db_path,
+            ledger_path=self.ledger, runs_root=self.runs,
+        )
+        self.assertIn("No default workspace", response)
 
 
 class RetryAndCancel(ControlFixture):

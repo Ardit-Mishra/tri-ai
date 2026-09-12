@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr
+from io import StringIO
 from unittest import mock
 from pathlib import Path
 
@@ -71,6 +73,16 @@ class WorkerDaemonLoop(unittest.TestCase):
             ) as release:
                 self.assertEqual(worker_daemon.main(["--board", str(database), "--once"]), 0)
             release.assert_called_once()
+
+    def test_main_logs_the_actual_worker_failure_reason(self):
+        stderr = StringIO()
+        with mock.patch.object(worker_daemon.board, "connect", side_effect=ValueError("bad board path")), redirect_stderr(stderr):
+            result = worker_daemon.main(["--once"])
+
+        self.assertEqual(result, worker_daemon.worker.EXIT_ERROR)
+        self.assertEqual(
+            stderr.getvalue(), "worker daemon stopped: ValueError: bad board path\n",
+        )
 
 
 if __name__ == "__main__":
