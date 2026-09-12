@@ -15,10 +15,11 @@ import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Sequence
 
+import process_liveness
 from interfaces import telegram_daemon
 
 LOG_LIMIT_BYTES = 5 * 1024 * 1024
@@ -110,15 +111,17 @@ def validate_telegram_environment(
 
 
 def _is_alive(pid: object) -> bool:
-    if isinstance(pid, bool) or not isinstance(pid, int) or pid < 1:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    """Liveness for the "is another supervisor already running" guard.
+
+    This used to call ``os.kill(pid, 0)`` directly, which is wrong on Windows
+    in two separate ways that were both reproduced locally: an exited process
+    whose handle is still open raises nothing and read as **alive**, and a PID
+    that never existed raises a bare ``OSError`` (``WinError 87``) that this
+    function did not catch, so it escaped ``main``'s startup check as a
+    traceback rather than a diagnostic. Both are gone now that the shared
+    ``GetExitCodeProcess``/``STILL_ACTIVE`` probe owns the question.
+    """
+    return process_liveness.pid_alive(pid)
 
 
 def _creation_flags() -> int:
@@ -151,6 +154,65 @@ def _stop_children(children: Sequence[subprocess.Popen[object]], *, deadline_sec
     return not survivors
 
 
+@dataclass(frozen=True)
+class RestartPolicy:
+    """How hard the supervisor tries to keep one child daemon alive.
+
+    The fleet died on 2026-09-12 because this supervisor returned on the first
+    child exit: the Telegram daemon lost an HTTPS request, exited 1, and the
+    worker was stopped underneath a run it had already claimed. Restarting is
+    the fix, but restarting *without a budget* would be worse than stopping —
+    a daemon that fails on a bad config fails identically every time, and an
+    unbounded loop would spin, rewrite logs, and hide the cause.
+
+    So: back off exponentially, cap the delay, cap the number of restarts in a
+    rolling window, and treat a child that stays up past ``healthy_seconds`` as
+    a fresh start whose backoff is reset.
+    """
+
+    base_seconds: float = 2.0
+    max_seconds: float = 60.0
+    max_restarts: int = 8
+    window_seconds: float = 3600.0
+    healthy_seconds: float = 120.0
+
+    def delay_for(self, consecutive_failures: int) -> float:
+        """Delay before restart number ``consecutive_failures`` (1-based)."""
+        if consecutive_failures < 1:
+            return 0.0
+        return min(self.base_seconds * (2 ** (consecutive_failures - 1)), self.max_seconds)
+
+
+@dataclass
+class _Child:
+    """One supervised daemon plus the evidence needed to decide a restart."""
+
+    name: str
+    command: tuple[str, ...]
+    handle: Any
+    process: Optional[subprocess.Popen[Any]] = None
+    started_at: float = 0.0
+    consecutive_failures: int = 0
+    restart_times: list[float] = field(default_factory=list)
+    next_start_at: float = 0.0
+    total_restarts: int = 0
+    last_exit_code: Optional[int] = None
+
+
+def _note(handle: Any, message: str) -> None:
+    """Write one supervisor line into the child's own retained log.
+
+    The restart decision belongs beside the output that caused it; a reader
+    tailing telegram.log should not have to correlate a second file to learn
+    that the daemon was restarted, or why the supervisor gave up on it.
+    """
+    try:
+        handle.write(f"supervisor: {message}\n")
+        handle.flush()
+    except (ValueError, OSError):
+        pass
+
+
 def supervise(
     daemon_commands: DaemonCommands,
     *,
@@ -159,36 +221,119 @@ def supervise(
     stop_path: Path,
     popen: Callable[..., subprocess.Popen[Any]] = subprocess.Popen,
     on_started: Optional[Callable[[Sequence[subprocess.Popen[Any]]], None]] = None,
+    on_change: Optional[Callable[[Mapping[str, Optional[int]]], None]] = None,
+    policy: RestartPolicy = RestartPolicy(),
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> int:
-    """Run until a stop request or one daemon exits; never retry a failed child."""
+    """Keep both daemons alive until a stop request, or until one is unfixable.
+
+    Returns 0 for a clean operator-requested shutdown and 1 when a child
+    exhausted its restart budget, when a survivor had to be forced, or when a
+    restart could not be spawned at all.
+    """
     log_dir.mkdir(parents=True, exist_ok=True)
     worker_log, telegram_log = log_dir / "worker.log", log_dir / "telegram.log"
     rotate_log(worker_log)
     rotate_log(telegram_log)
     worker_handle = worker_log.open("a", encoding="utf-8")
     telegram_handle = telegram_log.open("a", encoding="utf-8")
-    children: tuple[subprocess.Popen[Any], ...] = ()
-    try:
-        common = {"stdin": subprocess.DEVNULL, "creationflags": _creation_flags()}
-        worker = popen(daemon_commands.worker, stdout=worker_handle, stderr=subprocess.STDOUT, **common)
-        children = (worker,)
-        telegram = popen(
-            daemon_commands.telegram, stdout=telegram_handle, stderr=subprocess.STDOUT, **common,
+    common = {"stdin": subprocess.DEVNULL, "creationflags": _creation_flags()}
+    supervised = (
+        _Child("worker", daemon_commands.worker, worker_handle),
+        _Child("telegram", daemon_commands.telegram, telegram_handle),
+    )
+
+    def live() -> tuple[subprocess.Popen[Any], ...]:
+        return tuple(c.process for c in supervised if c.process is not None)
+
+    def pids() -> dict[str, Optional[int]]:
+        """Current child PIDs by name; None for a child inside its backoff.
+
+        Reported by name rather than by position because a restarting child is
+        absent from the live sequence, and a positional reader would silently
+        attribute the surviving daemon's PID to the dead one.
+        """
+        return {c.name: (c.process.pid if c.process is not None else None) for c in supervised}
+
+    def start(child: _Child) -> None:
+        child.process = popen(
+            child.command, stdout=child.handle, stderr=subprocess.STDOUT, **common,
         )
-        children = (worker, telegram)
+        child.started_at = monotonic()
+
+    try:
+        for child in supervised:
+            start(child)
         if on_started is not None:
-            on_started(children)
+            on_started(live())
         while True:
             if stop_path.exists():
-                return 0 if _stop_children(children) else 1
-            exited = [child for child in children if child.poll() is not None]
-            if exited:
-                _stop_children(children)
-                return 1
+                return 0 if _stop_children(live()) else 1
+
+            changed = False
+            for child in supervised:
+                process = child.process
+                if process is None:
+                    # Awaiting its backoff window; respawn once it elapses.
+                    if monotonic() >= child.next_start_at:
+                        try:
+                            start(child)
+                        except OSError as exc:
+                            _note(child.handle, f"{child.name} could not be restarted: {exc}")
+                            _stop_children(live())
+                            return 1
+                        _note(child.handle, f"{child.name} restarted (attempt {child.consecutive_failures})")
+                        changed = True
+                    continue
+
+                status = process.poll()
+                if status is None:
+                    if (
+                        child.consecutive_failures
+                        and monotonic() - child.started_at >= policy.healthy_seconds
+                    ):
+                        _note(
+                            child.handle,
+                            f"{child.name} healthy for {policy.healthy_seconds:.0f}s; backoff reset",
+                        )
+                        child.consecutive_failures = 0
+                    continue
+
+                # The child exited on its own. Decide restart from its record.
+                child.last_exit_code = status
+                now = monotonic()
+                child.restart_times = [
+                    t for t in child.restart_times if now - t <= policy.window_seconds
+                ]
+                if len(child.restart_times) >= policy.max_restarts:
+                    _note(
+                        child.handle,
+                        f"{child.name} exited {status}; {len(child.restart_times)} restarts in the last "
+                        f"{policy.window_seconds:.0f}s exhausts the budget - supervisor is stopping the fleet",
+                    )
+                    child.process = None
+                    _stop_children(live())
+                    return 1
+                child.consecutive_failures += 1
+                child.total_restarts += 1
+                child.restart_times.append(now)
+                delay = policy.delay_for(child.consecutive_failures)
+                child.next_start_at = now + delay
+                child.process = None
+                _note(
+                    child.handle,
+                    f"{child.name} exited {status}; restarting in {delay:.0f}s "
+                    f"(attempt {child.consecutive_failures} of {policy.max_restarts})",
+                )
+                changed = True
+
+            if changed and on_change is not None:
+                on_change(pids())
             time.sleep(0.25)
     finally:
-        if children and any(child.poll() is None for child in children):
-            _stop_children(children)
+        remaining = [c.process for c in supervised if c.process is not None and c.process.poll() is None]
+        if remaining:
+            _stop_children(remaining)
         worker_handle.close()
         telegram_handle.close()
 
@@ -230,6 +375,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "telegram_pid": None,
         "stop_path": str(stop_path),
         "started_at": int(time.time()),
+        "restarts": 0,
     }
     log_dir.mkdir(parents=True, exist_ok=True)
     _write_state(state_path, state)
@@ -250,13 +396,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             state.update(worker_pid=children[0].pid, telegram_pid=children[1].pid)
             _write_state(state_path, state)
 
+        def children_changed(current: Mapping[str, Optional[int]]) -> None:
+            """Republish PIDs after a restart so readers never show a dead one.
+
+            The dashboard reads these PIDs and probes them for liveness. A
+            child inside its backoff window has no PID at all, and recording
+            None is the honest answer - a stale PID would render as a daemon
+            that is up.
+            """
+            state.update(
+                worker_pid=current.get("worker"),
+                telegram_pid=current.get("telegram"),
+                restarts=int(state.get("restarts", 0) or 0) + 1,
+                last_restart_at=int(time.time()),
+            )
+            _write_state(state_path, state)
+
         result = supervise(
             commands(
                 root=root, board_path=args.board.resolve(), ledger_path=args.ledger.resolve(),
                 runs_root=args.runs_dir.resolve(),
                 intake_policy=intake_policy.resolve() if intake_policy else None,
             ),
-            log_dir=log_dir, run_id=run_id, stop_path=stop_path, on_started=children_started,
+            log_dir=log_dir, run_id=run_id, stop_path=stop_path,
+            on_started=children_started, on_change=children_changed,
         )
     except Exception as exc:
         state.update(status="failed", stopped_at=int(time.time()), error=type(exc).__name__)

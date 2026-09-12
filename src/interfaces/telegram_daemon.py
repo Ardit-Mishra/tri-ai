@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Protocol, Sequence
@@ -371,11 +372,48 @@ class TelegramDaemon:
         else:
             self._api.send_message(chat_id=chat_id, text=response.text)
 
-    def run_forever(self, *, poll_timeout: int) -> None:
-        """Long-poll until a transport failure or operator stop interrupts it."""
+    def run_forever(
+        self,
+        *,
+        poll_timeout: int,
+        max_transport_failures: int = 10,
+        backoff_base_seconds: float = 2.0,
+        backoff_max_seconds: float = 60.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        """Long-poll until an operator stop or a persistent transport failure.
+
+        A single lost HTTPS request used to end this process. That is the wrong
+        severity for a daemon on a home connection: a dropped packet is not a
+        broken bot, and on 2026-09-12 one such exit took the whole fleet down
+        with it, because the supervisor stopped the worker when any child
+        exited. So a transport failure is now retried with exponential backoff.
+
+        A *persistent* failure is different in kind - a revoked token or a
+        rejected request fails identically forever - so the retry is bounded
+        and the daemon still exits non-zero once the budget is spent, leaving
+        the restart decision to the supervisor rather than spinning silently.
+        Any successful poll clears the streak.
+        """
         offset: Optional[int] = None
+        failures = 0
         while True:
-            offset = self.poll_once(offset=offset, timeout=poll_timeout)
+            try:
+                offset = self.poll_once(offset=offset, timeout=poll_timeout)
+            except TelegramTransportError as exc:
+                failures += 1
+                if failures >= max_transport_failures:
+                    raise
+                delay = min(backoff_base_seconds * (2 ** (failures - 1)), backoff_max_seconds)
+                print(
+                    f"telegram transport failure {failures}/{max_transport_failures}: "
+                    f"{type(exc).__name__}: {exc}; retrying in {delay:.0f}s",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                sleep(delay)
+                continue
+            failures = 0
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
