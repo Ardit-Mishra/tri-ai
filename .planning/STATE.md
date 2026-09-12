@@ -9,7 +9,8 @@ See: `.planning/PROJECT.md` (audited 2026-09-10)
 daemons and live phone path are verified, including confirmation of mobile
 draft `p_52ad147623592edf` into ready task `t_a17464db`. The configured-task
 intake contract is the accepted product decision; it does not invoke the
-planner. Phase 6 Slice 1 now builds the read-only JARVIS terminal dashboard.
+planner. Phase 6 Slice 2 now adds the loopback-only, read-only JARVIS web
+dashboard over the same evidence snapshot.
 Route admission is complete, but executor routing remains intentionally disabled
 until an operator-configured Hermes profile has real measured evidence.
 
@@ -31,8 +32,21 @@ foreground runner, long-polling Telegram bot, outbound pending updates, and
 `/status`, `/task`, and `/logs` against task `t_baa70e9a`. The operator then
 confirmed mobile draft `p_52ad147623592edf`, creating ready task `t_a17464db`;
 this accepts the configured single-task intake contract in place of the old
-planner wording. Phase 6 Slice 1 is accepted locally; live daemons remain
-untouched.
+planner wording. Phase 6 Slices 1 and 2 are accepted locally.
+
+**Daemon incident and evidence-preserving recovery:** task `t_a17464db` entered
+`running`, then its clean-tree precheck retained `agent.log` and `verify.log`
+showing `working tree not clean (4 entries)`. The supervisor's retained state
+recorded exit code 1 and the recorded worker PID was dead. The old Telegram
+line established only a generic HTTPS failure, so it cannot prove the first
+child's exact failure. The worker had no Windows `SIGBREAK` handler, leaving a
+shutdown hole if the supervisor sent CTRL_BREAK while cleanup was in flight.
+`board.abort_dead_worker_claim` now refuses a live or raced worker, and only
+then atomically cancels the stranded task/run and appends an `aborted`
+operator-recovery board event. The live recovery used that primitive: task and
+run 4 are `cancelled`, the claim fields are clear, and retained run logs remain
+in place. `worker_daemon` now registers `SIGBREAK`; future Telegram HTTPS
+diagnostics retain the exception class without exposing response content.
 
 **Phase 6 Slice 1 accepted locally:** `src/dashboard/jarvis_terminal.py` reads
 the board through SQLite `mode=ro` plus `query_only`, tails bounded ledger
@@ -40,12 +54,19 @@ evidence, and renders task/dependency state, activated-rule count, and
 supervisor health with Rich. It has no board API, network, credential, or
 process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
-tests, exit 0, 150.571s**. The first live read exposed retained state
-`stopped` with supervisor exit code 1 and no recorded child PIDs alive while
-task `t_a17464db` remains `running`. No retry, daemon restart, task mutation,
-or evidence cleanup was performed; inspect this retained operational failure
-before taking a recovery action. Next: review the Slice 1 commit, then decide
-whether to perform a separate, evidence-preserving daemon recovery.
+tests, exit 0, 150.571s**.
+
+**Phase 6 Slice 2 accepted locally:** `src/dashboard/jarvis_web.py` is a
+loopback-only (`127.0.0.1`) standard-library web server. It reuses the terminal
+reader, exposes only immutable `/api/snapshot` and SSE `/events`, and serves a
+self-contained dark dashboard. Structural tests reject board/ledger mutators,
+credential access, external-network clients, and process spawning; endpoint
+tests prove HTML, JSON, SSE, and non-loopback refusal. Windows client
+disconnects are quiet without suppressing real server errors. The terminal
+reader now reports the complete valid ledger-entry count alongside its bounded
+evidence tail. Full suite: `python tests/run.py` -> **258 tests, exit 0,
+203.936s**. Next: start and verify the local web server and restored daemon
+fleet; do not enqueue a retry for the cancelled task.
 Slice 2's
 implementation/review correction (`a71ff9e` / `02b90f8`) is now covered by
 adversarial regression tests in `8ea0d03`. Slice 3 is accepted on local,
@@ -55,8 +76,8 @@ separate review service was unavailable and is recorded as such.
 **Canonical branch:** `phase-2/worker-assign`. The audited implementation base
 was `00671d9`; the phase/plan audit record was committed as `75e188f`.
 
-**Latest canonical verification:** `python tests/run.py` -> **253 tests, exit
-0, 150.571s** (2026-09-11). This verifies Phase 5A confirmed Telegram
+**Latest canonical verification:** `python tests/run.py` -> **258 tests, exit
+0, 203.936s** (2026-09-11). This verifies Phase 5A confirmed Telegram
 control, the Phase 5B local polling daemon, the Phase 5C routing probe, and
 the route-admission, episodic-memory, procedural-memory, semantic-memory, and
 candidate-evolution and proposal-review gates alongside every prior phase.
@@ -69,15 +90,11 @@ workspace, verify command, and timeout; cancel is compare-and-swap and refuses
 an unregistered or surviving worker PID. Focused control/transport tests: 22,
 exit 0, 5.175s.
 
-**Phase 5 live-acceptance gap:** `/run`, `/retry`, and `/cancel` are implemented
-and test-covered, but their live board transitions have not yet been recorded.
-Run a disposable-workspace exercise that proves: an unconfirmed `/run` creates
-zero task rows; same-chat `/confirm` creates the configured verify-gated task;
-`/retry` produces a new ordinary `task_run` retaining its verify spec; and
-`/cancel` safely terminates a real recorded claim without overwriting a
-completion race. The roadmap currently says confirmation invokes the planner,
-while the shipped policy intentionally creates one preconfigured task. This is
-an explicit decision/acceptance gap, not a claim that Phase 5 is complete.
+**Phase 5 live acceptance:** superseded by the operator's 2026-09-11 mobile
+acceptance recorded above. It proved the confirmation path creates one
+configured verify-gated task. Cancel/retry retain their automated CAS and
+ordinary-run proofs; they were not misrepresented as part of that single live
+intake exercise.
 
 **Telegram intake ergonomics and worker diagnostics accepted locally:** the live
 `/run` report exposed a misleading reply, not a whitespace parser defect:

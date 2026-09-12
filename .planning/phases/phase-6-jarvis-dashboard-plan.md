@@ -1,6 +1,6 @@
 # Phase 6 Plan - Read-Only JARVIS Dashboard
 
-**Status:** Slice 1 accepted locally (2026-09-11)
+**Status:** Slices 1 and 2 accepted locally (2026-09-11)
 
 ## Purpose
 
@@ -57,3 +57,27 @@ started, stopped, nor reconfigured by this slice.
 
 - Slice 2: local web visualization over the same read-only snapshot contract.
 - Slice 3: accepted semantic/procedural evidence panels, still observational.
+
+## Slice 2 - Local JARVIS Web Surface
+
+- `src/dashboard/jarvis_web.py` binds only `127.0.0.1` and serves one
+  self-contained dark UI. It imports the terminal snapshot reader rather than
+  opening a separate database path.
+- `/api/snapshot` and `/events` serialize the same immutable snapshot. SSE
+  sends a fresh snapshot every two seconds; there is no mutation endpoint.
+- Tests prove HTML delivery, JSON/SSE serialization, loopback-only binding,
+  and the absence of board mutation, credential, external-network, or process
+  spawning capability.
+
+### Evidence
+
+- `python -m unittest tests.test_dashboard tests.test_dashboard_web
+  tests.test_telegram_control tests.test_telegram_daemon tests.test_worker_daemon`
+  -> 47 tests, exit 0, 16.484s.
+- `python tests/run.py` -> 258 tests, exit 0, 203.936s.
+- The web server suppresses only ordinary Windows client disconnect exceptions;
+  all other request-handler exceptions continue through the standard server
+  error path.
+- The concurrent daemon incident was recovered separately through
+  `board.abort_dead_worker_claim`: it refuses a live worker and closes a proven
+  dead claim with a durable board event. It is not a retry mechanism.

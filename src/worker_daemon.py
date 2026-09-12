@@ -77,7 +77,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     def request_stop(_signum, _frame) -> None:
         stopping.set()
 
-    for sig in (signal.SIGINT, signal.SIGTERM):
+    stop_signals = [signal.SIGINT, signal.SIGTERM]
+    sigbreak = getattr(signal, "SIGBREAK", None)
+    if sigbreak is not None:
+        stop_signals.append(sigbreak)
+    for sig in stop_signals:
         try:
             signal.signal(sig, request_stop)
         except (ValueError, OSError):

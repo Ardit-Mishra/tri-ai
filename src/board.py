@@ -995,6 +995,57 @@ def cancel_task(
     return ControlResult(True, "cancelled", task_id)
 
 
+def abort_dead_worker_claim(
+    conn: sqlite3.Connection,
+    task_id: str,
+    *,
+    reason: str,
+) -> ControlResult:
+    """Close one stranded claim only after its recorded worker is proven dead.
+
+    This is an operator recovery primitive, not a retry path. A live worker is
+    still able to write its workspace or complete its run, so recovery refuses
+    to change its claim. The compare-and-swap preserves a completion race.
+    """
+    row = conn.execute(
+        "SELECT status, claim_lock, worker_pid, current_run_id FROM tasks WHERE id = ?",
+        (task_id,),
+    ).fetchone()
+    if row is None:
+        return ControlResult(False, "missing", task_id, "task does not exist")
+    if row["status"] != "running" or row["claim_lock"] is None:
+        return ControlResult(False, str(row["status"]), task_id, "task is not running")
+    pid = row["worker_pid"]
+    if pid is None:
+        return ControlResult(False, "unknown", task_id, "running task has no worker PID")
+    if kb_pid_alive(int(pid)):
+        return ControlResult(False, "survived", task_id, "worker PID is still alive")
+
+    kb = kanban()
+    with kb.write_txn(conn):
+        changed = conn.execute(
+            "UPDATE tasks SET status = 'cancelled', claim_lock = NULL, "
+            "claim_expires = NULL, worker_pid = NULL, last_heartbeat_at = NULL "
+            "WHERE id = ? AND status = 'running' AND claim_lock IS ? "
+            "AND current_run_id IS ?",
+            (task_id, row["claim_lock"], row["current_run_id"]),
+        ).rowcount
+        if changed != 1:
+            current = conn.execute(
+                "SELECT status FROM tasks WHERE id = ?", (task_id,)
+            ).fetchone()
+            return ControlResult(False, str(current["status"]), task_id, "task completed or changed first")
+        closed = kb._end_run(
+            conn, task_id, outcome="cancelled", status="cancelled",
+            error=reason[:500], metadata={"source": "operator_recovery"},
+        )
+        kb._append_event(
+            conn, task_id, "aborted", {"source": "operator_recovery", "reason": reason[:500]},
+            run_id=closed,
+        )
+    return ControlResult(True, "aborted", task_id, reason)
+
+
 def kb_pid_alive(pid: int) -> bool:
     """Use the kernel's host-local liveness check without exposing it to callers."""
     return bool(kanban()._pid_alive(int(pid)))

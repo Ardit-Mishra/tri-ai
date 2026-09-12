@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import signal
 import tempfile
 import unittest
 from contextlib import redirect_stderr
@@ -83,6 +84,16 @@ class WorkerDaemonLoop(unittest.TestCase):
         self.assertEqual(
             stderr.getvalue(), "worker daemon stopped: ValueError: bad board path\n",
         )
+
+    def test_windows_break_signal_is_registered_as_a_clean_stop_request(self):
+        if not hasattr(signal, "SIGBREAK"):
+            self.skipTest("SIGBREAK is Windows-only")
+        seen = []
+        with mock.patch.object(worker_daemon.signal, "signal", side_effect=lambda sig, handler: seen.append(sig)):
+            with tempfile.TemporaryDirectory() as temp:
+                result = worker_daemon.main(["--board", str(Path(temp) / "board.db"), "--once"])
+        self.assertEqual(result, 0)
+        self.assertIn(signal.SIGBREAK, seen)
 
 
 if __name__ == "__main__":

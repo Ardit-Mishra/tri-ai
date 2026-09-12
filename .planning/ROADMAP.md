@@ -137,6 +137,13 @@ state file. A refresh loop reads fresh snapshots only. Structural tests reject
 board mutation, process spawn, network, and credential/config access; an
 unchanged board-file test proves the snapshot does not write.
 
+**Slice 2 acceptance criteria:** a loopback-only local web surface reuses the
+same immutable snapshot for a self-contained task matrix, daemon-health bar,
+metrics, bounded evidence terminal, JSON endpoint, and live SSE feed. Tests
+prove non-loopback binding is refused, endpoint serialization is faithful, and
+the web module has no board mutation, credential, external-network, or process
+spawn capability.
+
 ### Phase 7: Planner Integration and Trusted Distributed Delegation
 **Goal**: Let the planner consume accepted crystallized patterns and coordinate
 remote execution without allowing a remote agent report to mark work verified.
@@ -160,6 +167,6 @@ Branch experiments do not change this order or count as completion.
 | 3. Planner + Bounded Concurrent Execution | 1/1 | Complete | 2026-09-10 |
 | 4. Read-Only Telegram Observability | 4/4 slices + transport implementation verified | Complete; live operator exercise passed | 2026-09-11 |
 | 5. Memory, Telegram Control, and Intake | 5A-C + memory/review slices | Complete; operator accepted mobile intake and configured-task decision | 2026-09-11 |
-| 6. JARVIS Dashboard | 1/3 planned slices | Slice 1 terminal dashboard accepted locally; live daemon failure retained for recovery | 2026-09-11 |
+| 6. JARVIS Dashboard | 2/3 planned slices | Slices 1 terminal and 2 loopback web dashboard accepted locally; daemon incident recovered with retained evidence | 2026-09-11 |
 | 7. Planner Integration and Trusted Distributed Delegation | 0/TBD | Planned; candidate violates verify gate | - |
 | 8. Remote Offload and Phone Control | 0/TBD | Planned | - |
