@@ -17,11 +17,14 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 
 LOG_LIMIT_BYTES = 5 * 1024 * 1024
 SHUTDOWN_SECONDS = 15.0
+TELEGRAM_TOKEN_ENV = "TRI_AI_TELEGRAM_BOT_TOKEN"
+TELEGRAM_AUTHORIZED_CHAT_ID_ENV = "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_ID"
+TELEGRAM_AUTHORIZED_CHAT_IDS_ENV = "TRI_AI_TELEGRAM_AUTHORIZED_CHAT_IDS"
 
 
 @dataclass(frozen=True)
@@ -72,6 +75,30 @@ def _state_path(log_dir: Path) -> Path:
 
 def _write_state(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+
+def validate_telegram_environment(env: Mapping[str, str]) -> None:
+    """Reject missing Telegram settings before state creation or child launch.
+
+    This checks only whether the required settings are present; it never logs or
+    passes their values through the operational state or child command lines.
+    """
+    missing: list[str] = []
+    if not env.get(TELEGRAM_TOKEN_ENV, "").strip():
+        missing.append(TELEGRAM_TOKEN_ENV)
+    authorized = (
+        env.get(TELEGRAM_AUTHORIZED_CHAT_ID_ENV, "").strip()
+        or env.get(TELEGRAM_AUTHORIZED_CHAT_IDS_ENV, "").strip()
+    )
+    if not authorized:
+        missing.append(
+            f"{TELEGRAM_AUTHORIZED_CHAT_ID_ENV} or {TELEGRAM_AUTHORIZED_CHAT_IDS_ENV}"
+        )
+    if missing:
+        raise RuntimeError(
+            "Telegram daemon will not start until these environment variables are set: "
+            + "; ".join(missing)
+        )
 
 
 def _is_alive(pid: object) -> bool:
@@ -167,6 +194,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--log-dir", type=Path, default=Path.home() / ".tri-ai" / "logs")
     parser.add_argument("--intake-policy", type=Path)
     args = parser.parse_args(argv)
+
+    try:
+        validate_telegram_environment(os.environ)
+    except RuntimeError as exc:
+        print(f"daemon supervisor configuration error: {exc}", file=sys.stderr)
+        return 2
 
     log_dir = args.log_dir.resolve()
     state_path = _state_path(log_dir)
