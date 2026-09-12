@@ -5,11 +5,12 @@
 See: `.planning/PROJECT.md` (audited 2026-09-10)
 
 **Core value:** A task assigned once gets decomposed, executed in parallel by free local models, and verified by exit codes — without the expensive model staying in the loop.
-**Current focus:** operational worker/Telegram daemon tooling is verified
-locally. The next step is an operator-started live phone exercise; no live
-Telegram request was made during implementation. Route admission is complete,
-but executor routing remains intentionally disabled until an
-operator-configured Hermes profile has real measured evidence.
+**Current focus:** the foreground worker/Telegram daemons and live phone path
+are operator-verified. The next milestone is Phase 5 live mutation acceptance:
+exercise the confirmed intake, retry, and cancel contracts against a disposable
+workspace, then reconcile whether confirmation creates one task or invokes the
+planner. Route admission is complete, but executor routing remains intentionally
+disabled until an operator-configured Hermes profile has real measured evidence.
 
 **Approved future direction:** `.planning/research/capability-expansion-design.md`
 defines local verified promotion, RAG, measured routing with optional
@@ -24,10 +25,11 @@ no external proxy request is made during implementation.
 
 Phase: 5 of 8 (Memory, Telegram Control, and Intake)
 Plan: .planning/phases/phase-5-control-worker-routing-plan.md
-Status: Phases 1-3 are complete. Phase 4's local adapter and HTTPS transport
-are verified; an operator independently exercised the read-only phone path on
-2026-09-11 against task t_baa70e9a, which reached done after two retained
-reclaims. Phase 5A-C is complete local implementation work. Slice 2's
+Status: Phases 1-4 are complete. On 2026-09-11 the operator verified the live
+foreground runner, long-polling Telegram bot, outbound pending updates, and
+`/status`, `/task`, and `/logs` against task `t_baa70e9a`. Phase 5A-C is
+complete local implementation work; its mutation acceptance remains open.
+Slice 2's
 implementation/review correction (`a71ff9e` / `02b90f8`) is now covered by
 adversarial regression tests in `8ea0d03`. Slice 3 is accepted on local,
 exit-code evidence under the operator's explicit continuation instruction; the
@@ -49,6 +51,16 @@ durable pending actions; confirm is chat-bound and idempotent; policy owns
 workspace, verify command, and timeout; cancel is compare-and-swap and refuses
 an unregistered or surviving worker PID. Focused control/transport tests: 22,
 exit 0, 5.175s.
+
+**Phase 5 live-acceptance gap:** `/run`, `/retry`, and `/cancel` are implemented
+and test-covered, but their live board transitions have not yet been recorded.
+Run a disposable-workspace exercise that proves: an unconfirmed `/run` creates
+zero task rows; same-chat `/confirm` creates the configured verify-gated task;
+`/retry` produces a new ordinary `task_run` retaining its verify spec; and
+`/cancel` safely terminates a real recorded claim without overwriting a
+completion race. The roadmap currently says confirmation invokes the planner,
+while the shipped policy intentionally creates one preconfigured task. This is
+an explicit decision/acceptance gap, not a claim that Phase 5 is complete.
 
 **Phase 5B accepted locally:** `src/worker_daemon.py` is a foreground,
 resilient loop around exactly one existing `worker.run_once` tick. Empty

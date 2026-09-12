@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Verified Board Substrate** - Add the verify_command column and prove atomic claim/lease/reclaim under real contention, reusing the existing kanban kernel
 - [x] **Phase 2: Verify-Gated Single-Worker Execution** - One worker claims, runs, and accepts/reverts subtasks strictly by exit code, assignable from CLI, queue file, or a durable schedule
 - [x] **Phase 3: Planner + Bounded Concurrent Execution** - The strong model writes a real graph and exits; several workers execute it concurrently at a measured cap with proven per-branch failure isolation
-- [ ] **Phase 4: Read-Only Telegram Observability** - The board and full subtask output are inspectable from Telegram, no write capability yet (in progress)
+- [x] **Phase 4: Read-Only Telegram Observability** - The board and full subtask output are inspectable from Telegram, no write capability yet
 - [ ] **Phase 5: Memory, Telegram Control, and Intake** - Passive memory foundation plus cancel, retry, and confirmation-gated task assignment from Telegram
 - [ ] **Phase 6: JARVIS Dashboard** - Read-only terminal/web dashboard over board, ledger, and accepted memory evidence
 - [ ] **Phase 7: Planner Integration and Trusted Distributed Delegation** - Learned-pattern planner assistance plus a remote-worker protocol that preserves verify-gated acceptance
@@ -87,7 +87,10 @@ scratch worktree is not this phase and must not be merged.
 **Success Criteria** (what must be TRUE):
   1. A Telegram status query returns the current board state (counts/list of queued, claimed, running, passed, failed) matching a direct board query taken at the same moment
   2. A Telegram query for a specific failed subtask returns its full captured stdout/stderr (not a truncated tail), sufficient to diagnose the failure without re-running the task
-**Plans**: `.planning/phases/phase-4-plan.md` (in progress; Slice 1 accepted, Slice 2 awaiting adversarial correction tests)
+**Plans**: `.planning/phases/phase-4-plan.md` and
+`.planning/phases/phase-4.5-telegram-transport-plan.md` (complete; both
+criteria independently exercised against the live Telegram polling daemon on
+2026-09-11)
 
 ### Phase 5: Memory, Telegram Control, and Intake
 **Goal**: Build the passive episodic/procedural memory foundation, then let a
@@ -102,9 +105,11 @@ already uses.
   2. Sending a retry command for a failed subtask from Telegram re-enters it into the exact claim→verify path (same verify_command, no bypass), verified by a follow-up board query showing a new task_run
   3. Assigning a new task from Telegram requires an explicit confirmation step before the planner is invoked; an unconfirmed message creates zero board rows
   4. No Telegram handler contains a path to arbitrary shell execution, verify-command editing, or push/merge/deploy/credential access (grep/audit-verifiable)
-**Plans**: Phase 5-8 are design previews in `.planning/phases/phase-4-plan.md`,
-`.planning/research/memory-subsystem-design.md`, and
-`.planning/research/distributed-delegation-design.md`; no later phase is accepted.
+**Plans**: `.planning/phases/phase-5-control-worker-routing-plan.md` records
+the locally verified 5A-C implementation. Phase 5 remains open until its
+Telegram mutation criteria are exercised against the live board and the
+criterion's "planner" wording is reconciled with the current confirmed
+single-task intake implementation.
 **Planning gate**: Before Phase 5 implementation, reconcile the preview's
 Phase 6 placement of semantic memory and self-evolution with the detailed
 memory design's 5C/5D placement. The Phase 5 plan must choose one ordering,
@@ -143,8 +148,8 @@ Branch experiments do not change this order or count as completion.
 | 1. Verified Board Substrate | 1/1 | Complete | 2026-09-08 |
 | 2. Verify-Gated Single-Worker Execution | 1/1 | Complete | 2026-09-10 |
 | 3. Planner + Bounded Concurrent Execution | 1/1 | Complete | 2026-09-10 |
-| 4. Read-Only Telegram Observability | 4/4 slices + transport implementation verified | In progress; operator activation/review pending | - |
-| 5. Memory, Telegram Control, and Intake | 0/TBD | Planned; candidate branch is partial | - |
+| 4. Read-Only Telegram Observability | 4/4 slices + transport implementation verified | Complete; live operator exercise passed | 2026-09-11 |
+| 5. Memory, Telegram Control, and Intake | local implementation complete | Live mutation acceptance and planner-intake decision pending | - |
 | 6. JARVIS Dashboard | 0/TBD | Planned; candidate branch failing | - |
 | 7. Planner Integration and Trusted Distributed Delegation | 0/TBD | Planned; candidate violates verify gate | - |
 | 8. Remote Offload and Phone Control | 0/TBD | Planned | - |
