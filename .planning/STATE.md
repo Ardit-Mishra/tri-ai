@@ -69,9 +69,11 @@ PIDs as down; the reader now uses a query-only Windows process handle and has
 a current-PID regression test. Medium and mobile widths stack the header,
 metrics, and four requested task lanes without clipping; cancelled tasks stay
 visible in the Failed lane. Full suite: `python tests/run.py` -> **259 tests,
-exit 0, 180.472s**. Next: restart the local web process with the corrected
-liveness reader and responsive layout, then verify the restored daemon fleet;
-do not enqueue a retry for the cancelled task.
+exit 0, 180.472s**. Live verification: the local server is listening at
+`http://127.0.0.1:8080`; `/api/snapshot` and SSE both responded; its status
+indicators report the supervisor, worker, and Telegram daemon alive, matching
+the retained supervisor state and direct PID checks. Next: Phase 6 Slice 3
+accepted-memory evidence panels; do not enqueue a retry for the cancelled task.
 Slice 2's
 implementation/review correction (`a71ff9e` / `02b90f8`) is now covered by
 adversarial regression tests in `8ea0d03`. Slice 3 is accepted on local,

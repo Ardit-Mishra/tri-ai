@@ -83,6 +83,9 @@ started, stopped, nor reconfigured by this slice.
 - At medium/mobile widths the header and metrics reflow without clipping; the
   four specified task lanes remain the only lane categories, with terminal
   non-success states retained in Failed.
+- Live acceptance: `http://127.0.0.1:8080` served a JSON snapshot and SSE
+  event while its displayed supervisor, worker, and Telegram indicators agreed
+  with the retained supervisor state and direct PID checks.
 - The concurrent daemon incident was recovered separately through
   `board.abort_dead_worker_claim`: it refuses a live worker and closes a proven
   dead claim with a durable board event. It is not a retry mechanism.
