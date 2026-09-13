@@ -189,6 +189,18 @@ HTML = r"""<!doctype html>
     /* Removes the 300ms synthetic click delay without disabling pinch zoom. */
     .sheet-handle, .memory-rule, .room-window > summary { touch-action:manipulation; }
     .sheet-handle { display:none; }
+    .preview { align-items:center; background:rgba(2,5,9,.86); bottom:0; display:none; justify-content:center; left:0; padding:20px; position:fixed; right:0; top:0; z-index:90; }
+    .preview.open { display:flex; }
+    .preview-pane { background:var(--surface); border:1px solid var(--cyan); box-shadow:0 24px 70px rgba(0,0,0,.6); display:flex; flex-direction:column; max-height:88vh; max-width:min(1100px,94vw); width:100%; }
+    .preview-head { align-items:center; border-bottom:1px solid var(--line); display:flex; gap:12px; justify-content:space-between; padding:11px 14px; }
+    .preview-title { color:var(--cyan); font-size:11px; overflow-wrap:anywhere; text-transform:uppercase; }
+    .preview-actions { display:flex; flex:none; gap:8px; }
+    .preview-actions a, .preview-actions button { background:transparent; border:1px solid var(--line); color:var(--muted); cursor:pointer; font-family:inherit; font-size:10px; padding:5px 10px; text-decoration:none; text-transform:uppercase; }
+    .preview-actions a:hover, .preview-actions button:hover { border-color:var(--cyan); color:var(--cyan); }
+    .preview-body { background:#05070a; flex:1; min-height:52vh; }
+    .preview-body iframe { border:0; display:block; height:100%; min-height:52vh; width:100%; }
+    .preview-note { color:var(--muted); font-size:9px; padding:8px 14px; }
+    @media (max-width:767px) { .preview { padding:0; } .preview-pane { max-height:100vh; max-width:100vw; } }
     .now { background:linear-gradient(180deg,rgba(0,240,255,.055),rgba(9,14,20,.72)); border:1px solid var(--line); margin-top:14px; padding:16px 18px; position:relative; }
     .now::before { border-left:2px solid var(--cyan); border-top:2px solid var(--cyan); content:""; height:14px; left:-1px; position:absolute; top:-1px; width:14px; }
     .now-kicker { align-items:center; color:var(--muted); display:flex; font-size:10px; gap:8px; letter-spacing:.08em; text-transform:uppercase; }
@@ -268,6 +280,19 @@ HTML = r"""<!doctype html>
     </section>
     <div class="section-title">Recent activity</div>
     <section class="evidence"><div class="terminal" id="events"></div></section>
+    <div class="preview" id="preview" role="dialog" aria-modal="true" aria-label="Artifact preview" hidden>
+      <div class="preview-pane">
+        <div class="preview-head">
+          <span class="preview-title" id="previewTitle">Artifact</span>
+          <span class="preview-actions">
+            <a id="previewOpen" href="#" target="_blank" rel="noopener">Open in tab</a>
+            <button type="button" id="previewClose">Close</button>
+          </span>
+        </div>
+        <div class="preview-body"><iframe id="previewFrame" sandbox="allow-scripts" title="Artifact preview"></iframe></div>
+        <p class="preview-note">Rendered in a sandboxed frame. Tap outside, press Escape, or use Close to dismiss.</p>
+      </div>
+    </div>
     <div class="state" id="connection">Connecting to local evidence stream...</div>
   </main>
   <script>
@@ -301,7 +326,7 @@ HTML = r"""<!doctype html>
       return `${Math.floor(seconds/3600)}h ${Math.floor((seconds%3600)/60)}m`;
     }
     const timeCell = ts => { const cell=make('span',timeAgo(ts)); cell.title=absoluteTime(ts); return cell; };
-    const hud={data:null,nodes:[],nodeById:new Map(),edges:[],groups:[],selected:null,hover:null,dragging:null,view:{x:0,y:0,k:1},panning:null,lastTapAt:0,moved:false,claimedLabels:[],pendingHullLabels:[]};
+    const hud={data:null,nodes:[],nodeById:new Map(),edges:[],groups:[],selected:null,hover:null,dragging:null,view:{x:0,y:0,k:1},panning:null,lastTapAt:0,moved:false,claimedLabels:[],pendingHullLabels:[],pointers:new Map(),pinch:null};
     const canvas=byId('neuralGraph'); const ctx=canvas.getContext('2d');
     const PHASE_LABEL={claimed:'CLAIMED',worktree_prep:'WORKTREE_PREP',agent_active:'AGENT_ACTIVE',verify_gate:'VERIFY_GATE'};
     const PHASE_COLOR={done:'#00ff9d',active:'#00f0ff',pending:'rgba(148,163,184,.40)',skipped:'rgba(148,163,184,.18)'};
@@ -636,8 +661,16 @@ HTML = r"""<!doctype html>
         ctx.beginPath(); ctx.moveTo(hull[0].x,hull[0].y);
         hull.slice(1).forEach(point=>ctx.lineTo(point.x,point.y));
         if(hull.length>2)ctx.closePath();
-        ctx.strokeStyle='rgba(0,240,255,.05)'; ctx.lineWidth=64; ctx.stroke();
-        ctx.strokeStyle='rgba(0,240,255,.16)'; ctx.lineWidth=66; ctx.setLineDash([7,9]); ctx.stroke(); ctx.setLineDash([]);
+        // Three widening passes read as a soft field with depth rather than a
+        // hard boundary; a cluster holding live work glows a little warmer.
+        const firing=group.members.some(isFiring);
+        const base=firing?[0,255,200]:[0,240,255];
+        [[74,.030],[62,.045],[48,.060]].forEach(([lineWidth,alpha])=>{
+          ctx.strokeStyle=`rgba(${base[0]},${base[1]},${base[2]},${alpha})`;
+          ctx.lineWidth=lineWidth; ctx.stroke();
+        });
+        ctx.strokeStyle=`rgba(${base[0]},${base[1]},${base[2]},${firing?.22:.13})`;
+        ctx.lineWidth=40; ctx.setLineDash([9,13]); ctx.stroke(); ctx.setLineDash([]);
         ctx.restore();
         const leaf=String(group.path).replace(/\\/g,'/').split('/').filter(Boolean).pop();
         const label=narrowCanvas()?`[ ${leaf} ]`:`[ ${shortPath(group.path)} ]`;
@@ -654,6 +687,59 @@ HTML = r"""<!doctype html>
           label, x:centre.x+dx*reach, y:centre.y+dy*reach, dx, dy,
         });
       });
+    }
+    // An axon bows perpendicular to its own run, so two nodes never sit on a
+    // straight line through a third and parallel edges stay readable.
+    function axonCurve(a,b) {
+      const dx=b.x-a.x,dy=b.y-a.y,span=Math.max(1,Math.hypot(dx,dy));
+      const bow=Math.min(span*.22,54);
+      return {
+        cx:(a.x+b.x)/2 - (dy/span)*bow,
+        cy:(a.y+b.y)/2 + (dx/span)*bow,
+      };
+    }
+    function axonPoint(a,b,control,t) {
+      const u=1-t;
+      return {
+        x:u*u*a.x + 2*u*t*control.cx + t*t*b.x,
+        y:u*u*a.y + 2*u*t*control.cy + t*t*b.y,
+      };
+    }
+    function isFiring(node) {
+      return node && node.kind==='task' && node.detail.status==='running';
+    }
+    function drawAxon(edge) {
+      const a=hud.nodeById.get(edge.source),b=hud.nodeById.get(edge.target);
+      if(!a||!b)return;
+      const control=axonCurve(a,b);
+      const governs=edge.kind==='governs';
+      // An axon lights when either end is connected to what the operator is
+      // looking at; otherwise it stays part of the quiet lattice.
+      const lit=[hud.hover,hud.selected].some(id=>id&&(id===edge.source||id===edge.target));
+      ctx.save();
+      ctx.lineCap='round';
+      ctx.strokeStyle=governs
+        ? `rgba(255,183,3,${lit?.85:.42})`
+        : `rgba(0,240,255,${lit?.72:.26})`;
+      ctx.lineWidth=lit?2:1.2;
+      if(lit){ctx.shadowColor=governs?'#ffb703':'#00f0ff';ctx.shadowBlur=10;}
+      ctx.setLineDash(governs?[5,5]:[]);
+      ctx.beginPath(); ctx.moveTo(a.x,a.y);
+      ctx.quadraticCurveTo(control.cx,control.cy,b.x,b.y);
+      ctx.stroke();
+      ctx.restore();
+      // A pulse only travels when the upstream task is actually running. It is
+      // a readout of live execution, not ambient decoration.
+      if(!isFiring(a))return;
+      ctx.save(); ctx.shadowColor='#9ef4ff'; ctx.shadowBlur=12;
+      for(let index=0;index<2;index++){
+        const t=((Date.now()/1100)+index*.5)%1;
+        const spot=axonPoint(a,b,control,t);
+        const fade=Math.sin(t*Math.PI);
+        ctx.fillStyle=`rgba(190,250,255,${.28+fade*.62})`;
+        ctx.beginPath(); ctx.arc(spot.x,spot.y,1.6+fade*2.1,0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
     }
     function drawPhaseRing(node,radius) {
       const telemetry=telemetryOf(node),phases=telemetry?telemetry.phases||[]:[];
@@ -693,7 +779,7 @@ HTML = r"""<!doctype html>
       ctx.save();ctx.translate(hud.view.x,hud.view.y);ctx.scale(hud.view.k,hud.view.k);
       const bounds=visibleWorld(rect);
       drawBackdrop(rect);drawCore(rect);drawHulls(bounds);ctx.lineWidth=1;
-      hud.edges.forEach(edge=>{const a=hud.nodeById.get(edge.source),b=hud.nodeById.get(edge.target);if(!a||!b)return;ctx.save();ctx.strokeStyle=edge.kind==='governs'?'rgba(255,183,3,.72)':'rgba(0,240,255,.42)';ctx.setLineDash(edge.kind==='governs'?[5,5]:[]);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.restore();});
+      hud.edges.forEach(edge=>drawAxon(edge));
       hud.nodes.forEach(node=>{
         const selected=node.id===hud.selected,status=node.kind==='rule'?'rule':node.detail.status;
         const color=node.kind==='rule'?'#ffb703':statusColor(status),radius=nodeRadius(node);
@@ -702,7 +788,18 @@ HTML = r"""<!doctype html>
         if(node.kind==='rule'){ctx.beginPath();ctx.rect(node.x-radius,node.y-radius,radius*2,radius*2);ctx.fill();ctx.stroke();}
         else{
           ctx.beginPath();ctx.arc(node.x,node.y,radius,0,Math.PI*2);ctx.fill();ctx.stroke();
-          if(status==='failed'||status==='cancelled'){ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(node.x,node.y,radius+5,.28,Math.PI*1.35);ctx.stroke();ctx.setLineDash([]);}
+          if(status==='failed'||status==='cancelled'){
+            // A dormant synaptic trace: still part of the web, visibly inactive,
+            // with an amber fringe rather than an alarm colour.
+            ctx.setLineDash([3,5]);
+            ctx.strokeStyle='rgba(255,183,3,.42)';
+            ctx.beginPath(); ctx.arc(node.x,node.y,radius+5,.28,Math.PI*1.35); ctx.stroke();
+            ctx.setLineDash([]);
+          } else if(status==='done'){
+            // Settled, still luminescent, still wired into the lattice.
+            ctx.strokeStyle='rgba(0,255,157,.20)'; ctx.lineWidth=1;
+            ctx.beginPath(); ctx.arc(node.x,node.y,radius+4,0,Math.PI*2); ctx.stroke();
+          }
         }
         ctx.shadowBlur=0;
         if(node.tier==='room')drawRoomFrame(node,radius);
@@ -742,12 +839,12 @@ HTML = r"""<!doctype html>
         ['WORKSPACE',node.detail.workspace_path?shortPath(node.detail.workspace_path):'not recorded'],
         ['BRANCH',telemetry.branch_name||telemetry.worktree_path||`${telemetry.workspace_kind||'dir'} workspace // no branch recorded`],
         ['PHASE',active?(PHASE_LABEL[active.key]||active.key):(telemetry.run_status||node.detail.status)],
-        ['RUNTIME',runtime?(telemetry.ended_at?runtime:`running for ${runtime}`):'not started'],
+        ['RUNTIME',runtime?(telemetry.ended_at?runtime:`firing for ${runtime}`):'not started'],
       ];
     }
     function drawMicroCard(bounds) {
       const node=hud.nodeById.get(hud.hover); if(!node)return;
-      const title=truncate(node.kind==='task'?node.detail.title:node.detail.rule_id,44);
+      const title=truncate(node.kind==='task'?taskLabel(node.detail):node.detail.rule_id,44);
       const lines=microCardLines(node);
       ctx.save(); ctx.shadowBlur=0; ctx.textBaseline='middle';
       ctx.font='700 11px "JetBrains Mono", monospace';
@@ -773,13 +870,41 @@ HTML = r"""<!doctype html>
       });
       ctx.restore();
     }
+    function pinchState() {
+      const points=[...hud.pointers.values()];
+      if(points.length<2)return null;
+      const [first,second]=points;
+      return {
+        distance:Math.max(1,Math.hypot(first.x-second.x,first.y-second.y)),
+        midX:(first.x+second.x)/2,
+        midY:(first.y+second.y)/2,
+      };
+    }
     canvas.addEventListener('pointerdown',event=>{
       const node=hitNode(graphPoint(event)); hud.moved=false;
+      hud.pointers.set(event.pointerId,screenPoint(event));
+      if(hud.pointers.size>=2){
+        // A second finger converts the gesture into a pinch: stop dragging or
+        // panning so the two never fight over the same movement.
+        hud.dragging=null; hud.panning=null; hud.pinch=pinchState(); hud.moved=true;
+        canvas.setPointerCapture(event.pointerId);
+        return;
+      }
       if(node){hud.selected=node.id;hud.hover=node.id;hud.dragging=node.id;renderInspector();if(isPhone())openSheet(true);}
       else {hud.hover=null;const point=screenPoint(event);hud.panning={px:point.x,py:point.y,ox:hud.view.x,oy:hud.view.y};}
       canvas.setPointerCapture(event.pointerId);
     });
     canvas.addEventListener('pointermove',event=>{
+      if(hud.pointers.has(event.pointerId))hud.pointers.set(event.pointerId,screenPoint(event));
+      if(hud.pinch&&hud.pointers.size>=2){
+        const next=pinchState(); if(!next)return;
+        zoomAt(next.midX,next.midY,hud.view.k*(next.distance/hud.pinch.distance));
+        // Panning with two fingers moves the lattice as well as scaling it.
+        hud.view.x+=next.midX-hud.pinch.midX; hud.view.y+=next.midY-hud.pinch.midY;
+        hud.pinch=next;
+        event.preventDefault();
+        return;
+      }
       if(hud.dragging){const node=hud.nodeById.get(hud.dragging),point=graphPoint(event);node.x=point.x;node.y=point.y;node.vx=node.vy=0;hud.moved=true;return;}
       if(!hud.panning){
         const node=hitNode(graphPoint(event));
@@ -794,10 +919,16 @@ HTML = r"""<!doctype html>
     canvas.addEventListener('pointerleave',()=>{hud.hover=null;});
     canvas.addEventListener('pointerup',event=>{
       const now=Date.now(),point=screenPoint(event);
+      hud.pointers.delete(event.pointerId);
+      if(hud.pointers.size<2)hud.pinch=null;
       if(!hud.moved&&now-hud.lastTapAt<320)zoomAt(point.x,point.y,hud.view.k>1.4?1:2);
       hud.lastTapAt=now; hud.dragging=null; hud.panning=null; canvas.releasePointerCapture?.(event.pointerId);
     });
-    canvas.addEventListener('pointercancel',()=>{hud.dragging=null;hud.panning=null;});
+    canvas.addEventListener('pointercancel',event=>{
+      hud.pointers.delete(event.pointerId);
+      if(hud.pointers.size<2)hud.pinch=null;
+      hud.dragging=null; hud.panning=null;
+    });
     canvas.addEventListener('wheel',event=>{event.preventDefault();const point=screenPoint(event);zoomAt(point.x,point.y,hud.view.k*(event.deltaY<0?1.12:.89));},{passive:false});
     canvas.addEventListener('dblclick',event=>{const point=screenPoint(event);zoomAt(point.x,point.y,hud.view.k>1.4?1:2);});
     byId('sheetHandle').addEventListener('click',()=>openSheet(!byId('hudAside').classList.contains('open')));
@@ -809,6 +940,30 @@ HTML = r"""<!doctype html>
       hud.lastSnapshotAt=Date.now()/1000;
       setText(byId('connection'),`Supervisor state: ${data.daemons.status} // snapshot ${timeAgo(hud.lastSnapshotAt)}`);
     }
+    function openPreview(url,label) {
+      const shell=byId('preview'),frame=byId('previewFrame');
+      setText(byId('previewTitle'),label||url);
+      byId('previewOpen').href=url;
+      // Rebuilt each time so closing genuinely stops whatever the artifact ran.
+      frame.setAttribute('src',url);
+      shell.hidden=false; shell.classList.add('open');
+    }
+    function closePreview() {
+      const shell=byId('preview'),frame=byId('previewFrame');
+      shell.classList.remove('open'); shell.hidden=true;
+      frame.setAttribute('src','about:blank');
+    }
+    byId('previewClose').addEventListener('click',closePreview);
+    byId('preview').addEventListener('click',event=>{ if(event.target===byId('preview'))closePreview(); });
+    document.addEventListener('keydown',event=>{ if(event.key==='Escape')closePreview(); });
+    // Artifact links render in the HUD; the anchor still works if scripting is
+    // unavailable, and a modified click keeps its normal meaning.
+    document.addEventListener('click',event=>{
+      const link=event.target.closest&&event.target.closest('a.now-file');
+      if(!link||event.metaKey||event.ctrlKey||event.shiftKey||event.button!==0)return;
+      event.preventDefault();
+      openPreview(link.getAttribute('href'),link.textContent.replace(/\s*\u2197$/,''));
+    });
     // EventSource reconnects on its own, but on a fixed short interval - which
     // against a server that is down means a steady stream of failed requests
     // and no way for the operator to tell a live page from a frozen one. So
