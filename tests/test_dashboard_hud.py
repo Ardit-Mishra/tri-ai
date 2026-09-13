@@ -244,3 +244,55 @@ class NetworkBindingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LabelCollisionTests(unittest.TestCase):
+    """Workspace labels must not draw over the core anchor or each other."""
+
+    def test_labels_are_measured_before_they_are_placed(self):
+        self.assertIn("function pillRect(text,x,y,bounds)", web.HTML)
+        self.assertIn("function rectsOverlap(a,b,pad)", web.HTML)
+
+    def test_a_placed_label_claims_its_rect_and_later_labels_step_clear(self):
+        self.assertIn("function placeClear(text,x,y,bounds,dx,dy)", web.HTML)
+        self.assertIn("hud.claimedLabels.some(taken=>rectsOverlap(candidate,taken,3))", web.HTML)
+        self.assertIn("hud.claimedLabels.push(finalRect)", web.HTML)
+
+    def test_the_core_anchor_claims_its_label_before_hulls_are_drawn(self):
+        # drawCore runs before drawHulls, so the core's rect is already claimed
+        # when a workspace label looks for somewhere to sit.
+        self.assertIn("hud.claimedLabels.push(pillRect(coreLabel,cx+16,cy,coreBounds))", web.HTML)
+        self.assertLess(
+            web.HTML.index("hud.claimedLabels.push(pillRect(coreLabel"),
+            web.HTML.index("function drawHulls(bounds)"),
+        )
+
+    def test_workspace_labels_are_pushed_outward_from_the_core(self):
+        # A hull that straddles the middle used to top out beside [TRI-AI CORE].
+        # Placement is now radial: outward along centre-minus-core.
+        self.assertIn("let dx=centre.x-cx,dy=centre.y-cy;", web.HTML)
+        self.assertIn("if(span<1){dx=0;dy=-1;} else {dx/=span;dy/=span;}", web.HTML)
+        self.assertNotIn("anchor.y-42-groupIndex*17", web.HTML)
+
+    def test_claims_reset_every_frame(self):
+        # Stale claims would push labels further out on each repaint.
+        self.assertIn("ctx.clearRect(0,0,rect.width,rect.height);hud.claimedLabels=[];", web.HTML)
+
+    def test_pill_drawing_uses_the_same_placement_it_measured(self):
+        # drawLabelPill once clamped only the right edge while pillRect clamped
+        # both, so a label measured as fitting was drawn off the left edge.
+        self.assertIn("const box=pillRect(text,x,y,bounds);", web.HTML)
+        self.assertIn("let left=box.left;", web.HTML)
+
+    def test_a_workspace_label_too_wide_for_the_canvas_is_dropped(self):
+        # Each plate already carries its own workspace tag, so a label that
+        # would span the canvas is noise, not information.
+        self.assertIn("if(labelWidth>canvas.getBoundingClientRect().width*.5)return;", web.HTML)
+        self.assertIn("narrowCanvas()?`[ ${leaf} ]`", web.HTML)
+
+    def test_phone_width_shows_plates_only_for_what_is_being_looked_at(self):
+        self.assertIn("const crowded=narrowCanvas()||hud.nodes.length>=26;", web.HTML)
+        self.assertIn(
+            "const wantsPlate=selected||status==='running'||node.id===hud.hover||!crowded;",
+            web.HTML,
+        )
