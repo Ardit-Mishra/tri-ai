@@ -17,4 +17,12 @@ triai-ledger.jsonl
 # lives at ~/.tri-ai/board.db and is never version controlled.
 .planning/board.db
 .planning/board.db.init.lock
-diwali.html
+
+# Ad-hoc deliverables produced by Telegram tasks that ran in this repo before
+# the sandbox workspace existed. A task's output must never dirty the tree the
+# next task's clean-tree precheck refuses - new ad-hoc work targets the
+# `sandbox` workspace instead of the kernel repo.
+/celestial.html
+/diwali.html
+/evidence/celestial-check.py
+/evidence/celestial-preview.png
