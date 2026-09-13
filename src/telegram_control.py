@@ -110,11 +110,18 @@ def load_policy(path: Path | str) -> IntakePolicy:
 class TelegramControl:
     """Combined read router and constrained confirmed write router."""
 
-    def __init__(self, policy: Optional[IntakePolicy] = None, *, pending_seconds: int = PENDING_SECONDS) -> None:
+    def __init__(
+        self,
+        policy: Optional[IntakePolicy] = None,
+        *,
+        pending_seconds: int = PENDING_SECONDS,
+        dashboard_url: Optional[str] = None,
+    ) -> None:
         if pending_seconds <= 0:
             raise ValueError("pending action lifetime must be positive")
         self._policy = policy
         self._pending_seconds = pending_seconds
+        self._dashboard_url = dashboard_url
 
     def _pending(
         self,
@@ -133,12 +140,16 @@ class TelegramControl:
         )
         return action_id
 
-    def _pending_run(self, conn, *, chat_id: str, workspace: WorkspacePolicy, prompt: str) -> str:
+    def _pending_run(
+        self, conn, *, chat_id: str, workspace: WorkspacePolicy, prompt: str,
+        parent_task_id: Optional[str] = None,
+    ) -> str:
         action_id = self._pending(
             conn,
             chat_id=chat_id,
             action="run",
             payload={
+                "parent_task_id": parent_task_id,
                 "title": f"Telegram: {workspace.alias}",
                 "prompt": prompt,
                 "workspace": str(workspace.path),
@@ -146,7 +157,48 @@ class TelegramControl:
                 "verify_timeout": workspace.profile.timeout,
             },
         )
+        if parent_task_id:
+            return (
+                f"Pending follow-up {action_id} to {parent_task_id}.\n"
+                f"Confirm with /confirm {action_id}"
+            )
         return f"Pending intake {action_id}. Confirm with /confirm {action_id}"
+
+    def _workspace_for_task(self, conn, task_id: str) -> Optional[WorkspacePolicy]:
+        """A follow-up belongs in the same workspace as the task it revises."""
+        if self._policy is None:
+            return None
+        recorded = board.task_workspace(conn, task_id)
+        if not recorded:
+            return None
+        try:
+            target = Path(recorded).resolve()
+        except OSError:
+            return None
+        for workspace in self._policy.workspaces.values():
+            try:
+                if Path(workspace.path).resolve() == target:
+                    return workspace
+            except OSError:
+                continue
+        return None
+
+    def _files(self, conn) -> str:
+        """List what Tri-AI has produced, with links when a dashboard is known."""
+        entries = board.recent_deliverables(conn, limit=20)
+        if not entries:
+            return "No files produced yet."
+        lines = ["Files Tri-AI has produced:"]
+        for entry in entries:
+            prompt = " ".join(str(entry["prompt"] or "").split())[:70]
+            lines.append("")
+            lines.append(f"{prompt or entry['task_id']}")
+            for index, item in enumerate(entry["paths"]):
+                lines.append(f"  • {item['path']}")
+                if self._dashboard_url:
+                    base = self._dashboard_url.rstrip("/")
+                    lines.append(f"    {base}/artifact/{entry['task_id']}/{index}")
+        return "\n".join(lines)
 
     def _workspaces(self) -> str:
         if self._policy is None:
@@ -163,12 +215,16 @@ class TelegramControl:
             "/task <task-id>",
             "/logs <task-id>",
             "/workspaces",
+            "/files",
             "/run <workspace-alias> <prompt>",
             "/retry <task-id>",
             "/cancel <task-id>",
             "/confirm <request-id>",
         ]
-        suffix = " Plain text creates a confirmation-required draft in the default workspace."
+        suffix = (
+            " Plain text creates a confirmation-required draft in the default workspace."
+            " Reply to a finished task's message to queue a follow-up linked to it."
+        )
         if self._policy is None:
             suffix = " Task intake is not configured."
         elif self._policy.default_workspace is None:
@@ -183,6 +239,7 @@ class TelegramControl:
         board_path: Path | str,
         ledger_path: Path | str,
         runs_root: Path | str,
+        reply_to_message_id: Optional[int] = None,
     ) -> str:
         """Return one honest command response; no command accepts shell text."""
         normalized = text.strip()
@@ -200,10 +257,20 @@ class TelegramControl:
                 return "No default workspace is configured. Use /workspaces, then /run <workspace-alias> <prompt>."
             conn = board.connect(Path(board_path))
             try:
+                # Replying to a completion card means "another go at that one".
+                parent = None
+                workspace = self._policy.workspaces[self._policy.default_workspace]
+                if reply_to_message_id is not None:
+                    parent = board.task_for_notified_message(
+                        conn, chat_id=chat_id, message_id=reply_to_message_id,
+                    )
+                    if parent is not None:
+                        scoped = self._workspace_for_task(conn, parent)
+                        if scoped is not None:
+                            workspace = scoped
                 return self._pending_run(
-                    conn, chat_id=chat_id,
-                    workspace=self._policy.workspaces[self._policy.default_workspace],
-                    prompt=normalized,
+                    conn, chat_id=chat_id, workspace=workspace,
+                    prompt=normalized, parent_task_id=parent,
                 )
             finally:
                 conn.close()
@@ -214,6 +281,12 @@ class TelegramControl:
             return self._help()
         if command == "/workspaces":
             return self._workspaces()
+        if command == "/files":
+            conn = board.connect(Path(board_path))
+            try:
+                return self._files(conn)
+            finally:
+                conn.close()
         if command in READ_COMMANDS:
             return telegram_read_surface.dispatch_command(
                 normalized, board_path=board_path, ledger_path=ledger_path, runs_root=runs_root

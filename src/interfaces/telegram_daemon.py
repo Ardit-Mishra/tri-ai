@@ -352,6 +352,12 @@ class TelegramDaemon:
             if chat_id not in self._settings.authorized_chat_ids:
                 continue
             command = _normalized_command(text)
+            replied = message.get("reply_to_message")
+            reply_to_message_id = None
+            if isinstance(replied, dict):
+                candidate = replied.get("message_id")
+                if isinstance(candidate, int) and not isinstance(candidate, bool):
+                    reply_to_message_id = candidate
             if self._handler is not None:
                 rendered = self._handler(
                     command,
@@ -359,6 +365,7 @@ class TelegramDaemon:
                     board_path=self._board_path,
                     ledger_path=self._ledger_path,
                     runs_root=self._runs_root,
+                    reply_to_message_id=reply_to_message_id,
                 )
             else:
                 rendered = self._renderer(
@@ -470,7 +477,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         settings = settings_from_sources(os.environ)
         transport = HttpsTelegramApi(settings.token)
         policy = telegram_control.load_policy(args.intake_policy) if args.intake_policy else None
-        control = telegram_control.TelegramControl(policy)
+        control = telegram_control.TelegramControl(policy, dashboard_url=args.dashboard_url)
         handler = control.dispatch
         callback_handler = control.dispatch_callback
         notifier = control.pending_notifications

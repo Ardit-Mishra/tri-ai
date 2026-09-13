@@ -800,6 +800,57 @@ def pending_completions_for_chat(
     return tuple(results)
 
 
+def task_for_notified_message(
+    conn: sqlite3.Connection, *, chat_id: str, message_id: int,
+) -> Optional[str]:
+    """Which task a delivered completion message was about, if any.
+
+    This is what lets a plain reply on a phone mean "another go at that one"
+    without the operator typing an id.
+    """
+    if isinstance(message_id, bool) or not isinstance(message_id, int):
+        return None
+    row = conn.execute(
+        "SELECT task_id FROM triai_completion_notifications "
+        "WHERE chat_id = ? AND message_id = ? ORDER BY notified_at DESC LIMIT 1",
+        (str(chat_id), int(message_id)),
+    ).fetchone()
+    return str(row["task_id"]) if row is not None else None
+
+
+def task_workspace(conn: sqlite3.Connection, task_id: str) -> Optional[str]:
+    """The workspace a task is scoped to, or None when it has none recorded."""
+    row = conn.execute(
+        "SELECT workspace_path FROM tasks WHERE id = ?", (str(task_id),)
+    ).fetchone()
+    if row is None or not row["workspace_path"]:
+        return None
+    return str(row["workspace_path"])
+
+
+def recent_deliverables(
+    conn: sqlite3.Connection, *, limit: int = 10,
+) -> tuple[dict[str, Any], ...]:
+    """Newest produced files across tasks, so they can be listed and opened."""
+    rows = conn.execute(
+        "SELECT a.task_id, a.run_id, a.path, a.size_bytes, a.recorded_at, "
+        "       t.title, t.body "
+        "FROM triai_run_artifacts AS a JOIN tasks AS t ON t.id = a.task_id "
+        "ORDER BY a.recorded_at DESC, a.task_id, a.path LIMIT ?",
+        (int(limit),),
+    ).fetchall()
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        entry = grouped.setdefault(str(row["task_id"]), {
+            "task_id": str(row["task_id"]),
+            "prompt": row["body"] or row["title"],
+            "recorded_at": row["recorded_at"],
+            "paths": [],
+        })
+        entry["paths"].append({"path": str(row["path"]), "size_bytes": row["size_bytes"]})
+    return tuple(grouped.values())
+
+
 def record_completion_notification(
     conn: sqlite3.Connection,
     *,
@@ -1054,6 +1105,10 @@ def confirm_pending_action(
                 verify_timeout=int(payload["verify_timeout"]),
                 repo=str(payload["workspace"]),
                 idempotency_key=f"telegram-pending:{action_id}",
+                parents=(
+                    (str(payload["parent_task_id"]),)
+                    if payload.get("parent_task_id") else ()
+                ),
             )
             result = ControlResult(True, "confirmed", task_id)
         elif row["action"] == "retry":
