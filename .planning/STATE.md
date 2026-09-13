@@ -146,6 +146,74 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**A task reached `done` having built nothing, 2026-09-13.** Run 26 of
+`t_669fec6c` (the sandbox toggle) is the worst failure this project has produced,
+because it is the exact failure the project exists to prevent, and it passed
+through two gates that were each supposed to catch it.
+
+*What happened.* Hermes' `fallback_model` chain fell through to its third entry,
+`gemma4:e4b` on the local Ollama at `localhost:11434`. That model is not
+installed there - `/api/tags` lists exactly one model, a gemma-4-12B GGUF - so
+the provider returned 404. Hermes printed `API call failed after 3 retries:
+HTTP 404` as its **final response** and exited **0**. The worker read the exit
+code, saw success, and ran the verify command. The sandbox verifier of the day
+asked only whether *a* deliverable existed anywhere in the workspace;
+`celestial.html` did, left by run 24, so it exited 0 and the board recorded
+`status=done, result=verified`. Zero artifacts were captured for the run - the
+only honest signal anywhere in the record - and nothing consumed it.
+
+*Why the verifier was hollow.* It had been rewritten hours earlier, in this same
+session, to archive deliverables so the next task would not be stranded behind a
+dirty tree. That fix committed `celestial.html`, and from that moment the
+existence check was satisfied forever, by any run, including one where no agent
+ran. The gate was a property of the repository, not of the run. This is the same
+class of defect the review seat was set up to catch, introduced while fixing
+something else and not re-examined.
+
+*Both halves are closed.*
+
+1. `src/executor.py` - `run_agent` now reads `failed` from the runtime's usage
+   file into `AgentResult.runtime_failed`. `None` when no such field exists:
+   absence of a record is not a record of success. Run 26's usage file carried
+   `"failed": true, "model": null`; run 27's carried `"failed": false,
+   "model": "auto/best-free"`, 26 api_calls, 1.5M tokens.
+2. `src/worker.py` - invariant 6: **a verify command is never run over a turn
+   that did not happen.** When the runtime reports failure the workspace is
+   restored and the task backs off as an *environment* fault, without verify
+   being invoked. Environment, not logic: a router selecting a model the
+   provider does not serve is an outage, and routing it through the logic
+   breaker would blame a task for an infrastructure failure. Both non-pass
+   exits now share `_restore_workspace` so the revert and its post-revert
+   assertion cannot drift.
+3. `~/tri-ai-sandbox/verify.py` (b9e2ef6) - gates on `git status --porcelain`
+   instead of file existence. The worker guarantees a clean tree at claim, so
+   the dirty set at verify time is exactly this run's work. A clean tree now
+   fails, however many files sit in the repo.
+
+*Verification.* `tests/run.py` -> **424 tests, exit 0, 194.289s** (was 412).
+New suite `tests/test_agent_runtime_gate.py`, 12 tests, mutation-checked:
+disabling the gate fails 5 and errors 1, including the one asserting verify was
+never invoked. The sandbox verifier was exercised four ways - clean tree with
+`celestial.html` present (the run-26 scenario) exits 1; new file exits 0 and
+archives; modified file exits 0 and archives; immediate re-run exits 1.
+
+*The re-run.* Task re-filed as `t_3d03f995`; `t_669fec6c` carries a comment
+retracting its acceptance. Run 27: `auto/best-free`, 636.14s, agent_exit 0,
+verify exit 0, **one artifact recorded** (`celestial.html` M 36,361 bytes, up
+from 27,408) against run 26's zero. The verify log reads `verify: this run
+produced celestial.html` - the run-scoped gate naming the file the run changed.
+Confirmed independently of the agent's report: `role="switch"` present, and
+driving the page in a browser flips the label DARK SPACE -> NEBULA VIOLET with
+the scene animating to violet.
+
+*Still open, and operator-owned.* `~/AppData/Local/hermes/config.yaml` still
+lists `gemma4:e4b` as the last fallback, pointing at a local Ollama that does
+not serve it, so every fall-through to that entry 404s. The gate now turns that
+into a retryable environment backoff instead of a false pass, but the entry is
+still dead. Same file exposes a GitHub PAT in plaintext under
+`mcp_servers.github_copilot.headers.Authorization`; it should be rotated and
+moved to an env reference.
+
 **Review seat exercised on tonight's batch, 2026-09-13.** Codex reviewed the
 17-commit batch under `~/CODEX-REVIEWER-BRIEF.md`. Two findings, both with repro
 evidence, both acted on.
