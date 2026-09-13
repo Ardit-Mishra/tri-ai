@@ -170,6 +170,7 @@ def migrate(conn: sqlite3.Connection) -> dict[str, bool]:
     conn.execute(ACTIVATED_PROCEDURAL_RULES_DDL)
     conn.execute(RUN_ARTIFACTS_DDL)
     conn.execute(COMPLETION_NOTIFICATIONS_DDL)
+    conn.execute(PROGRESS_CARDS_DDL)
 
     conn.commit()
     return added
@@ -543,6 +544,18 @@ CREATE TABLE IF NOT EXISTS triai_run_artifacts (
 )
 """
 
+PROGRESS_CARDS_DDL = """
+CREATE TABLE IF NOT EXISTS triai_progress_cards (
+    task_id     TEXT NOT NULL,
+    chat_id     TEXT NOT NULL,
+    message_id  INTEGER NOT NULL,
+    phase       TEXT NOT NULL,
+    updated_at  INTEGER NOT NULL,
+    closed_at   INTEGER,
+    PRIMARY KEY (task_id, chat_id)
+)
+"""
+
 COMPLETION_NOTIFICATIONS_DDL = """
 CREATE TABLE IF NOT EXISTS triai_completion_notifications (
     task_id     TEXT NOT NULL,
@@ -816,6 +829,154 @@ def task_for_notified_message(
         (str(chat_id), int(message_id)),
     ).fetchone()
     return str(row["task_id"]) if row is not None else None
+
+
+def pending_actions_for_chat(
+    conn: sqlite3.Connection, chat_id: str, *, now: Optional[int] = None,
+) -> tuple[dict[str, Any], ...]:
+    """Unexpired confirmation requests this chat still owns, newest last.
+
+    A bare /confirm can only be unambiguous when exactly one is outstanding, so
+    the caller needs the whole set rather than a guess at the latest.
+    """
+    current = int(time.time()) if now is None else int(now)
+    rows = conn.execute(
+        "SELECT * FROM triai_pending_actions "
+        "WHERE chat_id = ? AND status = 'pending' AND expires_at > ? "
+        "ORDER BY created_at ASC, id ASC",
+        (str(chat_id), current),
+    ).fetchall()
+    out = []
+    for row in rows:
+        item = dict(row)
+        try:
+            item["payload"] = json.loads(item["payload"])
+        except (TypeError, json.JSONDecodeError):
+            item["payload"] = {}
+        out.append(item)
+    return tuple(out)
+
+
+def cancel_pending_action(
+    conn: sqlite3.Connection, *, action_id: str, chat_id: str,
+) -> ControlResult:
+    """Withdraw one unconfirmed request for the chat that raised it."""
+    kb = kanban()
+    with kb.write_txn(conn):
+        changed = conn.execute(
+            "UPDATE triai_pending_actions SET status = 'cancelled' "
+            "WHERE id = ? AND chat_id = ? AND status = 'pending'",
+            (str(action_id), str(chat_id)),
+        ).rowcount
+    if changed != 1:
+        row = conn.execute(
+            "SELECT status FROM triai_pending_actions WHERE id = ?", (str(action_id),)
+        ).fetchone()
+        state = "missing" if row is None else str(row["status"])
+        return ControlResult(False, state, None, "only a pending request may be cancelled")
+    return ControlResult(True, "cancelled", None)
+
+
+def record_progress_card(
+    conn: sqlite3.Connection,
+    *,
+    task_id: str,
+    chat_id: str,
+    message_id: int,
+    phase: str,
+    now: Optional[int] = None,
+) -> bool:
+    """Remember the one message that tracks this task for this chat."""
+    if isinstance(message_id, bool) or not isinstance(message_id, int) or message_id < 1:
+        raise ValueError("Telegram message_id must be a positive integer")
+    if not isinstance(phase, str) or not phase.strip():
+        raise ValueError("phase must be a non-empty string")
+    kb = kanban()
+    with kb.write_txn(conn):
+        inserted = conn.execute(
+            "INSERT OR IGNORE INTO triai_progress_cards "
+            "(task_id, chat_id, message_id, phase, updated_at) VALUES (?, ?, ?, ?, ?)",
+            (str(task_id), str(chat_id), message_id, phase.strip(),
+             int(time.time()) if now is None else int(now)),
+        ).rowcount
+    return inserted == 1
+
+
+def progress_card(
+    conn: sqlite3.Connection, *, task_id: str, chat_id: str,
+) -> Optional[dict[str, Any]]:
+    row = conn.execute(
+        "SELECT task_id, chat_id, message_id, phase, updated_at, closed_at "
+        "FROM triai_progress_cards WHERE task_id = ? AND chat_id = ?",
+        (str(task_id), str(chat_id)),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def advance_progress_card(
+    conn: sqlite3.Connection,
+    *,
+    task_id: str,
+    chat_id: str,
+    phase: str,
+    closed: bool = False,
+    now: Optional[int] = None,
+) -> bool:
+    """Move a card to a new phase. Returns False when the phase is unchanged.
+
+    The card is edited in place only when something actually changed, so an
+    idle poll does not burn an edit on every cycle.
+    """
+    if not isinstance(phase, str) or not phase.strip():
+        raise ValueError("phase must be a non-empty string")
+    current = int(time.time()) if now is None else int(now)
+    kb = kanban()
+    with kb.write_txn(conn):
+        changed = conn.execute(
+            "UPDATE triai_progress_cards SET phase = ?, updated_at = ?, closed_at = ? "
+            "WHERE task_id = ? AND chat_id = ? AND phase != ? AND closed_at IS NULL",
+            (phase.strip(), current, current if closed else None,
+             str(task_id), str(chat_id), phase.strip()),
+        ).rowcount
+    return changed == 1
+
+
+def open_progress_cards(conn: sqlite3.Connection, chat_id: str) -> tuple[dict[str, Any], ...]:
+    """Cards still tracking a task, with the task state needed to advance them."""
+    rows = conn.execute(
+        "SELECT c.task_id, c.chat_id, c.message_id, c.phase, "
+        "       t.status AS task_status, t.body, t.title, t.workspace_path, "
+        "       r.id AS run_id, r.status AS run_status, r.started_at "
+        "FROM triai_progress_cards AS c "
+        "JOIN tasks AS t ON t.id = c.task_id "
+        "LEFT JOIN task_runs AS r ON r.id = ("
+        "  SELECT MAX(id) FROM task_runs WHERE task_id = c.task_id"
+        ") "
+        "WHERE c.chat_id = ? AND c.closed_at IS NULL "
+        "ORDER BY c.updated_at ASC",
+        (str(chat_id),),
+    ).fetchall()
+    return tuple(dict(row) for row in rows)
+
+
+def running_tasks_without_cards(
+    conn: sqlite3.Connection, chat_id: str,
+) -> tuple[dict[str, Any], ...]:
+    """Tasks under way that this chat is not yet tracking with a card."""
+    rows = conn.execute(
+        "SELECT t.id AS task_id, t.status AS task_status, t.body, t.title, "
+        "       t.workspace_path, r.id AS run_id, r.status AS run_status, r.started_at "
+        "FROM tasks AS t "
+        "LEFT JOIN task_runs AS r ON r.id = ("
+        "  SELECT MAX(id) FROM task_runs WHERE task_id = t.id"
+        ") "
+        "WHERE t.status = 'running' AND NOT EXISTS ("
+        "  SELECT 1 FROM triai_progress_cards AS c "
+        "  WHERE c.task_id = t.id AND c.chat_id = ?"
+        ") ORDER BY t.started_at ASC",
+        (str(chat_id),),
+    ).fetchall()
+    return tuple(dict(row) for row in rows)
 
 
 def task_workspace(conn: sqlite3.Connection, task_id: str) -> Optional[str]:

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import sys
 import time
 from dataclasses import dataclass, field
@@ -207,6 +208,25 @@ class HttpsTelegramApi:
             raise TelegramTransportError("Telegram Bot API rejected the request")
         return decoded.get("result")
 
+    def _call_raw(self, method: str, body: bytes, *, content_type: str, timeout: int) -> Any:
+        """Post an already-encoded body; used for multipart document uploads."""
+        req = request.Request(
+            f"https://api.telegram.org/bot{self._token}/{method}",
+            data=body,
+            headers={"Content-Type": content_type},
+            method="POST",
+        )
+        try:
+            with self._opener(req, timeout=timeout) as response:
+                decoded = json.loads(response.read().decode("utf-8"))
+        except (OSError, ValueError) as exc:
+            raise TelegramTransportError(
+                f"Telegram HTTPS request failed: {type(exc).__name__}"
+            ) from exc
+        if not isinstance(decoded, dict) or decoded.get("ok") is not True:
+            raise TelegramTransportError("Telegram Bot API rejected the request")
+        return decoded.get("result")
+
     def get_updates(self, *, offset: Optional[int], timeout: int) -> list[dict[str, Any]]:
         payload: dict[str, Any] = {"timeout": timeout, "allowed_updates": ["message", "callback_query"]}
         if offset is not None:
@@ -226,6 +246,43 @@ class HttpsTelegramApi:
         if not isinstance(result, dict) or isinstance(result.get("message_id"), bool) or not isinstance(result.get("message_id"), int):
             raise TelegramTransportError("Telegram sendMessage returned no message ID")
         return int(result["message_id"])
+
+    def send_document(
+        self, *, chat_id: str, filename: str, content: bytes, caption: str = "",
+    ) -> Optional[int]:
+        """Upload one file as a Telegram document via multipart/form-data.
+
+        A link needs a reachable host; the file itself does not. This is the
+        path that still works when the operator is off the tailnet.
+        """
+        boundary = "----triai" + secrets.token_hex(16)
+        fields = [("chat_id", chat_id)]
+        if caption:
+            fields.append(("caption", caption[:1000]))
+        body = bytearray()
+        for name, value in fields:
+            body += f"--{boundary}\r\n".encode("utf-8")
+            body += f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8")
+            body += value.encode("utf-8") + b"\r\n"
+        body += f"--{boundary}\r\n".encode("utf-8")
+        body += (
+            f'Content-Disposition: form-data; name="document"; filename="{filename}"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("utf-8")
+        body += content + b"\r\n"
+        body += f"--{boundary}--\r\n".encode("utf-8")
+        result = self._call_raw(
+            "sendDocument",
+            bytes(body),
+            content_type=f"multipart/form-data; boundary={boundary}",
+            timeout=60,
+        )
+        if not isinstance(result, dict):
+            return None
+        message_id = result.get("message_id")
+        if isinstance(message_id, bool) or not isinstance(message_id, int):
+            return None
+        return int(message_id)
 
     def edit_message(
         self, *, chat_id: str, message_id: int, text: str, reply_markup: dict[str, Any],
@@ -272,6 +329,10 @@ class TelegramDaemon:
         completion_notifier: Optional[Callable[..., Sequence[Any]]] = None,
         completion_recorder: Optional[Callable[..., bool]] = None,
         dashboard_url: Optional[str] = None,
+        progress_opener: Optional[Callable[..., Sequence[Any]]] = None,
+        progress_notifier: Optional[Callable[..., Sequence[Any]]] = None,
+        progress_starter: Optional[Callable[..., bool]] = None,
+        progress_advancer: Optional[Callable[..., bool]] = None,
     ) -> None:
         self._api = api
         self._settings = settings
@@ -286,6 +347,10 @@ class TelegramDaemon:
         self._completion_notifier = completion_notifier
         self._completion_recorder = completion_recorder
         self._dashboard_url = dashboard_url
+        self._progress_opener = progress_opener
+        self._progress_notifier = progress_notifier
+        self._progress_starter = progress_starter
+        self._progress_advancer = progress_advancer
 
     def publish_pending(self) -> None:
         """Push each pending card once per authorized chat through an injected control seam."""
@@ -318,16 +383,50 @@ class TelegramDaemon:
                 dashboard_url=self._dashboard_url,
             ):
                 message_id: Optional[int] = None
-                for chunk in _message_chunks(card.text):
-                    sent = self._api.send_message(chat_id=chat_id, text=chunk)
+                chunks = _message_chunks(card.text)
+                for index, chunk in enumerate(chunks):
+                    sent = self._api.send_message(
+                        chat_id=chat_id,
+                        text=chunk,
+                        reply_markup=(
+                            telegram_control.completion_keyboard(card.task_id)
+                            if index == len(chunks) - 1 else None
+                        ),
+                    )
                     if message_id is None:
                         message_id = sent
                 if message_id is None:
                     raise TelegramTransportError("completion notice did not return a message ID")
+                self._deliver_documents(chat_id, card)
                 self._completion_recorder(
                     task_id=card.task_id, run_id=card.run_id, chat_id=chat_id,
                     message_id=message_id, board_path=self._board_path,
                 )
+
+    def _deliver_documents(self, chat_id: str, card: Any) -> None:
+        """Send small text artifacts as files as well as links.
+
+        A link needs the operator to be on the tailnet; the file does not. Only
+        self-contained text types travel this way, and only under the size cap -
+        anything larger stays a link rather than a slow upload.
+        """
+        if not getattr(self._api, "send_document", None):
+            return
+        for artifact in getattr(card, "documents", ()) or ():
+            path = Path(artifact["absolute"])
+            try:
+                content = path.read_bytes()
+            except OSError:
+                continue
+            try:
+                self._api.send_document(
+                    chat_id=chat_id, filename=path.name, content=content,
+                    caption=artifact.get("caption", ""),
+                )
+            except TelegramTransportError:
+                # The card and its link already landed; a failed upload is not
+                # worth losing the delivery record over.
+                continue
 
     def poll_once(self, *, offset: Optional[int], timeout: int) -> Optional[int]:
         """Process one long-poll response and return the next Telegram offset."""
@@ -374,11 +473,56 @@ class TelegramDaemon:
                     ledger_path=self._ledger_path,
                     runs_root=self._runs_root,
                 )
-            for chunk in _message_chunks(rendered):
-                self._api.send_message(chat_id=chat_id, text=chunk)
+            # A staged reply may carry inline buttons instead of an id to retype.
+            markup = getattr(rendered, "reply_markup", None)
+            chunks = _message_chunks(getattr(rendered, "text", rendered))
+            for index, chunk in enumerate(chunks):
+                # Buttons ride the last chunk so they sit under the whole reply.
+                self._api.send_message(
+                    chat_id=chat_id,
+                    text=chunk,
+                    reply_markup=markup if index == len(chunks) - 1 else None,
+                )
         self.publish_pending()
+        self.publish_progress()
         self.publish_completions()
         return next_offset
+
+    def publish_progress(self) -> None:
+        """Open a card for newly running tasks, and edit existing ones in place.
+
+        One message per task per chat. Nothing is sent when no phase changed, so
+        an idle poll costs no Telegram calls.
+        """
+        if self._progress_opener is None or self._progress_advancer is None:
+            return
+        for chat_id in sorted(self._settings.authorized_chat_ids):
+            for card in self._progress_opener(
+                chat_id=chat_id, board_path=self._board_path,
+            ):
+                message_id = self._api.send_message(chat_id=chat_id, text=card.text)
+                if message_id is None:
+                    continue
+                self._progress_starter(
+                    task_id=card.task_id, chat_id=chat_id, message_id=message_id,
+                    phase=card.phase, board_path=self._board_path,
+                )
+            for message_id, card in self._progress_notifier(
+                chat_id=chat_id, board_path=self._board_path,
+            ):
+                try:
+                    self._api.edit_message(
+                        chat_id=chat_id, message_id=message_id,
+                        text=card.text, reply_markup={"inline_keyboard": []},
+                    )
+                except TelegramTransportError:
+                    # An edit that fails leaves the phase unrecorded, so the next
+                    # poll retries rather than losing the transition.
+                    continue
+                self._progress_advancer(
+                    task_id=card.task_id, chat_id=chat_id, phase=card.phase,
+                    closed=card.closed, board_path=self._board_path,
+                )
 
     def _handle_callback(self, callback: Mapping[str, Any]) -> None:
         """Authorize an inline decision before it reaches the local control surface."""
@@ -495,6 +639,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             completion_notifier=control.pending_completions,
             completion_recorder=control.record_completion,
             dashboard_url=args.dashboard_url,
+            progress_opener=control.open_progress,
+            progress_notifier=control.pending_progress,
+            progress_starter=control.start_progress,
+            progress_advancer=control.record_progress,
         )
         if args.once:
             daemon.poll_once(offset=None, timeout=args.poll_timeout)
