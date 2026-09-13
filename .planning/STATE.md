@@ -146,6 +146,52 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**The model chain was broken end to end, 2026-09-13.** Investigating the run-26
+404 turned up a larger finding: **every Tri-AI task ever run executed on the
+fallback chain, never on the configured model.**
+
+*What was wrong, in `~/AppData/Local/hermes/config.yaml`.*
+
+| Slot | Was | Status |
+|---|---|---|
+| primary | `glm-5.3-flash:cloud` @ `127.0.0.1:11434` | **dead** - Ollama Cloud replies "this model requires a subscription or usage credits" |
+| fallback 1 | `auto/best-free` @ `:20128` | worked, but is explicitly the *cheapest free* routing pool |
+| fallback 2 | `qwen3.5:4b` @ `100.67.149.86` | a 4B model, on a box that also serves 14B/20B/31B |
+| fallback 3 | `gemma4:e4b` @ `localhost:11434` | **wrong host** - that model lives on the Tailscale box; local Ollama serves one GGUF. This is the entry that 404'd and produced run 26 |
+
+Every usage file in `~/.tri-ai/runs/*/*/usage.json` records `auto/best-free`,
+which is fallback 1 - direct evidence that the primary failed on every turn and
+nobody noticed, because failover is silent by design.
+
+*Replacement, each probed before it was written in.* Primary
+`auto/best-coding` @ `:20128`, then `auto/smart`, `qwen2.5-coder:14b` and
+`gemma4:31b` on the Tailscale box, then the one GGUF that is guaranteed present
+locally - so the last resort can never 404 again. Probing also showed the
+`github/*` direct routes are dead: `github/claude-sonnet-5` fell through to
+`qwen3.5:4b`, consistent with the stale Copilot PAT.
+
+*Verified.* A one-shot probe served `auto/best-coding` with `completed=true`,
+and real task `t_628344fa` (run 28, 395.57s) carries
+`model=auto/best-coding, provider=custom, model_source=usage_file` in the
+ledger - the first run in the project's history not served by `auto/best-free`.
+
+*Credential moved out of plaintext.* The GitHub PAT sat literally in
+`config.yaml` under `mcp_servers.github_copilot.headers.Authorization`. It is
+now `Bearer ${MCP_GITHUB_COPILOT_API_KEY}` with the value in the profile `.env`,
+which is hermes' own convention (`hermes_cli/mcp_config.py:_env_key_for_server`).
+Three backup copies of `config.yaml` also carried it and were scrubbed. **The
+token still needs revoking and reissuing on GitHub** - it sat in plaintext and
+in backups, so it must be treated as disclosed. That is an operator action.
+
+*Workload note for any future model decision.* Real Tri-AI tasks consume
+**200K to 2.27M tokens each**, across 8-49 API calls. That number disqualifies
+most free API tiers outright (Groq's free lane is ~200K tokens/day - less than a
+single task). Only Mistral's Experiment tier (1B tokens/month) and Google AI
+Studio (no daily token cap, 1M TPM, 1,500 RPD) can carry this volume, and both
+use free-tier traffic for training - which matters because tasks send the
+contents of `~/projects/genelens` and `~/tri-ai`. The Tailscale Ollama box is
+the only option where private repo contents never leave the network.
+
 **A task reached `done` having built nothing, 2026-09-13.** Run 26 of
 `t_669fec6c` (the sandbox toggle) is the worst failure this project has produced,
 because it is the exact failure the project exists to prevent, and it passed
