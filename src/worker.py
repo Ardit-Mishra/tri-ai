@@ -71,7 +71,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 import board  # noqa: F401  (closure module; all kernel access via board.kanban())
 import executor
@@ -286,6 +286,12 @@ def execute_task(
             detail={"survivors": agent.survivors, "agent_exit": agent.exit_code},
         )
 
+    # Read the workspace the moment the agent stops. Everything present now is
+    # the agent's doing; anything that appears later belongs to the verify
+    # command or to a writer this worker does not control, and calling that the
+    # agent's output would be a claim the worker cannot support.
+    agent_artifacts = _porcelain_artifacts(repo)
+
     verifier = executor.run_verify(verify_command, cwd=repo, timeout=verify_timeout)
     _write_log(verify_log, verifier.output)
 
@@ -303,6 +309,20 @@ def execute_task(
         )
 
     seconds = round(agent.seconds + verifier.seconds, 2)
+
+    # A verify command proves the command. It says nothing about whether the
+    # deliverable the task promised exists, so a declared artifact is checked
+    # on its own terms and can fail a task whose command exited zero.
+    declared_ok, declared_problem = _declared_artifacts_present(oracle, repo)
+    if verifier.outcome == "passed" and not declared_ok:
+        return _fail(
+            conn, claimed, run_id, repo, branch,
+            outcome="failed", verify_outcome="passed", verify_exit=0,
+            agent=agent,
+            reason=f"declared artifact check failed: {declared_problem}",
+            ledger_path=lp, agent_log=agent_log, verify_log=verify_log,
+            seconds=seconds,
+        )
 
     if verifier.outcome == "passed":
         ok = kb.complete_task(
@@ -332,7 +352,7 @@ def execute_task(
                 ledger_path=lp, agent_log=agent_log, verify_log=verify_log,
                 seconds=seconds, skip_board=True,
             )
-        _record_artifacts(conn, task_id, run_id, repo)
+        _record_artifacts(conn, task_id, run_id, repo, agent_artifacts)
         entry = _entry(
             claimed, run_id=run_id, repo=repo, branch=branch,
             outcome="passed", verify_exit=0, verify_outcome="passed",
@@ -702,9 +722,40 @@ def _porcelain_artifacts(repo: Path | str) -> list[dict[str, Any]]:
     return artifacts
 
 
-def _record_artifacts(conn, task_id: str, run_id: int, repo: Path | str) -> int:
+def _declared_artifacts_present(oracle: Mapping[str, Any], repo: Path | str) -> tuple[bool, str]:
+    """Check a task's own declared artifacts exist and are non-empty.
+
+    Declaring nothing is not a failure - most tasks declare nothing, and the
+    verify command is their only gate. Declaring something and not producing it
+    is a failure regardless of what the command returned.
+    """
+    declared = oracle.get("expected_artifacts") or []
+    problems: list[str] = []
+    for item in declared:
+        if not isinstance(item, str) or not item.strip():
+            problems.append("a declared artifact is not a usable path")
+            continue
+        try:
+            path = executor.resolve_artifact(repo, item)
+        except executor.ArtifactEscape as exc:
+            problems.append(str(exc))
+            continue
+        if not path.exists():
+            problems.append(f"missing {item!r}")
+        elif path.stat().st_size == 0:
+            problems.append(f"empty {item!r}")
+    return (not problems), "; ".join(problems)
+
+
+def _record_artifacts(
+    conn, task_id: str, run_id: int, repo: Path | str,
+    agent_artifacts: Optional[Sequence[Mapping[str, Any]]] = None,
+) -> int:
     """Record produced artifacts; never fail the run over bookkeeping."""
-    artifacts = _porcelain_artifacts(repo)
+    # Prefer what the workspace held when the agent stopped. Falling back to a
+    # fresh read keeps older callers working, but then the verify command's own
+    # output is indistinguishable from the agent's.
+    artifacts = list(agent_artifacts) if agent_artifacts is not None else _porcelain_artifacts(repo)
     if not artifacts:
         return 0
     try:

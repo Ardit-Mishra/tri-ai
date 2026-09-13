@@ -275,3 +275,108 @@ class IntakePreflightTests(unittest.TestCase):
         self.assertEqual(result.present, ())
         self.assertEqual(result.missing, ())
         self.assertFalse(result.warns)
+
+
+class DeliveryGuaranteeTests(BoardTestCase):
+    """The delivery guarantee is at-least-once, and the code says so.
+
+    Found in review: the docstrings claimed exactly-once while the caller sends
+    first and records second. These tests pin the guarantee that actually holds,
+    including the window that duplicates, so the claim cannot drift back.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.task = board.create_task(
+            self.conn, title="Telegram: sandbox", prompt="build a page",
+            repo=self.tmp, verify_command="true", verify_timeout=30,
+        )
+        self.assertIsNotNone(self.kb.claim_task(self.conn, self.task, claimer="fixture:1"))
+        self.run_id = self.conn.execute(
+            "SELECT MAX(id) AS id FROM task_runs WHERE task_id = ?", (self.task,)
+        ).fetchone()["id"]
+        self.conn.execute(
+            "UPDATE task_runs SET status='done', outcome='completed', started_at=1, "
+            "ended_at=2 WHERE id = ?", (self.run_id,),
+        )
+        self.conn.commit()
+
+    def test_a_crash_between_send_and_record_re_sends_rather_than_loses(self):
+        # The daemon sends, then records. Simulating a crash in between - by
+        # never recording - must leave the completion pending, because losing a
+        # finished task is the worse failure of the two.
+        self.assertEqual(
+            [row["task_id"] for row in board.pending_completions_for_chat(self.conn, "chat-1")],
+            [self.task],
+        )
+        # ... crash here, no record written ...
+        self.assertEqual(
+            [row["task_id"] for row in board.pending_completions_for_chat(self.conn, "chat-1")],
+            [self.task],
+            "a completion lost to a crash must still be pending",
+        )
+        board.record_completion_notification(
+            self.conn, task_id=self.task, run_id=self.run_id,
+            chat_id="chat-1", message_id=7,
+        )
+        self.assertEqual(board.pending_completions_for_chat(self.conn, "chat-1"), ())
+
+    def test_the_docstrings_state_the_guarantee_that_actually_holds(self):
+        # The claim and the behaviour drifted apart once - the docs said
+        # exactly-once while the caller sent first and recorded second. Assert
+        # the guarantee is named, and that any mention of exactly-once is a
+        # denial rather than a claim.
+        import inspect
+        import interfaces.telegram_daemon as daemon_module
+        for doc in (
+            board.pending_completions_for_chat.__doc__,
+            inspect.getdoc(daemon_module.TelegramDaemon.publish_completions),
+            inspect.getdoc(daemon_module.TelegramDaemon.publish_progress),
+        ):
+            self.assertIsNotNone(doc)
+            lowered = " ".join(doc.lower().split())
+            self.assertIn("at-least-once", lowered)
+            for index in range(len(lowered)):
+                index = lowered.find("exactly-once", index)
+                if index == -1:
+                    break
+                self.assertIn(
+                    "not exactly-once", lowered[max(0, index - 4):index + 12],
+                    f"exactly-once is claimed, not denied, in: {doc[:80]!r}",
+                )
+
+
+class CallbackChatBindingTests(BoardTestCase):
+    """A button on a completion card only acts for the chat that received it."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.task = board.create_task(
+            self.conn, title="Telegram: sandbox", prompt="build a page",
+            repo=self.tmp, verify_command="true", verify_timeout=30,
+        )
+        board.record_completion_notification(
+            self.conn, task_id=self.task, run_id=1, chat_id="chat-1", message_id=11,
+        )
+
+    def test_the_notified_chat_is_recognised(self):
+        self.assertTrue(
+            board.chat_was_notified(self.conn, chat_id="chat-1", task_id=self.task)
+        )
+
+    def test_a_chat_that_was_never_told_is_not(self):
+        self.assertFalse(
+            board.chat_was_notified(self.conn, chat_id="chat-2", task_id=self.task)
+        )
+        self.assertFalse(
+            board.chat_was_notified(self.conn, chat_id="chat-1", task_id="t_unknown")
+        )
+
+    def test_log_and_revise_refuse_a_task_this_chat_never_received(self):
+        control = telegram_control.TelegramControl()
+        for data in (f"log:{self.task}", f"revise:{self.task}"):
+            response = control.dispatch_callback(
+                data, chat_id="chat-2", board_path=self.db_path,
+                ledger_path=self.tmp / "ledger.jsonl", runs_root=self.tmp / "runs",
+            )
+            self.assertIn("not delivered to this chat", response.text)

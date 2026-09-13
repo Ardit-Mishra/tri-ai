@@ -788,8 +788,14 @@ def pending_completions_for_chat(
 ) -> tuple[dict[str, Any], ...]:
     """Finished tasks this chat has not been told about yet.
 
-    A task qualifies once its run reaches a terminal state. The notification
-    ledger makes delivery exactly-once per chat, so polling cannot spam.
+    A task qualifies once its run reaches a terminal state.
+
+    Delivery is **at-least-once**, not exactly-once. The caller sends first and
+    records the receipt afterwards, so a crash between the two re-sends on the
+    next poll. That ordering is deliberate: the alternative - record first, then
+    send - loses a completion outright when the send fails, and a duplicate
+    notice is a far better failure than a finished task the operator never hears
+    about. Once the receipt exists, polling cannot repeat it.
     """
     rows = conn.execute(
         "SELECT t.id AS task_id, t.title, t.body, t.status, t.workspace_path, "
@@ -1010,6 +1016,20 @@ def recent_deliverables(
         })
         entry["paths"].append({"path": str(row["path"]), "size_bytes": row["size_bytes"]})
     return tuple(grouped.values())
+
+
+def chat_was_notified(conn: sqlite3.Connection, *, chat_id: str, task_id: str) -> bool:
+    """Whether this chat was ever sent a completion notice for this task.
+
+    A button on a completion card should only act for the chat that received
+    the card. This is the check that makes that true rather than assumed.
+    """
+    row = conn.execute(
+        "SELECT 1 FROM triai_completion_notifications "
+        "WHERE chat_id = ? AND task_id = ? LIMIT 1",
+        (str(chat_id), str(task_id)),
+    ).fetchone()
+    return row is not None
 
 
 def record_completion_notification(

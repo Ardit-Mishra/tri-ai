@@ -181,13 +181,35 @@ class TheThreeTriggersWriteOneRowShape(BoardTestCase):
             ("scheduled_queue", self._via_queue),
         )
         task_ids = []
-        agent = executor.AgentResult(
-            0, "agent ran\n", 0.1,
-            model="test-model", provider="test-provider", model_source="usage_file",
-        )
+        # These tasks declare expected_artifacts, and the worker's declared-
+        # artifact gate fails a task whose promised output does not exist. A
+        # real agent produces what it declared, so the double must too -
+        # otherwise this test asserts routing while quietly depending on that
+        # gate being absent.
+        produced = []
+
+        def run_agent(repo, *_args, **_kwargs):
+            # Distinct content per run, so each task genuinely changes the tree
+            # and has something to commit; identical output would leave the
+            # second commit empty and git would refuse it.
+            produced.append(len(produced) + 1)
+            for declared in ARTIFACTS:
+                target = Path(repo) / declared
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(f"produced by run {produced[-1]}\n", encoding="utf-8")
+            # All three triggers share one workspace, so the work has to be
+            # committed for the next task's clean-tree precheck to pass - which
+            # is exactly what a real sequence of tasks in one repo requires.
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(["git", "commit", "-qm", "agent output"], cwd=repo, check=True)
+            return executor.AgentResult(
+                0, "agent ran\n", 0.1,
+                model="test-model", provider="test-provider", model_source="usage_file",
+            )
+
         verify = executor.VerifyResult("passed", 0, "verify passed\n", 0.2)
 
-        with mock.patch.object(executor, "run_agent", return_value=agent), \
+        with mock.patch.object(executor, "run_agent", side_effect=run_agent), \
              mock.patch.object(executor, "run_verify", return_value=verify):
             for trigger, submit in trigger_tasks:
                 task_id = submit()

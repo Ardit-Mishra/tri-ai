@@ -369,10 +369,14 @@ class TelegramDaemon:
                 )
 
     def publish_completions(self) -> None:
-        """Push each finished run once per authorized chat.
+        """Push each finished run to each authorized chat, at-least-once.
 
-        A send that fails leaves the run unrecorded, so it is retried on the
-        next poll rather than silently lost.
+        Send first, record the receipt second. A send that fails leaves the run
+        unrecorded and is retried next poll; a crash *between* the two re-sends
+        a notice the operator already saw. Duplicating a completion notice is
+        the better of the two failures - recording first would lose the notice
+        entirely when the send fails, and a finished task nobody hears about is
+        exactly the silence this whole path exists to end.
         """
         if self._completion_notifier is None or self._completion_recorder is None:
             return
@@ -491,8 +495,10 @@ class TelegramDaemon:
     def publish_progress(self) -> None:
         """Open a card for newly running tasks, and edit existing ones in place.
 
-        One message per task per chat. Nothing is sent when no phase changed, so
-        an idle poll costs no Telegram calls.
+        One message per task per chat, and nothing is sent when no phase
+        changed, so an idle poll costs no Telegram calls. Like completions this
+        is at-least-once: a crash between sending a card and recording it opens
+        a second card for the same task on the next poll.
         """
         if self._progress_opener is None or self._progress_advancer is None:
             return
