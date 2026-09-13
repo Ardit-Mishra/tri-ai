@@ -41,7 +41,14 @@ Non-negotiables (the safety-boundary test asserts the first two structurally):
    STOPS — the quarantine must outlive the worker, because Phase 1's reclaim
    would otherwise correctly return the task to ``ready`` and the next worker
    would run against the same repo with the same unaccounted-for writer.
-6. **Only a passed verify completes.** Everything else reverts —
+6. **A verify command is never run over a turn that did not happen.** The
+   agent runtime records in its usage file whether it completed; when it says
+   it failed, the workspace is restored and the task backs off as an
+   environment fault without verify being invoked. Exit status cannot stand in
+   for this — hermes prints a provider error as its final response and exits
+   0 — and a verifier handed an unchanged workspace will pass on the previous
+   run's output.
+7. **Only a passed verify completes.** Everything else reverts —
    ``executor.revert`` (stash, never delete), then a post-revert
    ``git status --porcelain`` re-assertion, then the failure is recorded
    through the kernel's own bookkeeping so the row is neither stranded
@@ -286,6 +293,38 @@ def execute_task(
             detail={"survivors": agent.survivors, "agent_exit": agent.exit_code},
         )
 
+    # --- VERIFY-05: the agent runtime never got a turn. ------------------
+    # This is NOT the agent reporting on its own work, which is never evidence.
+    # It is the runtime's record — written by hermes to the usage file — that
+    # the turn did not complete. The distinction matters because a provider
+    # error is printed as the final response and the process still exits 0, so
+    # exit status cannot see it. Letting verify run anyway is how a run that
+    # never happened gets accepted: the command is given a workspace it did not
+    # change, and any verifier that inspects state rather than a diff passes on
+    # the previous run's output. The task is retried, not blamed — a model the
+    # provider does not serve is an environment fault, not a logic one.
+    if agent.runtime_failed:
+        last = next(
+            (ln for ln in reversed(agent.output.strip().splitlines()) if ln.strip()),
+            "",
+        )
+        _write_log(verify_log, "worker: verify never invoked — agent runtime reported failure\n")
+        unrestored = _restore_workspace(
+            conn, claimed, run_id, repo, branch, agent_log=agent_log,
+            verify_log=verify_log, ledger_path=lp, started=started,
+            verify_outcome=None,
+        )
+        if unrestored is not None:
+            return unrestored
+        return _environment_backoff(
+            conn, claimed, run_id, repo, branch,
+            verify_outcome=None, verify_exit=None, agent=agent,
+            reason=f"agent runtime did not complete its turn: {last[:250]}"
+            if last else "agent runtime did not complete its turn",
+            ledger_path=lp, agent_log=agent_log, verify_log=verify_log,
+            seconds=agent.seconds,
+        )
+
     # Read the workspace the moment the agent stops. Everything present now is
     # the agent's doing; anything that appears later belongs to the verify
     # command or to a writer this worker does not control, and calling that the
@@ -368,35 +407,13 @@ def execute_task(
 
     # --- everything else reverts -----------------------------------------
     outcome = verifier.outcome                       # failed | timeout | spawn_error
-    rv = executor.revert(repo, task_id=task_id, run_id=run_id)
-    if rv.outcome == "failed" or not rv.clean:
-        # The revert itself could not return the repo to a known state. That
-        # is a serious event, not a retryable failure: quarantine and stop.
-        return _quarantine_stop(
-            conn, claimed, run_id, repo, branch, agent_log=agent_log,
-            verify_log=verify_log, ledger_path=lp, started=started,
-            cause="revert_failed",
-            detail={
-                "revert_outcome": rv.outcome,
-                "revert_output": rv.output[-500:],
-                "verify_outcome": verifier.outcome,
-            },
-        )
-
-    code, status_out = executor.git(["status", "--porcelain"], cwd=repo)
-    if code != 0 or status_out.strip():
-        # Post-revert assertion failed: the repo is dirty after our own revert.
-        # Unknown state again — quarantine and stop rather than proceed.
-        return _quarantine_stop(
-            conn, claimed, run_id, repo, branch, agent_log=agent_log,
-            verify_log=verify_log, ledger_path=lp, started=started,
-            cause="post_revert_dirty",
-            detail={
-                "git_exit": code,
-                "status_output": status_out[-500:],
-                "verify_outcome": verifier.outcome,
-            },
-        )
+    unrestored = _restore_workspace(
+        conn, claimed, run_id, repo, branch, agent_log=agent_log,
+        verify_log=verify_log, ledger_path=lp, started=started,
+        verify_outcome=verifier.outcome,
+    )
+    if unrestored is not None:
+        return unrestored
 
     classification = failure_class.classify_failure(
         verify_outcome=verifier.outcome,
@@ -448,6 +465,48 @@ def _skip(
     )
     ledger.record(entry, path=ledger_path)
     return Attempt("skipped", entry=entry)
+
+
+def _restore_workspace(
+    conn, claimed, run_id, repo, branch, *,
+    agent_log, verify_log, ledger_path, started, verify_outcome,
+) -> Optional[Attempt]:
+    """Return the workspace to its pre-run state, or quarantine and stop.
+
+    Returns None when the repo is provably clean afterwards, and a terminal
+    ``Attempt`` when it is not. Both non-pass exits go through here so the
+    revert and the post-revert assertion cannot drift apart.
+    """
+    rv = executor.revert(repo, task_id=claimed.id, run_id=run_id)
+    if rv.outcome == "failed" or not rv.clean:
+        # The revert itself could not return the repo to a known state. That
+        # is a serious event, not a retryable failure: quarantine and stop.
+        return _quarantine_stop(
+            conn, claimed, run_id, repo, branch, agent_log=agent_log,
+            verify_log=verify_log, ledger_path=ledger_path, started=started,
+            cause="revert_failed",
+            detail={
+                "revert_outcome": rv.outcome,
+                "revert_output": rv.output[-500:],
+                "verify_outcome": verify_outcome,
+            },
+        )
+
+    code, status_out = executor.git(["status", "--porcelain"], cwd=repo)
+    if code != 0 or status_out.strip():
+        # Post-revert assertion failed: the repo is dirty after our own revert.
+        # Unknown state again — quarantine and stop rather than proceed.
+        return _quarantine_stop(
+            conn, claimed, run_id, repo, branch, agent_log=agent_log,
+            verify_log=verify_log, ledger_path=ledger_path, started=started,
+            cause="post_revert_dirty",
+            detail={
+                "git_exit": code,
+                "status_output": status_out[-500:],
+                "verify_outcome": verify_outcome,
+            },
+        )
+    return None
 
 
 def _fail(
