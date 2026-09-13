@@ -8,9 +8,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
 MAX_ARTIFACTS_SHOWN = 6
+# Self-contained text types small enough to be worth uploading. A link needs
+# the operator to be on the tailnet; the file itself does not.
+DOCUMENT_SUFFIXES = frozenset({".html", ".htm", ".json", ".txt", ".md", ".csv"})
+DOCUMENT_MAX_BYTES = 2 * 1024 * 1024
 OUTCOME_MARK = {"completed": "DONE", "cancelled": "CANCELLED", "failed": "FAILED"}
 
 
@@ -20,6 +25,7 @@ class CompletionCard:
     task_id: str
     run_id: int
     text: str
+    documents: tuple[Mapping[str, Any], ...] = ()
 
 
 def _human_size(size: object) -> str:
@@ -66,6 +72,44 @@ def _prompt(row: Mapping[str, Any]) -> str:
 
 def artifact_url(base_url: str, task_id: str, index: int) -> str:
     return f"{base_url.rstrip('/')}/artifact/{task_id}/{index}"
+
+
+def deliverable_documents(
+    artifacts: Sequence[Mapping[str, Any]],
+    workspace: object,
+) -> tuple[Mapping[str, Any], ...]:
+    """Pick the artifacts worth uploading, resolved inside their own workspace.
+
+    Paths come from the board and resolve against the task's workspace; one that
+    escapes is dropped rather than sent. Type and size are read from the record,
+    so nothing is opened in order to decide whether to open it.
+    """
+    if not isinstance(workspace, str) or not workspace.strip():
+        return ()
+    try:
+        root = Path(workspace).resolve()
+    except OSError:
+        return ()
+    picked: list[Mapping[str, Any]] = []
+    for artifact in artifacts:
+        relative = artifact.get("path")
+        if not isinstance(relative, str) or not relative.strip():
+            continue
+        if Path(relative).suffix.lower() not in DOCUMENT_SUFFIXES:
+            continue
+        size = artifact.get("size_bytes")
+        if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+            continue
+        if size > DOCUMENT_MAX_BYTES:
+            continue
+        try:
+            resolved = (root / relative).resolve()
+        except OSError:
+            continue
+        if not resolved.is_relative_to(root):
+            continue
+        picked.append({"path": relative, "absolute": str(resolved), "caption": relative})
+    return tuple(picked)
 
 
 def render(
@@ -126,4 +170,9 @@ def render(
     else:
         lines.extend(["", "produced no files in the workspace"])
 
-    return CompletionCard(task_id=task_id, run_id=run_id, text="\n".join(lines))
+    return CompletionCard(
+        task_id=task_id,
+        run_id=run_id,
+        text="\n".join(lines),
+        documents=deliverable_documents(artifacts, row.get("workspace_path")),
+    )

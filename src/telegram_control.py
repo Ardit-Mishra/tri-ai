@@ -13,10 +13,11 @@ import secrets
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, Sequence
 
 import board
 import completion_report
+import progress_card
 import proposals
 import telegram_read_surface
 
@@ -56,6 +57,53 @@ class IntakePolicy:
 class CallbackResponse:
     text: str
     remove_buttons: bool
+
+
+class StagedReply(str):
+    """A reply that also carries inline buttons.
+
+    It subclasses str so every caller that treats a reply as text - the
+    chunker, the tests, a transport with no button support - keeps working.
+    The buttons are additive and the request id stays in the text, so tapping
+    is the convenience and typing remains the fallback.
+    """
+
+    reply_markup: Optional[dict[str, Any]]
+
+    def __new__(cls, text: str, reply_markup: Optional[dict[str, Any]] = None) -> "StagedReply":
+        reply = super().__new__(cls, text)
+        reply.reply_markup = reply_markup
+        return reply
+
+    @property
+    def text(self) -> str:
+        return str(self)
+
+
+def confirm_keyboard(action_id: str) -> dict[str, Any]:
+    """Approve or withdraw one staged request without typing its id."""
+    return {"inline_keyboard": [[
+        {"text": "\u2705 Confirm Task", "callback_data": f"confirm:{action_id}"},
+        {"text": "\u274c Cancel", "callback_data": f"cancel:{action_id}"},
+    ]]}
+
+
+def workspace_keyboard(aliases: Sequence[str]) -> dict[str, Any]:
+    """Offer the configured workspaces rather than asking for one by name."""
+    icons = {"sandbox": "\U0001f9ea", "genclarus": "\U0001f9ec", "tri-ai": "\u26a1"}
+    row = [
+        {"text": f"{icons.get(alias, '\U0001f4c1')} {alias}", "callback_data": f"ws:{alias}"}
+        for alias in aliases
+    ]
+    return {"inline_keyboard": [row[index:index + 3] for index in range(0, len(row), 3)]}
+
+
+def completion_keyboard(task_id: str) -> dict[str, Any]:
+    """Revise the artifact or read the gate's own output, from the card."""
+    return {"inline_keyboard": [[
+        {"text": "\U0001f501 Revise Artifact", "callback_data": f"revise:{task_id}"},
+        {"text": "\U0001f4cb View Verify Log", "callback_data": f"log:{task_id}"},
+    ]]}
 
 
 def load_policy(path: Path | str) -> IntakePolicy:
@@ -157,12 +205,89 @@ class TelegramControl:
                 "verify_timeout": workspace.profile.timeout,
             },
         )
-        if parent_task_id:
-            return (
-                f"Pending follow-up {action_id} to {parent_task_id}.\n"
-                f"Confirm with /confirm {action_id}"
+        # Naming the workspace here is the difference between noticing a
+        # mis-aimed task now and discovering it after the run.
+        head = (
+            f"Pending follow-up {action_id} to {parent_task_id}"
+            if parent_task_id
+            else f"Pending intake {action_id}"
+        )
+        # Naming the workspace here is the difference between noticing a
+        # mis-aimed task now and discovering it after the run.
+        body = (
+            f"{head}\n"
+            f"workspace: {workspace.alias}\n"
+            f"prompt: {prompt[:300]}\n\n"
+            f"Tap Confirm below, or send /confirm {action_id}"
+        )
+        return StagedReply(body, confirm_keyboard(action_id))
+
+    def pending_progress(self, *, chat_id: str, board_path: Path | str) -> tuple[Any, ...]:
+        """Cards whose phase has moved since they were last drawn.
+
+        Returns one entry per card that actually changed, so an idle poll costs
+        no edits. Each carries the message to edit and the new phase to record.
+        """
+        conn = board.connect(Path(board_path))
+        try:
+            now = int(time.time())
+            moved = []
+            for row in board.open_progress_cards(conn, chat_id):
+                phase = progress_card.phase_for(row)
+                if phase == row["phase"]:
+                    continue
+                moved.append((row["message_id"], progress_card.render(row, phase=phase, now=now)))
+            return tuple(moved)
+        finally:
+            conn.close()
+
+    def record_progress(
+        self, *, task_id: str, chat_id: str, phase: str, closed: bool,
+        board_path: Path | str,
+    ) -> bool:
+        conn = board.connect(Path(board_path))
+        try:
+            return board.advance_progress_card(
+                conn, task_id=task_id, chat_id=chat_id, phase=phase, closed=closed,
             )
-        return f"Pending intake {action_id}. Confirm with /confirm {action_id}"
+        finally:
+            conn.close()
+
+    def open_progress(self, *, chat_id: str, board_path: Path | str) -> tuple[Any, ...]:
+        """Tasks that have started but have no card yet."""
+        conn = board.connect(Path(board_path))
+        try:
+            now = int(time.time())
+            tracked = {row["task_id"] for row in board.open_progress_cards(conn, chat_id)}
+            fresh = []
+            for row in board.running_tasks_without_cards(conn, chat_id):
+                if row["task_id"] in tracked:
+                    continue
+                phase = progress_card.phase_for(row)
+                fresh.append(progress_card.render(row, phase=phase, now=now))
+            return tuple(fresh)
+        finally:
+            conn.close()
+
+    def start_progress(
+        self, *, task_id: str, chat_id: str, message_id: int, phase: str,
+        board_path: Path | str,
+    ) -> bool:
+        conn = board.connect(Path(board_path))
+        try:
+            return board.record_progress_card(
+                conn, task_id=task_id, chat_id=chat_id,
+                message_id=message_id, phase=phase,
+            )
+        finally:
+            conn.close()
+
+    def _apply_confirm(self, conn, *, chat_id: str, action_id: str) -> str:
+        """One place where a confirmation is applied, typed or tapped."""
+        result = board.confirm_pending_action(conn, action_id=action_id, chat_id=chat_id)
+        if result.changed:
+            return f"Confirmed {action_id}: task {result.task_id} is {result.status}"
+        return f"Confirmation refused: {result.status} ({result.detail})"
 
     def _workspace_for_task(self, conn, task_id: str) -> Optional[WorkspacePolicy]:
         """A follow-up belongs in the same workspace as the task it revises."""
@@ -296,6 +421,11 @@ class TelegramControl:
             if command == "/run":
                 if self._policy is None:
                     return "Task intake is not configured. Use /status or /help."
+                if len(parts) == 1:
+                    return StagedReply(
+                        "Pick a workspace, then send your prompt as plain text.",
+                        workspace_keyboard(sorted(self._policy.workspaces)),
+                    )
                 if len(parts) != 3:
                     return "Usage: /run <workspace-alias> <prompt>"
                 if parts[1] not in self._policy.workspaces:
@@ -309,13 +439,23 @@ class TelegramControl:
                     conn, chat_id=chat_id, action="retry", payload={"task_id": parts[1]}
                 )
                 return f"Pending retry {action_id}. Confirm with /confirm {action_id}"
+            if command == "/confirm" and len(parts) == 1:
+                outstanding = board.pending_actions_for_chat(conn, chat_id)
+                if not outstanding:
+                    return "Nothing is waiting for confirmation."
+                if len(outstanding) > 1:
+                    listed = "\n".join(
+                        f"  {item['id']} — {str(item['payload'].get('prompt', ''))[:60]}"
+                        for item in outstanding
+                    )
+                    return (
+                        f"{len(outstanding)} requests are waiting; name one:\n{listed}"
+                    )
+                return self._apply_confirm(conn, chat_id=chat_id, action_id=outstanding[0]["id"])
             if command == "/confirm":
                 if len(parts) != 2:
                     return "Usage: /confirm <request-id>"
-                result = board.confirm_pending_action(conn, action_id=parts[1], chat_id=chat_id)
-                if result.changed:
-                    return f"Confirmed {parts[1]}: task {result.task_id} is {result.status}"
-                return f"Confirmation refused: {result.status} ({result.detail})"
+                return self._apply_confirm(conn, chat_id=chat_id, action_id=parts[1])
             if command == "/cancel":
                 if len(parts) != 2:
                     return "Usage: /cancel <task-id>"
@@ -393,15 +533,64 @@ class TelegramControl:
         runs_root: Path | str,
     ) -> CallbackResponse:
         """Apply a registered proposal decision; callback data cannot name a command."""
-        del ledger_path, runs_root
         parts = data.split(":", 2)
+        if not chat_id:
+            return CallbackResponse("Rejected unauthenticated callback.", True)
+
+        def safe(value: str) -> bool:
+            return bool(value) and len(value) <= 160 and not any(c.isspace() for c in value)
+
+        # Two-part verbs act on a staged request or a finished task. The verb
+        # set is closed; callback data can never name a command.
+        if len(parts) == 2 and parts[0] in {"confirm", "cancel", "ws", "revise", "log"}:
+            verb, subject = parts
+            if not safe(subject):
+                return CallbackResponse("Rejected unsafe callback payload.", True)
+            conn = board.connect(Path(board_path))
+            try:
+                if verb == "confirm":
+                    return CallbackResponse(
+                        self._apply_confirm(conn, chat_id=chat_id, action_id=subject), True,
+                    )
+                if verb == "cancel":
+                    outcome = board.cancel_pending_action(
+                        conn, action_id=subject, chat_id=chat_id,
+                    )
+                    if outcome.changed:
+                        return CallbackResponse("Cancelled. Nothing was created.", True)
+                    return CallbackResponse(
+                        f"Cancel refused: {outcome.status} ({outcome.detail})", True,
+                    )
+                if verb == "ws":
+                    if self._policy is None or subject not in self._policy.workspaces:
+                        return CallbackResponse("Unknown workspace.", True)
+                    return CallbackResponse(
+                        f"Workspace {subject} selected. Send the prompt with "
+                        f"/run {subject} <prompt>.",
+                        True,
+                    )
+                if verb == "revise":
+                    return CallbackResponse(
+                        f"Reply to this message with the change you want, and it "
+                        f"will be queued as a follow-up to {subject}.",
+                        False,
+                    )
+                if verb == "log":
+                    return CallbackResponse(
+                        telegram_read_surface.dispatch_command(
+                            f"/logs {subject}", board_path=board_path,
+                            ledger_path=ledger_path, runs_root=runs_root,
+                        ),
+                        False,
+                    )
+            finally:
+                conn.close()
+
         if len(parts) != 3 or parts[0] != "prop" or parts[1] not in {"approve", "reject"}:
             return CallbackResponse("Rejected unsafe callback payload.", True)
         proposal_id = parts[2]
-        if not proposal_id or len(proposal_id) > 160 or any(char.isspace() for char in proposal_id):
+        if not safe(proposal_id):
             return CallbackResponse("Rejected unsafe callback payload.", True)
-        if not chat_id:
-            return CallbackResponse("Rejected unauthenticated callback.", True)
         conn = board.connect(Path(board_path))
         try:
             result = board.decide_proposal(
