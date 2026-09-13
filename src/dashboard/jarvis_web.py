@@ -212,6 +212,10 @@ HTML = r"""<!doctype html>
       .graph-panel { min-height:300px; }
       #neuralGraph { height:260px; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .terminal { min-width:0; }
+      .event { gap:6px; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; }
+      .event span:nth-child(4), .event span:nth-child(5) { display:none; }
+      .event:first-child span:nth-child(4), .event:first-child span:nth-child(5) { display:none; }
     }
     @media (max-width:767px) {
       .hud-grid { grid-template-columns:1fr; }
@@ -297,7 +301,7 @@ HTML = r"""<!doctype html>
       return `${Math.floor(seconds/3600)}h ${Math.floor((seconds%3600)/60)}m`;
     }
     const timeCell = ts => { const cell=make('span',timeAgo(ts)); cell.title=absoluteTime(ts); return cell; };
-    const hud={data:null,nodes:[],nodeById:new Map(),edges:[],groups:[],selected:null,hover:null,dragging:null,view:{x:0,y:0,k:1},panning:null,lastTapAt:0,moved:false};
+    const hud={data:null,nodes:[],nodeById:new Map(),edges:[],groups:[],selected:null,hover:null,dragging:null,view:{x:0,y:0,k:1},panning:null,lastTapAt:0,moved:false,claimedLabels:[],pendingHullLabels:[]};
     const canvas=byId('neuralGraph'); const ctx=canvas.getContext('2d');
     const PHASE_LABEL={claimed:'CLAIMED',worktree_prep:'WORKTREE_PREP',agent_active:'AGENT_ACTIVE',verify_gate:'VERIFY_GATE'};
     const PHASE_COLOR={done:'#00ff9d',active:'#00f0ff',pending:'rgba(148,163,184,.40)',skipped:'rgba(148,163,184,.18)'};
@@ -537,11 +541,17 @@ HTML = r"""<!doctype html>
       // Plates anchor outward from the core. With nodes on one orbit and no
       // dependency edges, a plate drawn to the right of a left-hand node lands
       // underneath its neighbour - which is what hid the cancelled task's name.
-      const height=40; let left=leftward?x-width+5:x-5; const top=y-height/2;
+      const height=40; let left=leftward?x-width+5:x-5; let top=y-height/2;
       if(bounds){
         if(left+width>bounds.x1-4)left=Math.max(bounds.x0+4,bounds.x1-4-width);
         if(left<bounds.x0+4)left=Math.min(bounds.x1-4-width,bounds.x0+4);
       }
+      for(let attempt=0;attempt<5;attempt++){
+        const candidate={left,top,width,height};
+        if(!hud.claimedLabels.some(taken=>rectsOverlap(candidate,taken,2)))break;
+        top+=height+4;
+      }
+      hud.claimedLabels.push({left,top,width,height});
       ctx.beginPath();
       if(ctx.roundRect)ctx.roundRect(left,top,width,height,4); else ctx.rect(left,top,width,height);
       ctx.fillStyle='rgba(5,7,10,.82)'; ctx.fill();
@@ -554,10 +564,41 @@ HTML = r"""<!doctype html>
       ctx.fillStyle='rgba(148,163,184,.92)'; ctx.font='9px "JetBrains Mono", monospace'; ctx.fillText(id,left+6,top+32);
       ctx.restore();
     }
-    function drawLabelPill(text,x,y,bounds) {
-      ctx.save(); ctx.shadowBlur=0; ctx.font='10px "JetBrains Mono", monospace'; ctx.textBaseline='middle';
+    function pillRect(text,x,y,bounds) {
+      ctx.save(); ctx.font='10px "JetBrains Mono", monospace';
       const width=ctx.measureText(text).width+10,height=15,top=y-height/2;
-      let left=x-5; if(bounds&&left+width>bounds.x1-4)left=Math.max(bounds.x0+4,bounds.x1-4-width);
+      let left=x-5;
+      if(bounds){
+        if(left+width>bounds.x1-4)left=Math.max(bounds.x0+4,bounds.x1-4-width);
+        if(left<bounds.x0+4)left=Math.min(bounds.x1-4-width,bounds.x0+4);
+      }
+      ctx.restore();
+      return {left,top,width,height};
+    }
+    function rectsOverlap(a,b,pad) {
+      const gap=pad||0;
+      return a.left-gap < b.left+b.width && a.left+a.width+gap > b.left
+          && a.top-gap < b.top+b.height && a.top+a.height+gap > b.top;
+    }
+    // Step a label outward until it stops landing on something already placed.
+    function placeClear(text,x,y,bounds,dx,dy) {
+      let px=x,py=y;
+      for(let attempt=0;attempt<6;attempt++){
+        const candidate=pillRect(text,px,py,bounds);
+        if(!hud.claimedLabels.some(taken=>rectsOverlap(candidate,taken,3)))break;
+        px+=dx*19; py+=dy*19;
+      }
+      const finalRect=pillRect(text,px,py,bounds);
+      hud.claimedLabels.push(finalRect);
+      return {x:px,y:py};
+    }
+    function drawLabelPill(text,x,y,bounds) {
+      // Placement must agree with pillRect, or a label measured as fitting is
+      // drawn somewhere else - which is how these ran off the left edge.
+      const box=pillRect(text,x,y,bounds);
+      ctx.save(); ctx.shadowBlur=0; ctx.font='10px "JetBrains Mono", monospace'; ctx.textBaseline='middle';
+      const width=box.width,height=box.height,top=box.top;
+      let left=box.left;
       ctx.beginPath(); if(ctx.roundRect)ctx.roundRect(left,top,width,height,4); else ctx.rect(left,top,width,height);
       ctx.fillStyle='rgba(5,7,10,.74)'; ctx.fill(); ctx.strokeStyle='rgba(0,240,255,.18)'; ctx.lineWidth=1/hud.view.k; ctx.stroke();
       ctx.fillStyle='#d9faff'; ctx.fillText(text,left+5,y); ctx.restore();
@@ -571,7 +612,9 @@ HTML = r"""<!doctype html>
       [[26,'rgba(0,240,255,.20)'],[46,'rgba(0,240,255,.12)'],[68,'rgba(0,240,255,.07)']].forEach(([radius,tint])=>{ctx.strokeStyle=tint;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.stroke();});
       ctx.fillStyle='rgba(0,240,255,.10)'; ctx.beginPath(); ctx.arc(cx,cy,9,0,Math.PI*2); ctx.fill();
       ctx.strokeStyle='rgba(0,240,255,.52)'; ctx.stroke(); ctx.restore();
-      drawLabelPill('[TRI-AI CORE]',cx+16,cy,visibleWorld(rect));
+      const coreLabel='[TRI-AI CORE]',coreBounds=visibleWorld(rect);
+      hud.claimedLabels.push(pillRect(coreLabel,cx+16,cy,coreBounds));
+      drawLabelPill(coreLabel,cx+16,cy,coreBounds);
     }
     function convexHull(points) {
       if(points.length<3)return points.slice();
@@ -596,8 +639,20 @@ HTML = r"""<!doctype html>
         ctx.strokeStyle='rgba(0,240,255,.05)'; ctx.lineWidth=64; ctx.stroke();
         ctx.strokeStyle='rgba(0,240,255,.16)'; ctx.lineWidth=66; ctx.setLineDash([7,9]); ctx.stroke(); ctx.setLineDash([]);
         ctx.restore();
-        const anchor=hull.reduce((best,point)=>point.y<best.y?point:best,hull[0]);
-        drawLabelPill(`[ ${shortPath(group.path)} ]`,anchor.x-6,anchor.y-42-groupIndex*17,bounds);
+        const leaf=String(group.path).replace(/\\/g,'/').split('/').filter(Boolean).pop();
+        const label=narrowCanvas()?`[ ${leaf} ]`:`[ ${shortPath(group.path)} ]`;
+        ctx.save(); ctx.font='10px "JetBrains Mono", monospace';
+        const labelWidth=ctx.measureText(label).width; ctx.restore();
+        if(labelWidth>canvas.getBoundingClientRect().width*.5)return;
+        const centre=hull.reduce((sum,point)=>({x:sum.x+point.x/hull.length,y:sum.y+point.y/hull.length}),{x:0,y:0});
+        const {cx,cy}=coreGeometry(canvas.getBoundingClientRect());
+        let dx=centre.x-cx,dy=centre.y-cy;
+        const span=Math.hypot(dx,dy);
+        if(span<1){dx=0;dy=-1;} else {dx/=span;dy/=span;}
+        const reach=48+groupIndex*6;
+        hud.pendingHullLabels.push({
+          label, x:centre.x+dx*reach, y:centre.y+dy*reach, dx, dy,
+        });
       });
     }
     function drawPhaseRing(node,radius) {
@@ -634,7 +689,7 @@ HTML = r"""<!doctype html>
       ctx.restore();
     }
     function drawGraph() {
-      const rect=resizeCanvas();ctx.clearRect(0,0,rect.width,rect.height);
+      const rect=resizeCanvas();ctx.clearRect(0,0,rect.width,rect.height);hud.claimedLabels=[];hud.pendingHullLabels=[];
       ctx.save();ctx.translate(hud.view.x,hud.view.y);ctx.scale(hud.view.k,hud.view.k);
       const bounds=visibleWorld(rect);
       drawBackdrop(rect);drawCore(rect);drawHulls(bounds);ctx.lineWidth=1;
@@ -652,11 +707,23 @@ HTML = r"""<!doctype html>
         ctx.shadowBlur=0;
         if(node.tier==='room')drawRoomFrame(node,radius);
         if(status==='running'){drawReactorCore(node,radius);drawPhaseRing(node,radius);}
-        if(hud.nodes.length<26||selected){
+        const crowded=narrowCanvas()||hud.nodes.length>=26;
+        const wantsPlate=selected||status==='running'||node.id===hud.hover||!crowded;
+        if(wantsPlate){
           const gap=radius+(status==='running'?14:6),leftward=node.x<coreGeometry(rect).cx;
           drawNamePlate(node,leftward?node.x-gap:node.x+gap,node.y,bounds,leftward);
         }
         ctx.restore();
+      });
+      hud.nodes.forEach(node=>{
+        const radius=nodeRadius(node)+10;
+        hud.claimedLabels.push({
+          left:node.x-radius, top:node.y-radius, width:radius*2, height:radius*2,
+        });
+      });
+      hud.pendingHullLabels.forEach(item=>{
+        const spot=placeClear(item.label,item.x,item.y,bounds,item.dx,item.dy);
+        drawLabelPill(item.label,spot.x,spot.y,bounds);
       });
       drawMicroCard(bounds);
       ctx.restore();
