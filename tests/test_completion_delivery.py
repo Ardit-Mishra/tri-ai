@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import threading
 import unittest
 from pathlib import Path
@@ -279,3 +280,107 @@ class ArtifactRouteTests(BoardTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FollowUpLinkTests(BoardTestCase):
+    """Replying to a finished task's message queues a follow-up linked to it."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.original = board.create_task(
+            self.conn, title="Telegram: sandbox", prompt="build a space landing page",
+            repo=self.tmp, verify_command="true", verify_timeout=30,
+        )
+        claimed = self.kb.claim_task(self.conn, self.original, claimer="fixture:1")
+        self.assertIsNotNone(claimed)
+        self.run_id = self.conn.execute(
+            "SELECT MAX(id) AS id FROM task_runs WHERE task_id = ?", (self.original,)
+        ).fetchone()["id"]
+        board.record_completion_notification(
+            self.conn, task_id=self.original, run_id=self.run_id,
+            chat_id="chat-1", message_id=4242,
+        )
+
+    def test_a_replied_to_message_resolves_to_its_task(self):
+        self.assertEqual(
+            board.task_for_notified_message(self.conn, chat_id="chat-1", message_id=4242),
+            self.original,
+        )
+
+    def test_a_reply_from_another_chat_resolves_to_nothing(self):
+        self.assertIsNone(
+            board.task_for_notified_message(self.conn, chat_id="chat-2", message_id=4242)
+        )
+
+    def test_an_unknown_message_resolves_to_nothing(self):
+        self.assertIsNone(
+            board.task_for_notified_message(self.conn, chat_id="chat-1", message_id=1)
+        )
+
+    def test_confirming_a_follow_up_links_it_to_the_original(self):
+        action_id = "act-followup"
+        board.create_pending_action(
+            self.conn, action_id=action_id, chat_id="chat-1", action="run",
+            payload={
+                "parent_task_id": self.original,
+                "title": "Telegram: sandbox",
+                "prompt": "add an animated starfield",
+                "workspace": str(self.tmp),
+                "verify_command": "true",
+                "verify_timeout": 30,
+            },
+            expires_at=int(time.time()) + 300,
+        )
+        result = board.confirm_pending_action(self.conn, action_id=action_id, chat_id="chat-1")
+        self.assertTrue(result.changed)
+        follow_up = result.task_id
+        edges = self.conn.execute(
+            "SELECT parent_id, child_id FROM task_links WHERE child_id = ?", (follow_up,)
+        ).fetchall()
+        self.assertEqual([(r["parent_id"], r["child_id"]) for r in edges],
+                         [(self.original, follow_up)])
+
+    def test_a_plain_task_records_no_parent(self):
+        action_id = "act-plain"
+        board.create_pending_action(
+            self.conn, action_id=action_id, chat_id="chat-1", action="run",
+            payload={
+                "parent_task_id": None,
+                "title": "Telegram: sandbox", "prompt": "something new",
+                "workspace": str(self.tmp), "verify_command": "true", "verify_timeout": 30,
+            },
+            expires_at=int(time.time()) + 300,
+        )
+        result = board.confirm_pending_action(self.conn, action_id=action_id, chat_id="chat-1")
+        self.assertTrue(result.changed)
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT COUNT(*) AS n FROM task_links WHERE child_id = ?", (result.task_id,)
+            ).fetchone()["n"],
+            0,
+        )
+
+
+class DeliverableIndexTests(BoardTestCase):
+    def test_recent_deliverables_group_files_under_their_prompt(self):
+        task = board.create_task(
+            self.conn, title="Telegram: sandbox", prompt="build a space landing page",
+            repo=self.tmp, verify_command="true", verify_timeout=30,
+        )
+        board.record_run_artifacts(
+            self.conn, task_id=task, run_id=1,
+            artifacts=[
+                {"path": "celestial.html", "change": "??", "size_bytes": 28687},
+                {"path": "evidence/check.py", "change": "??", "size_bytes": 989},
+            ],
+        )
+        entries = board.recent_deliverables(self.conn)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["prompt"], "build a space landing page")
+        self.assertEqual(
+            sorted(item["path"] for item in entries[0]["paths"]),
+            ["celestial.html", "evidence/check.py"],
+        )
+
+    def test_no_deliverables_is_an_empty_result_not_an_error(self):
+        self.assertEqual(board.recent_deliverables(self.conn), ())
