@@ -296,3 +296,65 @@ class LabelCollisionTests(unittest.TestCase):
             "const wantsPlate=selected||status==='running'||node.id===hud.hover||!crowded;",
             web.HTML,
         )
+
+
+class NeuralLatticeTests(unittest.TestCase):
+    """Axons, action potentials, cluster fields, and the soma's three states."""
+
+    def test_axons_are_curved_filaments_not_straight_lines(self):
+        self.assertIn("function axonCurve(a,b)", web.HTML)
+        self.assertIn("ctx.quadraticCurveTo(control.cx,control.cy,b.x,b.y)", web.HTML)
+        # The bow is perpendicular to the run, so parallel edges stay apart.
+        self.assertIn("cx:(a.x+b.x)/2 - (dy/span)*bow", web.HTML)
+
+    def test_action_potentials_travel_only_from_a_running_task(self):
+        # A pulse is a readout of live execution, not ambient decoration.
+        self.assertIn("function isFiring(node)", web.HTML)
+        self.assertIn("node.detail.status==='running'", web.HTML)
+        self.assertIn("if(!isFiring(a))return;", web.HTML)
+        self.assertIn("function axonPoint(a,b,control,t)", web.HTML)
+
+    def test_an_axon_lights_when_connected_to_what_is_being_inspected(self):
+        self.assertIn(
+            "const lit=[hud.hover,hud.selected].some(id=>id&&(id===edge.source||id===edge.target));",
+            web.HTML,
+        )
+
+    def test_clusters_render_as_layered_fields_rather_than_one_outline(self):
+        self.assertIn("const firing=group.members.some(isFiring);", web.HTML)
+        self.assertIn("[[74,.030],[62,.045],[48,.060]].forEach", web.HTML)
+
+    def test_the_soma_reads_its_state_from_the_board(self):
+        # Running keeps the reactor core and phase ring; done settles; a
+        # cancelled task dims to a dormant trace with an amber fringe.
+        self.assertIn("if(status==='running'){drawReactorCore(node,radius);drawPhaseRing(node,radius);}", web.HTML)
+        self.assertIn("ctx.strokeStyle='rgba(255,183,3,.42)';", web.HTML)
+        self.assertIn("ctx.strokeStyle='rgba(0,255,157,.20)'; ctx.lineWidth=1;", web.HTML)
+
+
+class TouchAndPreviewTests(unittest.TestCase):
+    def test_the_canvas_backing_buffer_is_scaled_by_device_pixel_ratio(self):
+        self.assertIn("ratio=window.devicePixelRatio||1", web.HTML)
+        self.assertIn("ctx.setTransform(ratio,0,0,ratio,0,0)", web.HTML)
+        self.assertIn("touch-action:none", web.HTML)
+
+    def test_a_second_finger_becomes_a_pinch_rather_than_a_fight(self):
+        self.assertIn("function pinchState()", web.HTML)
+        self.assertIn("hud.dragging=null; hud.panning=null; hud.pinch=pinchState();", web.HTML)
+        self.assertIn("zoomAt(next.midX,next.midY,hud.view.k*(next.distance/hud.pinch.distance));", web.HTML)
+
+    def test_lifting_a_finger_ends_the_pinch(self):
+        # Two handlers clear it, so a cancelled gesture cannot strand the state.
+        self.assertEqual(web.HTML.count("if(hud.pointers.size<2)hud.pinch=null;"), 2)
+
+    def test_the_micro_card_leads_with_intent_and_names_firing_duration(self):
+        self.assertIn("taskLabel(node.detail):node.detail.rule_id,44", web.HTML)
+        self.assertIn("`firing for ${runtime}`", web.HTML)
+
+    def test_artifacts_preview_in_a_sandboxed_frame_that_stops_on_close(self):
+        self.assertIn('sandbox="allow-scripts"', web.HTML)
+        self.assertIn("function openPreview(url,label)", web.HTML)
+        self.assertIn("frame.setAttribute('src','about:blank');", web.HTML)
+        # Dismissable three ways, and a modified click keeps its normal meaning.
+        self.assertIn("if(event.key==='Escape')closePreview();", web.HTML)
+        self.assertIn("event.metaKey||event.ctrlKey||event.shiftKey||event.button!==0", web.HTML)
