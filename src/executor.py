@@ -550,6 +550,10 @@ class AgentResult:
     model_source: str = "unavailable"
     tree_survived: bool = False       # True -> quarantine the workspace
     survivors: list[int] = field(default_factory=list)
+    # The runtime's own record of whether its turn completed, read from the
+    # usage file. None when no usage file was requested or it carried no such
+    # field — absence of a record is not a record of success.
+    runtime_failed: Optional[bool] = None
 
 
 def run_agent(
@@ -617,6 +621,7 @@ def run_agent(
 
     model = provider = None
     source = "unavailable"
+    runtime_failed: Optional[bool] = None
     if usage_path is not None and usage_path.exists():
         try:
             usage = json.loads(usage_path.read_text(encoding="utf-8"))
@@ -624,12 +629,20 @@ def run_agent(
             provider = usage.get("provider")
             if model:
                 source = "usage_file"
+            # `failed` is written by the runtime itself (hermes_cli/oneshot.py
+            # `_write_usage_file`), not asserted by the agent about its work.
+            # It is the only signal that separates "the turn did not happen"
+            # from "the turn happened", because a provider error printed as the
+            # final response still exits 0.
+            if "failed" in usage:
+                runtime_failed = bool(usage.get("failed"))
         except (json.JSONDecodeError, OSError):
             pass
 
     return AgentResult(
         code, out, elapsed, model, provider, source,
         tree_survived=tree_survived, survivors=survivors,
+        runtime_failed=runtime_failed,
     )
 
 
