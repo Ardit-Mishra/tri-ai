@@ -17,6 +17,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 import board
 import completion_report
+import intake_preflight
 import progress_card
 import proposals
 import telegram_read_surface
@@ -205,20 +206,23 @@ class TelegramControl:
                 "verify_timeout": workspace.profile.timeout,
             },
         )
-        # Naming the workspace here is the difference between noticing a
-        # mis-aimed task now and discovering it after the run.
         head = (
             f"Pending follow-up {action_id} to {parent_task_id}"
             if parent_task_id
             else f"Pending intake {action_id}"
         )
-        # Naming the workspace here is the difference between noticing a
-        # mis-aimed task now and discovering it after the run.
+        # Naming the workspace, and flagging a prompt that points at a file the
+        # workspace does not hold, is the difference between noticing a
+        # mis-aimed task now and discovering it after the run has finished.
+        flagged = intake_preflight.warning_line(
+            intake_preflight.check(prompt, workspace.path), workspace.alias,
+        )
         body = (
             f"{head}\n"
             f"workspace: {workspace.alias}\n"
-            f"prompt: {prompt[:300]}\n\n"
-            f"Tap Confirm below, or send /confirm {action_id}"
+            f"prompt: {prompt[:300]}\n"
+            + (f"\n{flagged}\n" if flagged else "")
+            + f"\nTap Confirm below, or send /confirm {action_id}"
         )
         return StagedReply(body, confirm_keyboard(action_id))
 
