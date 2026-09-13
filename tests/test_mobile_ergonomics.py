@@ -210,3 +210,68 @@ class DocumentDeliveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class IntakePreflightTests(unittest.TestCase):
+    """A prompt naming a file absent from its target is flagged before it runs."""
+
+    def setUp(self) -> None:
+        import tempfile, shutil
+        self.root = Path(tempfile.mkdtemp(prefix="triai-preflight-"))
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        (self.root / "celestial.html").write_text("<h1>hi</h1>", encoding="utf-8")
+        (self.root / "src").mkdir()
+        (self.root / "src" / "board.py").write_text("x = 1", encoding="utf-8")
+
+    def test_a_prompt_naming_no_file_never_warns(self):
+        import intake_preflight
+        result = intake_preflight.check("build me a landing page about space", self.root)
+        self.assertEqual(result.named, ())
+        self.assertFalse(result.warns)
+
+    def test_a_named_file_that_is_present_does_not_warn(self):
+        import intake_preflight
+        result = intake_preflight.check("In celestial.html add a starfield", self.root)
+        self.assertEqual(result.present, ("celestial.html",))
+        self.assertFalse(result.warns)
+
+    def test_the_mis_aimed_case_is_flagged(self):
+        # This is the real failure: an edit aimed at a workspace that does not
+        # hold the file, which silently became "write a new one from scratch".
+        import intake_preflight
+        result = intake_preflight.check("In nebula.html add motion", self.root)
+        self.assertEqual(result.missing, ("nebula.html",))
+        self.assertTrue(result.warns)
+        line = intake_preflight.warning_line(result, "sandbox")
+        self.assertIn("nebula.html", line)
+        self.assertIn("sandbox", line)
+
+    def test_a_nested_path_resolves_against_the_workspace(self):
+        import intake_preflight
+        self.assertFalse(intake_preflight.check("edit src/board.py", self.root).warns)
+
+    def test_a_mix_of_present_and_new_files_is_ordinary_work(self):
+        # Editing one file while creating another is normal; only a prompt
+        # where nothing it referred to exists is worth interrupting for.
+        import intake_preflight
+        result = intake_preflight.check(
+            "edit celestial.html and create nebula.html", self.root,
+        )
+        self.assertEqual(result.present, ("celestial.html",))
+        self.assertEqual(result.missing, ("nebula.html",))
+        self.assertFalse(result.warns)
+        self.assertIsNone(intake_preflight.warning_line(result, "sandbox"))
+
+    def test_prose_abbreviations_are_not_mistaken_for_files(self):
+        import intake_preflight
+        self.assertEqual(
+            intake_preflight.check("make it faster, e.g. by caching", self.root).named, (),
+        )
+
+    def test_an_unreadable_workspace_reports_names_without_claiming_absence(self):
+        import intake_preflight
+        result = intake_preflight.check("In celestial.html add motion", self.root / "gone")
+        self.assertEqual(result.named, ("celestial.html",))
+        self.assertEqual(result.present, ())
+        self.assertEqual(result.missing, ())
+        self.assertFalse(result.warns)
