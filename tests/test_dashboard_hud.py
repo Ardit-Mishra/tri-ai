@@ -90,8 +90,11 @@ class RelativeTimeTests(unittest.TestCase):
 class SemanticNodeTests(unittest.TestCase):
     def test_the_node_plate_leads_with_intent_and_demotes_the_hex_id(self):
         self.assertIn("function drawNamePlate(node,x,y,bounds,leftward)", web.HTML)
-        self.assertIn("truncate(node.detail.title,22)", web.HTML)
+        self.assertIn("truncate(taskLabel(node.detail),narrowCanvas()?18:22)", web.HTML)
         self.assertIn("shortId(node.detail.id)", web.HTML)
+        # Every Telegram task shares the title "Telegram: <alias>"; only the
+        # operator's own prompt tells them apart on the canvas.
+        self.assertIn("const taskLabel = task => (task && task.prompt && task.prompt.trim())", web.HTML)
         # Title is drawn bold above; the id is the smaller muted line below it.
         self.assertIn("ctx.font='700 11px \"JetBrains Mono\", monospace'; ctx.fillText(title,left+6,top+21)", web.HTML)
         self.assertIn("ctx.fillStyle='rgba(148,163,184,.92)'; ctx.font='9px \"JetBrains Mono\", monospace'; ctx.fillText(id,left+6,top+32)", web.HTML)
@@ -102,8 +105,9 @@ class SemanticNodeTests(unittest.TestCase):
             "value.length<=limit?value:`${value.slice(0,limit-1).trimEnd()}" + ellipsis + "`",
             web.HTML,
         )
-        # 22 characters of title, then a single ellipsis - never a hard cut.
-        self.assertIn("truncate(node.detail.title,22)", web.HTML)
+        # Bounded characters of the prompt, then a single ellipsis - never a hard
+        # cut, and a tighter bound on a phone-width canvas.
+        self.assertIn("truncate(taskLabel(node.detail),narrowCanvas()?18:22)", web.HTML)
 
     def test_each_workspace_gets_a_stable_tag_and_tint(self):
         self.assertIn("function workspaceTint(path)", web.HTML)
