@@ -573,13 +573,24 @@ class TelegramControl:
                         f"/run {subject} <prompt>.",
                         True,
                     )
-                if verb == "revise":
-                    return CallbackResponse(
-                        f"Reply to this message with the change you want, and it "
-                        f"will be queued as a follow-up to {subject}.",
-                        False,
-                    )
-                if verb == "log":
+                if verb in {"revise", "log"}:
+                    # These buttons live on a completion card, so the chat must
+                    # be one this task was actually delivered to. Neither verb
+                    # mutates, and an authorized chat can already type
+                    # `/logs <task>` for any task - but a button that acts on a
+                    # task the chat was never told about is a discrepancy
+                    # between what the code enforces and what it claims, and the
+                    # cheaper of the two fixes is to enforce it.
+                    if not board.chat_was_notified(conn, chat_id=chat_id, task_id=subject):
+                        return CallbackResponse(
+                            "That task was not delivered to this chat.", True,
+                        )
+                    if verb == "revise":
+                        return CallbackResponse(
+                            f"Reply to this message with the change you want, and it "
+                            f"will be queued as a follow-up to {subject}.",
+                            False,
+                        )
                     return CallbackResponse(
                         telegram_read_surface.dispatch_command(
                             f"/logs {subject}", board_path=board_path,
