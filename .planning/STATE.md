@@ -146,6 +146,36 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**GitHub is not a model source for this project, 2026-09-13.** Checked directly
+rather than assumed, because the config still carried `github/*` aliases.
+
+- **GitHub Models is gone.** `models.github.ai/inference` returns HTTP 410
+  `github_models_retirement_brownout`. GitHub retired the service on
+  **2026-07-30** - catalog, playground, inference API and BYOK endpoints - with
+  no grace period and all keys invalidated. Every "free LLM API" list still
+  recommending it is stale.
+- **Copilot Pro via the Student Pack caps at 300 premium requests/month.**
+  Tri-AI tasks take 8-49 API calls each, so that budget is roughly **11 tasks a
+  month**. Fine in an IDE; useless for an unattended worker.
+- The `github/*` router aliases do not resolve: `github/claude-sonnet-5` fell
+  through to `qwen3.5:4b` when probed.
+
+**`devstral:24b` pulled to the Tailscale box** (14.3 GB, 307s) and verified
+answering. It is now fallback 2, above `qwen2.5-coder:14b`, because it is the
+only local coder with a published agentic score (46.8% SWE-Bench Verified) and
+tool-call formatting an agent loop can rely on. Chain is now
+`auto/best-coding` -> `auto/smart` -> `devstral:24b` -> `qwen2.5-coder:14b` ->
+local GGUF, re-verified serving `auto/best-coding` after the edit.
+
+**PAT exposure assessment.** The token is **live** (HTTP 200 as `Ardit-Mishra`,
+fine-grained). It does not appear in `tri-ai` or `genelens` git history, and
+`AppData\Local` is outside OneDrive - so the disclosure is local-only. Its sole
+consumer is hermes' `github_copilot` MCP entry (`api.githubcopilot.com/mcp/` -
+repo tools, not inference). `gh` and git use a separate `gho_` keyring token,
+and `executor.agent_env()` strips `GH_TOKEN`/`GITHUB_TOKEN` from agent children,
+so no Tri-AI execution path touches it. Revoking costs only the GitHub MCP tools
+inside hermes sessions.
+
 **The model chain was broken end to end, 2026-09-13.** Investigating the run-26
 404 turned up a larger finding: **every Tri-AI task ever run executed on the
 fallback chain, never on the configured model.**
