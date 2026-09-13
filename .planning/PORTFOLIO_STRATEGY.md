@@ -1,44 +1,111 @@
-# Portfolio Strategy — superseded pointer
+# Portfolio Strategy
 
-**This file is not the portfolio strategy.** The authoritative comparative audit is:
+**Audited: 2026-09-13.** Every claim below is checked against the machine. Where
+a project was named but not found, that is recorded as not found rather than
+described from the brief.
 
-> `C:\Users\ardit\agent-os\PORTFOLIO-DELIVERABLE-D-PROJECT-AUDIT.md`
+## What exists
 
-An earlier version of this file was written on 2026-09-12 without reading the
-established portfolio process in `agent-os/`, and it was wrong in ways worth
-recording so the mistake is not repeated:
+### 1. Tri-AI — autonomous agentic kernel
+`C:\Users\ardit\tri-ai` · branch `phase-2/worker-assign` · 79 commits
 
-- It implied Tri-AI runs or produced the other four projects. The handoff forbids
-  exactly that — the three independent tools are Jan–Aug 2025 work, predating Tri-AI
-  by a year. Genclarus is the only product built through Tri-AI.
-- It reported "Live — HTTP 200" for peptidemhc, genomesight and biostudio. Those
-  custom domains resolve to `34.111.179.208` and are served by **Replit**, from builds
-  dated 2025-11 to 2026-02. A 200 proves something answers, not that it is your code.
-- It invented a competency framing instead of using the seven opportunity types
-  already fixed in `PORTFOLIO-REDESIGN-HANDOFF.md` §4, and dropped the revenue half of
-  the dual goal recorded in `ARDIT-PROFILE.md`.
-- It omitted the portfolio site and `ml-training` entirely.
-- It described BioStudio's stack from a stale assumption. BioStudio is still Streamlit;
-  the Streamlit→FastAPI+React migration was **GenomeSight** (`84a2459`, `13d0a07`).
+The supervisor, worker, and Telegram control plane that runs verify-gated tasks,
+plus a strictly read-only observability surface.
 
-`agent-os/` holds the single source of truth for portfolio positioning: locked
-Deliverable A (brand), verified B (chronology), draft C (relationship map), D (this
-audit), the résumé alignment check, and the hosting/routing audit. Do not maintain a
-competing copy here — `ARDIT-PROFILE.md` warns that divergent copies drift, and this
-file is the proof.
+- Phases 1–5 accepted. Mobile intake, natural-language staging, and `/confirm`
+  execution are live and have been exercised end to end from a phone.
+- Phase 6 (JARVIS dashboard) implemented through the spatial HUD: read-only
+  terminal and web surfaces, run telemetry, lifecycle phases derived from
+  recorded evidence, bounded log tails, artifact capture, completion delivery
+  to Telegram, and artifact serving over Tailscale.
+- Verification gate: `python tests/run.py` → **359 tests, exit 0, 204.436s**.
 
-## What belongs in this repository
+**Recruiter-facing demo:** send a plain-language request from a phone, watch the
+task move through claim → build → verify on a live HUD, receive the finished
+artifact as a tappable link, and reply to that message to queue a linked
+revision. The interesting part is not that an agent writes code — it is that
+nothing is called done without an exit code, and the observability surface
+cannot mutate what it observes.
 
-Only the Tri-AI-side operational facts:
+### 2. Genclarus — grounded gene & variant explainer
+`C:\Users\ardit\projects\genelens` · branch `evals/provenance-surface` · 78 commits
+· repo `Ardit-Mishra/genclarus` · live at **genclarus.com**
 
-- **`genclarus` is a registered governed workspace.** `~/.tri-ai/intake_policy.json`
-  maps alias `genclarus` → `C:\Users\ardit\projects\genelens` with verify profile
-  `genclarus-vitest` (`npm test`, 600s), measured before registration at 36 files /
-  333 tests / exit 0 / 4.17s. `default_workspace` remains `tri-ai`.
-- **The canonical local copies** are `C:\Users\ardit\Downloads\live-projects\*` and
-  `C:\Users\ardit\projects\genelens`. `agent-os/PORTFOLIO-INVENTORY.md` still points at
-  `Downloads\Portoflio Management\…`, which last committed Feb–Mar 2026; the
-  live-projects copies are Sep 2026 and are what the operator's own `queue.jsonl`
-  targets. That inventory needs correcting at source.
-- **Clean-tree precheck.** Any Tri-AI run against a workspace fails its precheck while
-  that workspace's tree is dirty — the same precheck that stranded `t_69cc6245`.
+Type a gene (`BRCA1`, `TP53`, `CFTR`) or an rsID (`rs6025`) and get a cited,
+plain-language explanation assembled from ClinVar, dbSNP, gnomAD and MyGene,
+with every sentence traceable to the record it came from.
+
+- Stack: Next.js 16, TypeScript, Tailwind, Vercel, NVIDIA NIM (treated as
+  replaceable — the app still answers source-only without it).
+- Shipped: v1.1 plus hardening phases 0–1, hybrid retrieval with a retrieval
+  eval, per-instance rate limiting, and a published provenance eval surface that
+  audits every shipped claim.
+- The most recent work moved the provenance audit onto a schedule rather than
+  running it on every push.
+- Documented in depth: ADRs, validation reports (grounding, retrieval), QA
+  founder-acceptance walkthroughs, a logged incident
+  (`INCIDENT-2026-07-28-grounding.md`), and GTM material.
+
+**Recruiter-facing demo:** a live URL, a stated anti-hallucination thesis, and
+an eval surface that measures whether the thesis holds. The incident write-up is
+an asset, not a blemish — it shows grounding failures were found and closed.
+
+**Relationship to Tri-AI:** registered as a governed workspace under the alias
+`genclarus`, with `npm test` as its verify profile, so Tri-AI can be given work
+that targets it.
+
+## What was named but not found
+
+`peptidemhc`, `genomesight`, and `biostudio` were described as flagship
+portfolio projects. A scan of `~/tri-ai`, `~/projects`, `~/Documents`,
+`~/Desktop`, `~/source`, `~/repos`, `~/dev` and `~/code` across every `.md` and
+`.json` file returned **zero mentions of any of the three**, and no directory by
+those names exists.
+
+They are therefore **intended, not started**. Nothing here describes them as
+though they exist, because no evidence was found that they do. If they live on
+another machine or under different names, point at them and this document gets
+corrected.
+
+## Workspaces registered with Tri-AI
+
+| Alias | Path | Verifier |
+|---|---|---|
+| `sandbox` *(default)* | `~/tri-ai-sandbox` | `python verify.py` |
+| `tri-ai` | `~/tri-ai` | `python tests/run.py` |
+| `genclarus` | `~/projects/genelens` | `npm test` |
+
+`sandbox` became the default on 2026-09-13. Ad-hoc work used to run in the
+kernel repo, where each delivered file left the tree dirty and the next task
+skipped at the clean-tree precheck. It also gives ad-hoc work an honest
+verifier: `verify.py` fails when a run produced no file and when produced HTML
+does not parse, instead of running the kernel's suite, which proves nothing
+about a requested page.
+
+## How these combine
+
+Tri-AI is the kernel; Genclarus is the first governed child. The pairing is the
+pitch: a system that decomposes and verifies work, and a live product built
+under it whose central claim — every sentence traceable to a source — is itself
+measured by an eval surface.
+
+The shared discipline across both is the actual through-line: **nothing is
+accepted without evidence.** Tri-AI refuses to mark a task done without an exit
+code; Genclarus refuses to state a fact without a citation, and audits that it
+held. That is one engineering conviction expressed twice.
+
+## Honest gaps
+
+- **Three of the five named projects do not exist.** The portfolio is two
+  projects, not five.
+- **"Verified" is weaker than it sounds for ad-hoc tasks.** Until the sandbox
+  workspace existed, a task's verify command was the kernel's own test suite —
+  so a page could be marked verified on evidence unrelated to it. `sandbox`
+  fixes this going forward; historical rows carry the weaker meaning.
+- **Artifact capture attributes concurrent edits to the run.** It diffs the
+  working tree, so anything another writer changed mid-run is recorded as that
+  run's output. A tree snapshot taken at claim would fix it.
+- **Genclarus has not been driven by Tri-AI yet.** The workspace is registered
+  and the verify profile is configured, but no task has been executed against
+  it. That is the next thing to prove, and it is what makes the "kernel
+  governing a child project" claim real rather than aspirational.

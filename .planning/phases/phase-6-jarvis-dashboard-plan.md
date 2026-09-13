@@ -176,3 +176,77 @@ lesson of this slice - a green suite is not a rendered surface.
 All four slices are accepted. The dashboard reads board, ledger, retained daemon
 state and retained run logs, and has no path to mutate any of them. Phase 6 is
 complete.
+
+
+## Slice 3 - Accepted-Memory Evidence Panels
+
+Accepted procedural rules are projected from `triai_activated_procedural_rules`
+with their checks and provenance citations, and linked to tasks by workspace.
+The dashboard reads them; it never derives, activates, or expires a rule.
+
+## Slice 4 - Spatial HUD and Delivery
+
+- Nodes are tiered into root "rooms" and sub-stages from `task_links`, grouped
+  by workspace under convex hulls, and labelled with the operator's own prompt
+  rather than the generic intake title.
+- A running node carries a pulsing core and a four-segment lifecycle arc
+  (`CLAIMED -> WORKTREE_PREP -> AGENT_ACTIVE -> VERIFY_GATE`). Every segment is
+  derived from recorded evidence; a stage a `dir` workspace never reaches is
+  `skipped` with its reason, never `pending`, and a finished run proves its
+  verify stage from the exit code it recorded rather than a live log tail.
+- A "happening now" panel answers what is being worked on, for how long, at
+  which stage, with the agent's latest line, without tapping anything.
+- Pan, wheel zoom, and double-tap zoom; below 768px the inspector becomes a
+  bottom sheet, plates are shown only for the running, selected, and hovered
+  nodes, and workspace labels shorten or drop rather than overprint.
+- Bounded `agent.log` / `verify.log` tails ride inside the snapshot for active
+  runs only - never behind a path-bearing endpoint.
+
+### Delivery (closes the silent-completion gap)
+
+A task could finish, write a real file, and tell nobody. Three layers close it:
+
+1. **Artifact capture** - the clean-tree precheck guarantees a clean workspace
+   at claim, so `git status --porcelain` after a passing run names what the
+   agent produced. Recorded on the verified-pass path only.
+2. **Completion delivery** - finished runs are pushed to each authorized chat
+   exactly once through a notification ledger, leading with the operator's
+   prompt and carrying verify evidence, duration, model, and produced files.
+   Replying to that message queues a follow-up linked to the original through
+   `task_links`, inheriting its workspace.
+3. **Artifact serving** - `/artifact/<task_id>/<index>` serves board-recorded
+   paths resolved inside the task's own workspace. The URL carries an index,
+   never a path, so there is nothing to traverse; a recorded path that escapes
+   its workspace is dropped rather than served.
+
+### Evidence
+
+- `python tests/run.py` -> **359 tests, exit 0, 204.436s** (2026-09-13).
+- Live acceptance: task `t_cf8111f2` ("build me a landing page ... celestial
+  structures") ran to done with `verify exit 0 in 163.64s`, captured five
+  artifacts with no manual step, and delivered its completion card to the
+  operator's phone with a working Tailscale artifact link.
+- `tests/test_dashboard_template_syntax.py` runs `node --check` over the
+  embedded script. Substring assertions pass on a script that does not parse;
+  this gate caught exactly that during Slice 4.
+
+### Defects found and fixed during this phase
+
+- Class names were passed as the `text` argument of `make(tag, text, cls)`,
+  printing literal `dot` inside status indicators and `inspect-grid` under the
+  inspector title.
+- Windows liveness reported a dead daemon as alive: `OpenProcess` succeeds for
+  a terminated process whose object still has an open handle. It now requires
+  `GetExitCodeProcess == STILL_ACTIVE`. This is the inverse of the earlier
+  `os.kill(pid, 0)` false-down defect; both are now covered.
+- The verify stage lit only from a live `verify.log`, so every finished task
+  claimed it had never been tested.
+- `drawLabelPill` clamped only the right edge while `pillRect` clamped both, so
+  a label measured as fitting was drawn off the left edge.
+- Hull labels drew before the node pass and were painted over by nodes.
+
+### Known limitation carried forward
+
+Artifact capture diffs the working tree, so a concurrent writer's edits are
+attributed to the run. A tree snapshot taken at claim time would fix it; it is
+not fixed here.

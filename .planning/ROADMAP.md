@@ -32,8 +32,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Read-Only Telegram Observability** - The board and full subtask output are inspectable from Telegram, no write capability yet
 - [x] **Phase 5: Memory, Telegram Control, and Intake** - Passive memory foundation plus cancel, retry, and confirmation-gated task assignment from Telegram
 - [x] **Phase 6: JARVIS Dashboard & Spatial HUD** - Read-only terminal/web dashboard over board, ledger, accepted memory evidence, and per-run lifecycle telemetry
-- [ ] **Phase 7: Planner Integration and Trusted Distributed Delegation** - Learned-pattern planner assistance plus a remote-worker protocol that preserves verify-gated acceptance
-- [ ] **Phase 8: Remote Offload and Phone Control** - Hardware-aware offload and confirmation-gated multi-node control
+- [ ] **Phase 7: GenClarus Orchestration under Tri-AI** - Prove the kernel governs a real child project end to end, with honest per-task verification
+- [ ] **Phase 8: Planner Integration and Trusted Distributed Delegation** - Learned-pattern planner assistance plus a remote-worker protocol that preserves verify-gated acceptance
+- [ ] **Phase 9: Remote Offload and Phone Control** - Hardware-aware offload and confirmation-gated multi-node control
 
 ## Phase Details
 
@@ -162,12 +163,52 @@ substring assertions pass on a script that does not parse.
 exit 0, 159.988s. Verified live against the real board, at desktop and 375px, with
 the bind surface probed (loopback and Tailscale reachable; home Wi-Fi refused).
 
-### Phase 7: Planner Integration and Trusted Distributed Delegation
+**Slice 5 acceptance criteria (delivery):** a finished run's produced files are
+recorded from the workspace it ran in, its completion is delivered to each
+authorized chat exactly once, and those files are reachable from a phone. The
+delivery leads with the operator's own prompt. A reply to a completion message
+creates a follow-up linked to the original through `task_links` and inheriting
+its workspace. Artifacts are addressed by index into board-recorded paths,
+resolved inside the task's own workspace; a recorded path that escapes is
+dropped rather than served.
+
+**Status: complete and accepted (2026-09-13).** `python tests/run.py` -> 359
+tests, exit 0, 204.436s. Live acceptance: `t_cf8111f2` ran to done, captured
+five artifacts unattended, and delivered a working artifact link to the
+operator's phone over Tailscale.
+
+### Phase 7: GenClarus Orchestration under Tri-AI
+**Goal**: Prove the kernel can govern a real child project, not just its own
+repo. GenClarus (`~/projects/genelens`, live at genclarus.com) is registered as
+a workspace with `npm test` as its verify profile, but no task has ever been
+executed against it. Until one has, "Tri-AI governs GenClarus" is a claim with
+no evidence behind it.
+
+**Success criteria** (what must be TRUE):
+  1. A task sent from Telegram targeting the `genclarus` alias is claimed,
+     executed, and verified by `npm test` with a recorded exit code, and its
+     produced files are captured and delivered.
+  2. A failing change is rejected by that gate - the task lands `failed` with
+     the real exit code, and the workspace is left clean by the revert path.
+  3. Artifact capture attributes only the run's own changes. The tree is
+     snapshotted at claim and diffed at completion, so a concurrent writer's
+     edits are not recorded as the run's output (a known limitation carried
+     out of Phase 6).
+  4. An ad-hoc task's verify gate proves something about the task. `sandbox`
+     already checks a deliverable exists and parses; a task declaring expected
+     artifacts is verified against that declaration rather than a fixed suite.
+
+**Depends on**: Phase 6 delivery (complete).
+
+### Phase 8: Planner Integration and Trusted Distributed Delegation
+**Goal**: Let the planner consume accepted crystallized patterns and coordinate
+remote execution without allowing a remote agent report to mark work verified.
+The accepting authority must possess an independently checkable verify result.
 **Goal**: Let the planner consume accepted crystallized patterns and coordinate
 remote execution without allowing a remote agent report to mark work verified.
 The accepting authority must possess an independently checkable verify result.
 
-### Phase 8: Remote Offload and Phone Control
+### Phase 9: Remote Offload and Phone Control
 **Goal**: Add measured hardware routing and confirmation-gated phone controls
 only after the trusted remote protocol exists.
 

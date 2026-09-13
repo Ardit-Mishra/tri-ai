@@ -31,11 +31,15 @@ no external proxy request is made during implementation.
 
 ## Current Position
 
-Phase: 6 of 8 COMPLETE (JARVIS Dashboard & Spatial HUD)
+Phase: 6 of 9 COMPLETE (JARVIS Dashboard & Spatial HUD)
+Next: Phase 7 (GenClarus Orchestration under Tri-AI) - prove the kernel
+governs a real child project end to end, with honest per-task verification
 Plan: .planning/phases/phase-6-jarvis-dashboard-plan.md
-Status: Phases 1-6 are complete. Phase 6 closed out on 2026-09-12 with all four
-slices accepted; the canonical verification is `python tests/run.py` -> **324
-tests, exit 0, 159.988s**. The fleet is live and healthy, the stranded claim from
+Status: Phases 1-6 are complete. Phase 6 closed out on 2026-09-13 with all five
+slices accepted - Slice 5 added artifact capture, completion delivery, and
+artifact serving, closing the gap where a finished task told nobody. The
+canonical verification is `python tests/run.py` -> **359 tests, exit 0,
+204.436s**. The fleet is live and healthy, the stranded claim from
 the 2026-09-12 incident is closed, and its root cause is fixed rather than worked
 around.
 
@@ -141,6 +145,70 @@ supervisor health with Rich. It has no board API, network, credential, or
 process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
+
+**Phase 6 complete and accepted (2026-09-13).** Slice 5 closed the gap where a
+task could finish, write a real file, and tell nobody. Produced files are
+captured from the workspace on the verified-pass path (`git status --porcelain`
+against the clean tree the precheck guarantees at claim); completions are pushed
+to each authorized chat exactly once through a notification ledger, leading with
+the operator's own prompt rather than the generic intake title; and
+`/artifact/<task_id>/<index>` serves board-recorded paths resolved inside the
+task's own workspace, addressed by index so there is no path to traverse.
+Replying to a completion message creates a follow-up linked through
+`task_links` and inheriting the original's workspace. `/files` lists everything
+produced, grouped under the prompt that asked for it.
+
+**Live acceptance:** task `t_cf8111f2` ("build me a landing page ... colossal
+celestial structures") ran to done with `verify exit 0 in 163.64s`, captured
+five artifacts unattended, and delivered a working Tailscale artifact link to
+the operator's phone. A later road-trip itinerary task repeated it.
+
+**Dashboard made legible.** Every Telegram task rendered as `Telegram: tri-ai`
+because plates used the intake title; the operator's prompt was not even in the
+payload. Prompts now travel from `tasks.body` through the reader, a
+"happening now" panel answers what is being worked on without a tap, and the
+jargon is gone (Task map, Finished runs, Learned rules, Picked up / Workspace
+ready / Building / Testing).
+
+**Defects found and fixed this session:**
+- Class names passed as the `text` argument of `make(tag, text, cls)` printed
+  literal `dot` in status badges and `inspect-grid` under the inspector title.
+- Windows liveness reported a dead daemon as alive. `OpenProcess` succeeds for a
+  terminated process whose object still holds an open handle; liveness now
+  requires `GetExitCodeProcess == STILL_ACTIVE`. This is the inverse of the
+  earlier `os.kill(pid, 0)` false-down defect - both directions are now covered.
+- The verify stage lit only from a live `verify.log`, so every finished task
+  claimed it had never been tested. It now reads the run's recorded exit code.
+- `drawLabelPill` clamped only the right edge while `pillRect` clamped both, so
+  a label measured as fitting drew off the left edge; hull labels also drew
+  before the node pass and were painted over. Labels are now deferred past the
+  node pass and every label claims its rect.
+
+**Workspace separation (2026-09-13).** Ad-hoc Telegram work ran in the kernel
+repo, so every delivered file left the tree dirty and the next task skipped at
+the clean-tree precheck - this stranded runs 4 and 5 earlier. A `sandbox`
+workspace (`~/tri-ai-sandbox`, `python verify.py`) is now the intake default.
+Its verifier fails when a run produced no file and when produced HTML does not
+parse, which is a real gate; the previous `python tests/run.py` proved only that
+the kernel works, so a page could be marked `verified` on evidence unrelated to
+it. Historical rows carry that weaker meaning. `intake_policy.json.bak` holds
+the prior policy.
+
+**Known limitation carried into Phase 7:** artifact capture diffs the working
+tree, so a concurrent writer's edits are attributed to the run - observed live
+when two of five captured artifacts were a parallel editor's changes. A tree
+snapshot taken at claim would fix it.
+
+**Portfolio audit (2026-09-13):** `.planning/PORTFOLIO_STRATEGY.md` records what
+exists. `peptidemhc`, `genomesight`, and `biostudio` were named as flagship
+projects but a scan of every `.md` and `.json` under the home directory's source
+roots returned zero mentions and no directory by those names. The portfolio is
+two projects - Tri-AI and GenClarus (`~/projects/genelens`, live at
+genclarus.com) - not five. GenClarus is registered as a governed workspace but
+no task has yet run against it, which is now Phase 7.
+
+**Latest verification:** `python tests/run.py` -> **359 tests, exit 0,
+204.436s** (2026-09-13).
 
 **Phase 6 Slice 4 (spatial HUD) implemented locally, 2026-09-12:** the web
 dashboard gained hierarchical "site inspection" visuals over the same read-only
