@@ -146,6 +146,53 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**Review seat exercised on tonight's batch, 2026-09-13.** Codex reviewed the
+17-commit batch under `~/CODEX-REVIEWER-BRIEF.md`. Two findings, both with repro
+evidence, both acted on.
+
+1. *Delivery was documented as exactly-once and is not.* `publish_completions`
+   and `publish_progress` send first and record the receipt second, so a crash
+   between the two re-sends on the next poll. The ordering is kept deliberately
+   - recording first loses a completion outright when the send fails, and a
+   duplicate notice is a better failure than a finished task nobody hears about
+   - so what changed is the claim. The docstrings now state at-least-once and
+   why, and a test pins behaviour and wording together.
+2. *`revise:` and `log:` callbacks did not bind to the chat.* `confirm`/`cancel`
+   route through board functions that check `chat_id`; these two did not. The
+   practical escalation is nil - both are read-only, and an authorized chat can
+   already type `/logs` for any task - so the invariant as written in the brief
+   was the thing that was wrong. `board.chat_was_notified` now gates both.
+
+**Phase 7 criteria 3 and 4 complete.** Artifacts are read the moment the agent
+exits, before the verify command can add its own output (mutation-proven:
+reverting the capture point attributes a verifier-written `coverage.xml` to the
+agent). A task declaring `expected_artifacts` now fails when a declared file is
+missing or empty even on verify exit 0 - the command proves the command, not the
+deliverable. That gate caught `test_triggers` passing three tasks which declared
+artifacts they never produced, in a shared workspace where the second and third
+could not have passed a clean-tree precheck either.
+
+**Criteria 1 and 2 remain open** and need real runs against `~/projects/genelens`
+with `npm test` as the gate. No task has ever been executed against GenClarus.
+
+**Two seats, not one.** `~/CODEX-REVIEWER-BRIEF.md` records the arrangement:
+Claude writes, Codex reviews. Of 86 commits, 17 carry a `Claude Opus 5` trailer
+and 9 a `Claude Code` trailer; the remaining 60 are interleaved throughout, not
+an early era - the first Claude trailer is `f964973` (2026-09-09) and the last
+untrailered commit is `540e5fd` (2026-09-12). Codex also reaches for
+`~/.codex/skills/gsd-code-review/SKILL.md` and `docs/CODEX-NAVIGATION-GUIDE.md`,
+which are review apparatus this session did not account for.
+
+**Publication is pending an operator decision.** `origin` holds only `main`;
+`phase-2/worker-assign` has no upstream and is 79 commits ahead. The GitHub repo
+`Ardit-Mishra/tri-ai` is **public**. A scrub was agreed before pushing: the
+Tailscale address appears in 3 tracked files and the operator's home path in 11
+planning documents. Scrubbing the tip does not clean history - those strings
+remain in the 79 commits unless the branch is squashed.
+
+**Latest verification:** `python tests/run.py` -> **412 tests, exit 0,
+227.755s** (2026-09-13).
+
 **Mobile ergonomics and the neural lattice, 2026-09-13.** Confirming a task
 meant copying a hex id on a phone; knowing whether anything was happening meant
 typing `/status` until it changed. Staged requests now carry Confirm/Cancel

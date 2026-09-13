@@ -82,6 +82,30 @@ verifier: `verify.py` fails when a run produced no file and when produced HTML
 does not parse, instead of running the kernel's suite, which proves nothing
 about a requested page.
 
+## How the work is actually produced
+
+Tri-AI is built by two agent seats with different jobs, and the separation is
+deliberate rather than incidental. `~/CODEX-REVIEWER-BRIEF.md` states it: Claude
+writes, Codex reviews, and the reviewer is instructed not to implement. A review
+that says "looks good" is treated as worthless, because that is the same failure
+mode the project exists to prevent — every finding must carry a command and its
+exit code, a file and line, or a concrete failure scenario.
+
+It earns its keep. The reviewer's first pass caught a test whose *name* claimed
+it proved a schema collision was refused while its body only inspected a
+throwaway table and never called `migrate()`. On 2026-09-13 it caught delivery
+documented as exactly-once that was in fact at-least-once, with a repro showing
+the duplicate window. Both are the same class of defect: a claim that outruns
+its evidence, which self-review does not reliably catch.
+
+The commit history shows the two seats interleaved rather than sequential —
+of 86 commits, 26 carry a Claude co-author trailer and the rest do not, spread
+throughout the project's life.
+
+This is worth stating plainly because the alternative reads as a single author
+producing 9,000 lines unaided, and that would be the same overclaim the system
+is built to refuse.
+
 ## How these combine
 
 Tri-AI is the kernel; Genclarus is the first governed child. The pairing is the
