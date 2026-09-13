@@ -81,6 +81,7 @@ class TaskTelemetry:
     error: Optional[str] = None
     phases: tuple[PhaseView, ...] = ()
     logs: tuple[RunLogView, ...] = ()
+    artifacts: tuple[dict, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,7 @@ class TaskView:
     run_id: Optional[int]
     workspace_path: Optional[str] = None
     telemetry: Optional[TaskTelemetry] = None
+    prompt: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -250,6 +252,19 @@ def _read_run_event_kinds(conn: sqlite3.Connection) -> dict[int, set[str]]:
     return kinds
 
 
+def _verify_exit(raw: object) -> Optional[int]:
+    """The exit code a finished run recorded, if it recorded one."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, Mapping):
+        return None
+    return _optional_int(parsed.get("verify_exit"))
+
+
 def _run_metadata(raw: object) -> tuple[Optional[str], Optional[str]]:
     """Read the model/provider the run actually recorded, never a guess."""
     if not isinstance(raw, str) or not raw.strip():
@@ -304,6 +319,7 @@ def _derive_phases(
     logs: Sequence[RunLogView],
     run_status: Optional[str],
     run_active: bool,
+    verify_evidence: Optional[str] = None,
 ) -> tuple[PhaseView, ...]:
     """Decide each lifecycle stage from recorded evidence only."""
     verify_log = next((log for log in logs if log.name == "verify" and log.lines), None)
@@ -311,7 +327,11 @@ def _derive_phases(
         "claimed": ("claimed" in event_kinds, "board recorded a claimed event"),
         "worktree_prep": (worktree is not None, "worktree row recorded for this task"),
         "agent_active": ("spawned" in event_kinds, "board recorded a spawned worker child"),
-        "verify_gate": (verify_log is not None, "verify log has retained output"),
+        "verify_gate": (
+            (verify_log is not None, "verify log has retained output")
+            if verify_log is not None or verify_evidence is None
+            else (True, verify_evidence)
+        ),
     }
     skipped: dict[str, str] = {}
     if workspace_kind is not None and workspace_kind != "worktree" and worktree is None:
@@ -338,6 +358,22 @@ def _derive_phases(
     return tuple(phases)
 
 
+def _read_artifact_rows(conn: sqlite3.Connection) -> dict[tuple[str, int], tuple[dict, ...]]:
+    """Group recorded artifacts by the run that produced them."""
+    if not _table_exists(conn, "triai_run_artifacts"):
+        return {}
+    grouped: dict[tuple[str, int], list[dict]] = {}
+    for row in conn.execute(
+        "SELECT task_id, run_id, path, change, size_bytes FROM triai_run_artifacts ORDER BY path"
+    ).fetchall():
+        key = (str(row["task_id"]), int(row["run_id"]))
+        grouped.setdefault(key, []).append({
+            "path": str(row["path"]), "change": str(row["change"]),
+            "size_bytes": _optional_int(row["size_bytes"]),
+        })
+    return {key: tuple(value) for key, value in grouped.items()}
+
+
 def _task_telemetry(
     row: sqlite3.Row,
     *,
@@ -345,6 +381,7 @@ def _task_telemetry(
     worktrees: Mapping[str, sqlite3.Row],
     event_kinds: Mapping[int, set[str]],
     runs_root: Optional[Path],
+    artifacts: Mapping[tuple[str, int], tuple[dict, ...]] = {},
 ) -> TaskTelemetry:
     """Assemble one task's run facts from already-read board evidence."""
     task_id = str(row["id"])
@@ -359,6 +396,13 @@ def _task_telemetry(
     worktree = worktrees.get(task_id)
     workspace_kind = _optional_text(row["workspace_kind"])
     model, provider = _run_metadata(run["metadata"]) if run is not None else (None, None)
+    verify_evidence = None
+    if run is not None and not run_active:
+        exit_code = _verify_exit(run["metadata"])
+        if exit_code is not None:
+            verify_evidence = f"run recorded verify exit {exit_code}"
+        elif _optional_text(run["summary"]):
+            verify_evidence = f"run summary: {_optional_text(run['summary'])}"
     return TaskTelemetry(
         run_id=run_id,
         run_status=run_status,
@@ -396,8 +440,10 @@ def _task_telemetry(
             logs=logs,
             run_status=run_status,
             run_active=run_active,
+            verify_evidence=verify_evidence,
         ),
         logs=logs,
+        artifacts=artifacts.get((task_id, run_id), ()) if run_id is not None else (),
     )
 
 
@@ -410,7 +456,7 @@ def _read_board(
     try:
         try:
             task_rows = conn.execute(
-                "SELECT id, title, status, current_run_id, workspace_path, workspace_kind, "
+                "SELECT id, title, body, status, current_run_id, workspace_path, workspace_kind, "
                 "branch_name, current_step_key, worker_pid, claim_lock, claim_expires, "
                 "started_at, last_heartbeat_at, model_override, provider_override FROM tasks "
                 "ORDER BY priority DESC, created_at ASC"
@@ -421,6 +467,7 @@ def _read_board(
             runs = _read_run_rows(conn)
             worktrees = _read_worktrees(conn)
             event_kinds = _read_run_event_kinds(conn)
+            artifact_rows = _read_artifact_rows(conn)
         except sqlite3.Error as exc:
             raise DashboardSourceError("board schema cannot supply dashboard evidence") from exc
         rules, rule_errors = _read_active_rules(conn)
@@ -432,7 +479,9 @@ def _read_board(
                     _task_telemetry(
                         row, runs=runs, worktrees=worktrees,
                         event_kinds=event_kinds, runs_root=runs_root,
+                        artifacts=artifact_rows,
                     ),
+                    _optional_text(row["body"]),
                 )
                 for row in task_rows
             ),

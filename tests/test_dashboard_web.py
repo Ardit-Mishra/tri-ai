@@ -88,7 +88,10 @@ class WebSerializationTests(unittest.TestCase):
         self.assertIn("#05070a", page)
         self.assertIn("neuralGraph", page)
         self.assertIn("advanceGraph", page)
-        self.assertIn("Memory Bank", page)
+        self.assertIn("Learned rules", page)
+        # The page must answer "what is happening" without a tap.
+        self.assertIn('id="nowWhat"', page)
+        self.assertIn("function renderNow(data)", page)
 
         with request.urlopen(base + "/api/snapshot", timeout=2) as response:
             api_payload = json.loads(response.read().decode("utf-8"))

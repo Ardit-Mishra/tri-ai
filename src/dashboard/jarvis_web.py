@@ -88,6 +88,7 @@ def _telemetry_payload(task: jarvis_terminal.TaskView) -> dict[str, object]:
             {"key": phase.key, "state": phase.state, "evidence": phase.evidence}
             for phase in telemetry.phases
         ],
+        "artifacts": [dict(item) for item in telemetry.artifacts],
         "logs": [
             {
                 "name": log.name,
@@ -188,6 +189,30 @@ HTML = r"""<!doctype html>
     /* Removes the 300ms synthetic click delay without disabling pinch zoom. */
     .sheet-handle, .memory-rule, .room-window > summary { touch-action:manipulation; }
     .sheet-handle { display:none; }
+    .now { background:linear-gradient(180deg,rgba(0,240,255,.055),rgba(9,14,20,.72)); border:1px solid var(--line); margin-top:14px; padding:16px 18px; position:relative; }
+    .now::before { border-left:2px solid var(--cyan); border-top:2px solid var(--cyan); content:""; height:14px; left:-1px; position:absolute; top:-1px; width:14px; }
+    .now-kicker { align-items:center; color:var(--muted); display:flex; font-size:10px; gap:8px; letter-spacing:.08em; text-transform:uppercase; }
+    .now-live { background:var(--emerald); border-radius:9999px; box-shadow:0 0 10px rgba(0,255,157,.7); height:8px; width:8px; animation:pulse 1.6s ease-in-out infinite; }
+    .now-idle { background:rgba(148,163,184,.5); border-radius:9999px; height:8px; width:8px; }
+    .now-what { color:var(--text); font-family:Inter,ui-sans-serif,system-ui,"Segoe UI",sans-serif; font-size:19px; font-weight:600; line-height:1.35; margin:10px 0 0; overflow-wrap:anywhere; }
+    .now-sub { color:var(--muted); font-size:12px; margin-top:8px; }
+    .now-sub b { color:var(--cyan); font-weight:600; }
+    .now-steps { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+    .now-step { border:1px solid rgba(148,163,184,.28); border-radius:9999px; color:var(--muted); font-size:10px; padding:4px 10px; }
+    .now-step.done { border-color:#00ff9d55; color:var(--emerald); }
+    .now-step.active { background:rgba(0,240,255,.12); border-color:#00f0ff88; color:var(--cyan); }
+    .now-step.skipped { opacity:.45; }
+    .now-say { background:rgba(2,5,8,.6); border-left:2px solid rgba(0,240,255,.4); color:#bfe9ff; font-size:11px; line-height:1.55; margin-top:12px; padding:9px 11px; overflow-wrap:anywhere; }
+    .now-files { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .now-file { align-items:center; background:rgba(0,255,157,.08); border:1px solid #00ff9d44; border-radius:9999px; color:var(--emerald); display:inline-flex; font-size:11px; gap:6px; padding:6px 12px; text-decoration:none; }
+    .now-file:hover { background:rgba(0,255,157,.16); }
+    @media (max-width:767px) {
+      .now { padding:14px; }
+      .now-what { font-size:17px; }
+      .graph-panel { min-height:300px; }
+      #neuralGraph { height:260px; }
+      .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
     @media (max-width:767px) {
       .hud-grid { grid-template-columns:1fr; }
       .hud-aside { background:rgba(4,7,11,.97); border-top:1px solid var(--cyan); bottom:0; box-shadow:0 -14px 34px rgba(0,0,0,.55); gap:10px; grid-template-columns:1fr; left:0; max-height:78vh; overflow-y:auto; padding:0 12px 16px; position:fixed; right:0; transform:translateY(calc(100% - 44px)); transition:transform .26s ease; z-index:40; }
@@ -210,26 +235,34 @@ HTML = r"""<!doctype html>
         <div class="services" id="services" aria-label="Daemon service state"></div>
       </div>
     </header>
+    <section class="now" id="now" aria-live="polite">
+      <div class="now-kicker"><i class="now-idle" id="nowPip"></i><span id="nowKicker">Checking…</span></div>
+      <p class="now-what" id="nowWhat">—</p>
+      <div class="now-sub" id="nowSub"></div>
+      <div class="now-steps" id="nowSteps"></div>
+      <div class="now-say" id="nowSay" hidden></div>
+      <div class="now-files" id="nowFiles"></div>
+    </section>
     <section class="metrics" aria-label="System metrics">
-      <div class="metric"><label>Total tasks</label><strong id="total">-</strong></div>
-      <div class="metric"><label>Active runs</label><strong id="active">-</strong></div>
-      <div class="metric"><label>Ledger entries</label><strong id="ledger">-</strong></div>
-      <div class="metric"><label>Accepted rules</label><strong id="rules">-</strong></div>
+      <div class="metric"><label>Tasks</label><strong id="total">-</strong></div>
+      <div class="metric"><label>Running now</label><strong id="active">-</strong></div>
+      <div class="metric"><label>Finished runs</label><strong id="ledger">-</strong></div>
+      <div class="metric"><label>Learned rules</label><strong id="rules">-</strong></div>
     </section>
     <section class="hud-grid" aria-label="Neural task and memory map">
       <section class="hud-panel graph-panel">
-        <div class="panel-head"><strong>Neural Task Topology</strong><span id="graphSummary">Awaiting evidence</span></div>
+        <div class="panel-head"><strong>Task map</strong><span id="graphSummary">Awaiting evidence</span></div>
         <canvas id="neuralGraph" role="img" aria-label="Interactive task dependency and accepted-rule graph"></canvas>
         <div class="graph-hint">Drag canvas to pan // double-tap or wheel to zoom // tap a node to inspect</div>
         <div class="graph-legend"><span><i class="legend-dot" style="background:#00f0ff"></i>ready</span><span><i class="legend-dot" style="background:#00ff9d"></i>done</span><span><i class="legend-dot" style="background:#ff4d6d"></i>failed/cancelled</span><span><i class="legend-dot" style="background:#ffb703"></i>accepted rule</span></div>
       </section>
       <aside class="hud-aside" id="hudAside">
         <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Toggle inspector sheet"><span></span><em id="sheetLabel">Inspector</em></div>
-        <section class="hud-panel"><div class="panel-head"><strong>Node Inspector</strong><span>read only</span></div><div id="inspector" class="inspector-empty">Select a task or accepted rule.</div></section>
-        <section class="hud-panel"><div class="panel-head"><strong>Memory Bank</strong><span id="memoryCount">0 accepted</span></div><div id="memoryBank" class="memory-empty">No accepted procedural rules.</div></section>
+        <section class="hud-panel"><div class="panel-head"><strong>Details</strong><span>read only</span></div><div id="inspector" class="inspector-empty">Select a task or accepted rule.</div></section>
+        <section class="hud-panel"><div class="panel-head"><strong>Learned rules</strong><span id="memoryCount">0 accepted</span></div><div id="memoryBank" class="memory-empty">No accepted procedural rules.</div></section>
       </aside>
     </section>
-    <div class="section-title">Evidence terminal</div>
+    <div class="section-title">Recent activity</div>
     <section class="evidence"><div class="terminal" id="events"></div></section>
     <div class="state" id="connection">Connecting to local evidence stream...</div>
   </main>
@@ -241,6 +274,13 @@ HTML = r"""<!doctype html>
     // the exact clock value stays reachable as the element's title so nothing
     // is lost. Both come from the same recorded epoch seconds.
     const absoluteTime = ts => typeof ts==='number' ? new Date(ts*1000).toLocaleString() : 'not recorded';
+    function elapsedSince(ts) {
+      if(typeof ts!=='number')return null;
+      const span=Math.max(0,Math.floor(Date.now()/1000-ts));
+      if(span<60)return `${span}s ago`;
+      if(span<3600)return `${Math.floor(span/60)}m ${span%60}s ago`;
+      return `${Math.floor(span/3600)}h ${Math.floor((span%3600)/60)}m ago`;
+    }
     function timeAgo(ts) {
       if(typeof ts!=='number')return '-';
       const span=Math.max(0,Math.floor(Date.now()/1000-ts));
@@ -302,7 +342,7 @@ HTML = r"""<!doctype html>
       hud.groups=workspaceGroups();
       if (!hud.selected || !hud.nodeById.has(hud.selected)) hud.selected=hud.nodes[0]?.id||null;
       const rooms=hud.nodes.filter(node=>node.tier==='room').length,stages=hud.nodes.filter(node=>node.tier==='stage').length;
-      setText(byId('graphSummary'),`${rooms} rooms // ${stages} stages // ${data.rules.length} rules // ${hud.edges.length} links`);
+      renderNow(data); setText(byId('graphSummary'),`${rooms + stages} task${rooms + stages === 1 ? '' : 's'}${hud.edges.length ? ` // ${hud.edges.length} linked` : ''}`);
       renderInspector(); renderMemory();
     }
     function resizeCanvas() { const rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1; const width=Math.max(1,Math.round(rect.width*ratio)),height=Math.max(1,Math.round(rect.height*ratio)); if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;} ctx.setTransform(ratio,0,0,ratio,0,0); return rect; }
@@ -382,6 +422,56 @@ HTML = r"""<!doctype html>
         grid.append(citation); root.append(grid);
       }
     }
+    function renderNow(data) {
+      const running=data.tasks.filter(task=>task.status==='running');
+      const pip=byId('nowPip'),steps=byId('nowSteps'),say=byId('nowSay'),files=byId('nowFiles');
+      clear(steps); clear(files); say.hidden=true;
+
+      if(running.length){
+        const task=running[0],tel=task.telemetry||{phases:[],logs:[]};
+        pip.className='now-live';
+        setText(byId('nowKicker'),running.length>1?`Working on ${running.length} things`:'Working on it');
+        setText(byId('nowWhat'),taskLabel(task));
+        const phase=(tel.phases||[]).find(p=>p.state==='active');
+        const elapsed=elapsedSince(tel.started_at);
+        const sub=byId('nowSub'); clear(sub);
+        sub.append(make('span','Started '),make('b',elapsed||'just now'),
+                   make('span',phase?` · now ${(PHASE_PLAIN[phase.key]||phase.key).toLowerCase()}`:''));
+        (tel.phases||[]).forEach(p=>steps.append(make('span',PHASE_PLAIN[p.key]||p.key,`now-step ${p.state}`)));
+        const agent=(tel.logs||[]).find(log=>log.name==='agent'&&log.lines&&log.lines.length);
+        if(agent){ setText(say,agent.lines[agent.lines.length-1]); say.hidden=false; }
+        return;
+      }
+
+      // Nothing running: report the most recent finished task and what it made.
+      const finished=data.tasks.filter(task=>task.telemetry&&task.telemetry.ended_at)
+        .sort((a,b)=>(b.telemetry.ended_at||0)-(a.telemetry.ended_at||0));
+      pip.className='now-idle';
+      if(!finished.length){
+        setText(byId('nowKicker'),'Idle');
+        setText(byId('nowWhat'),'Nothing has run yet.');
+        clear(byId('nowSub'));
+        return;
+      }
+      const task=finished[0],tel=task.telemetry;
+      setText(byId('nowKicker'),'Nothing running — last finished');
+      setText(byId('nowWhat'),taskLabel(task));
+      const sub=byId('nowSub'); clear(sub);
+      const verdict=task.status==='done'?'Finished':task.status==='cancelled'?'Cancelled':'Stopped';
+      sub.append(make('b',verdict),make('span',` ${timeAgo(tel.ended_at)}`));
+      (tel.phases||[]).forEach(p=>steps.append(make('span',PHASE_PLAIN[p.key]||p.key,`now-step ${p.state}`)));
+      const made=(tel.artifacts||[]);
+      if(made.length){
+        files.append(make('span',`Made ${made.length} file${made.length===1?'':'s'}:`,'now-sub'));
+        made.forEach((artifact,index)=>{
+          const link=document.createElement('a');
+          link.className='now-file'; link.href=`/artifact/${task.id}/${index}`;
+          link.target='_blank'; link.rel='noopener';
+          setText(link,`${artifact.path} ↗`);
+          files.append(link);
+        });
+      }
+    }
     function renderMemory() {
       const root=byId('memoryBank'),data=hud.data; clear(root); setText(byId('memoryCount'),`${data.rules.length} accepted`);
       if(!data.rules.length){root.className='memory-empty';root.textContent='No accepted procedural rules.';return;} root.className='memory-list';
@@ -430,10 +520,15 @@ HTML = r"""<!doctype html>
       if(!value)return '(untitled)';
       return value.length<=limit?value:`${value.slice(0,limit-1).trimEnd()}…`;
     }
+    // The intake title is generic ("Telegram: tri-ai"); the prompt is what the
+    // operator actually asked for, and is the only label that tells them apart.
+    const taskLabel = task => (task && task.prompt && task.prompt.trim()) || (task && task.title) || '(untitled)';
+    const narrowCanvas = () => canvas.getBoundingClientRect().width < 420;
+    const PHASE_PLAIN = {claimed:'Picked up', worktree_prep:'Workspace ready', agent_active:'Building', verify_gate:'Testing'};
     const shortId = id => { const value=String(id); return value.length>12?`${value.slice(0,10)}…`:value; };
     function drawNamePlate(node,x,y,bounds,leftward) {
       if(node.kind!=='task'){drawLabelPill(node.label,x,y,bounds);return;}
-      const title=truncate(node.detail.title,22),id=shortId(node.detail.id);
+      const title=truncate(taskLabel(node.detail),narrowCanvas()?18:22),id=shortId(node.detail.id);
       const tag=workspaceTag(node.detail.workspace_path),tint=workspaceTint(node.detail.workspace_path);
       ctx.save(); ctx.shadowBlur=0; ctx.textBaseline='middle';
       ctx.font='700 11px "JetBrains Mono", monospace'; const titleWidth=ctx.measureText(title).width;
@@ -697,6 +792,7 @@ def snapshot_payload(snapshot: jarvis_terminal.DashboardSnapshot) -> dict[str, o
         "tasks": [
             {
                 "id": task.task_id, "title": task.title, "status": task.status,
+                "prompt": task.prompt,
                 "run_id": task.run_id, "workspace_path": task.workspace_path,
                 "telemetry": _telemetry_payload(task),
             }
