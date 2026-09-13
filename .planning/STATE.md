@@ -146,6 +146,55 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**Mobile ergonomics and the neural lattice, 2026-09-13.** Confirming a task
+meant copying a hex id on a phone; knowing whether anything was happening meant
+typing `/status` until it changed. Staged requests now carry Confirm/Cancel
+buttons (the id stays in the text, so tapping is the convenience and typing the
+fallback), bare `/confirm` resolves when exactly one request is outstanding and
+lists them when ambiguous, and `/run` with no alias offers the workspaces as
+buttons. A single progress card per task per chat is edited in place through
+claimed -> building -> testing and closed on a terminal phase; an unchanged
+phase costs no edit, so an idle poll makes no Telegram calls, and a failed edit
+leaves the phase unrecorded so the next poll retries. Small self-contained text
+artifacts upload as documents beside the link - a link needs the tailnet, a file
+does not. `StagedReply` subclasses `str` so every existing caller is unaffected.
+
+The canvas became a firing neural lattice: axons are quadratic curves bowed
+perpendicular to their own run, action potentials travel an axon only while its
+upstream task is running (a still lattice means nothing is executing, which is
+the point), clusters render as layered volumetric fields, and the soma reads its
+state - running pulses, done settles, cancelled dims to a dormant amber trace.
+A second finger becomes a pinch rather than fighting the drag. Artifacts open in
+a sandboxed in-HUD frame reset to `about:blank` on close. HiDPI scaling and
+`touch-action:none` were already in place and were left unchanged.
+
+**Intake pre-flight closes the workspace trap.** A plain-text edit aimed at
+`celestial.html` went to the default workspace, which did not contain it, so the
+agent wrote a new page instead of editing the intended one - and nothing said so
+until the run finished. Staging now names its target workspace and reports files
+a prompt references that the workspace does not hold. It warns only when the
+workspace was actually read and held none of them: a prompt naming one present
+and one new file is ordinary work, and a workspace that could not be read proves
+nothing about absence. A test caught the first version warning about "missing"
+files in a directory it had never opened.
+
+**Live verification (2026-09-13):** the daemon fleet runs on this desktop
+(`VIVO-S14`, the same host as tailscale `vivo-s14`); `daemons.json` reports
+`running` with all three PIDs alive, and `process_liveness.pid_alive` -
+`GetExitCodeProcess == STILL_ACTIVE` - returns True for each and False for an
+unused PID. `daemon_supervisor._is_alive` routes through it.
+
+**Still unproven:** the reply-to-revise path has passed its tests but has never
+been exercised on a real phone - `task_links` is still empty, so the lattice has
+no axon to fire along and the linked-follow-up flow has no live evidence. The
+inline keyboards likewise have never been tapped. Artifact capture still
+attributes a concurrent writer's edits to the run; a tree snapshot at claim does
+not fix it, because the clean-tree precheck already guarantees an empty baseline
+and git cannot say who wrote a file. GenClarus remains registered but undriven.
+
+**Latest verification:** `python tests/run.py` -> **395 tests, exit 0,
+163.906s** (2026-09-13).
+
 **Phase 6 complete and accepted (2026-09-13).** Slice 5 closed the gap where a
 task could finish, write a real file, and tell nobody. Produced files are
 captured from the workspace on the verified-pass path (`git status --porcelain`
