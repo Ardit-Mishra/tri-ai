@@ -27,10 +27,11 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 IS_WINDOWS = sys.platform == "win32"
 
@@ -567,6 +568,7 @@ def run_agent(
     *,
     timeout: int,
     usage_path: Optional[Path] = None,
+    on_activity: Optional[Callable[[], None]] = None,
 ) -> AgentResult:
     """Launch Hermes one-shot. argv list, never a shell.
 
@@ -575,6 +577,12 @@ def run_agent(
     configured model name would be an assertion, and the ledger is the one file
     that must contain none — so when the usage file is absent or lacks the
     field, ``model`` stays None and ``model_source`` says "unavailable".
+
+    ``on_activity`` is called on a reader thread each time the agent emits
+    output. It exists so a caller can distinguish an agent that is working from
+    one that is merely running, and it must stay cheap and non-blocking — it
+    runs on the thread draining the pipe, and stalling there would deadlock the
+    child once its buffer fills.
     """
     argv = [str(hermes_bin()), "-z", build_prompt(repo, prompt)]
     if usage_path is not None:
@@ -601,27 +609,56 @@ def run_agent(
     except (OSError, ContainmentError) as exc:
         return AgentResult(1, f"{type(exc).__name__}: {exc}", 0.0)
 
+    # Drain stdout on a reader thread rather than through `communicate()`.
+    # `communicate()` hands back one string at the end, which is fine for the
+    # log but useless as a liveness signal: the caller cannot tell an agent
+    # working steadily from one wedged on a hung socket until the whole run is
+    # over. Reading incrementally serves the same anti-deadlock purpose (the
+    # pipe never fills) and makes each chunk observable as it arrives, which is
+    # what `on_activity` reports. It is deliberately raw evidence — bytes left
+    # the agent — not the agent's opinion about its own progress.
+    captured: list[str] = []
+
+    def _drain() -> None:
+        stream = contained.proc.stdout
+        if stream is None:
+            return
+        try:
+            for chunk in stream:
+                captured.append(chunk)
+                if on_activity is not None:
+                    try:
+                        on_activity()
+                    except Exception:
+                        # A liveness callback must never take down the run.
+                        pass
+        except (OSError, ValueError):
+            pass
+
+    reader = threading.Thread(target=_drain, name="agent-stdout", daemon=True)
+    reader.start()
+
     try:
-        out, _ = contained.proc.communicate(timeout=timeout)
+        contained.proc.wait(timeout=timeout)
         code = contained.proc.returncode
+        reader.join(timeout=15)
         gone, survivors = contained.terminate_tree(grace=5)
         tree_survived = not gone
         if not gone:
-            out = (out or "") + f"\nagent process tree SURVIVED (pids {survivors})"
+            captured.append(f"\nagent process tree SURVIVED (pids {survivors})")
     except subprocess.TimeoutExpired:
         gone, survivors = contained.terminate_tree()
         tree_survived = not gone
-        try:
-            out, _ = contained.proc.communicate(timeout=15)
-        except Exception:
-            out = ""
-        out = (out or "") + (
+        # The tree is down, so the pipe is closed and the reader will finish.
+        reader.join(timeout=15)
+        captured.append(
             f"\nagent TIMEOUT after {timeout}s; process tree "
             + ("terminated" if gone else f"SURVIVED (pids {survivors})")
         )
         code = 124
     finally:
         contained.close()
+    out = "".join(captured)
     elapsed = round(time.time() - started, 2)
 
     model = provider = None

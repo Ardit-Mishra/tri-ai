@@ -148,7 +148,8 @@ class WorkerVerifyGate(BoardTestCase):
         agent = self._agent(0)
         with mock.patch.object(
             executor, "run_agent",
-            side_effect=lambda repo_arg, prompt, timeout, usage_path=None: (
+            side_effect=lambda repo_arg, prompt, timeout, usage_path=None,
+            on_activity=None: (
                 seen.update(repo=repo_arg, prompt=prompt, timeout=timeout),
                 agent,
             )[1],

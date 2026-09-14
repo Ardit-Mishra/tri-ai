@@ -234,8 +234,13 @@ class UsageFileIsReadForCompletion(unittest.TestCase):
         class FakeProc:
             returncode = exit_code
 
-            def communicate(self, timeout=None):
-                return ("out\n", None)
+            def __init__(self):
+                # run_agent drains this on a reader thread; an iterable of
+                # lines is what a real pipe presents.
+                self.stdout = iter(["out\n"])
+
+            def wait(self, timeout=None):
+                return exit_code
 
         class FakeContained:
             def __init__(self, usage_path):
