@@ -537,21 +537,30 @@ class TelegramDaemon:
             if not text and not offered:
                 continue
 
-            stored: tuple[attachments.StoredAttachment, ...] = ()
             if offered:
-                stored, rejected = self._store_attachments(chat_id, offered)
+                # Everything lands in `pending/` first, whether or not it came
+                # with words. Claiming is then the single step that decides a
+                # file belongs to a request, so there is one path per file and
+                # one place that moves it.
+                held, rejected = self._store_attachments(chat_id, offered)
                 for note in rejected:
                     self._api.send_message(chat_id=chat_id, text=note)
                 if not text:
                     # Files with no words. Hold them for the next instruction
                     # rather than guessing what they are for.
                     self._api.send_message(
-                        chat_id=chat_id, text=_held_notice(stored),
+                        chat_id=chat_id, text=_held_notice(held),
                     )
                     continue
 
-            # Anything sent earlier without words belongs to this instruction.
-            stored = self._claim_pending(chat_id) + stored
+            # Claim everything waiting, which already includes anything just
+            # stored. Reading the directory rather than adding the just-stored
+            # paths is what keeps this honest: those paths point into
+            # `pending/` and go stale the moment the file moves. An earlier
+            # version listed both, so one logo reached the agent as "2 files"
+            # with one entry naming a path that no longer existed - task
+            # t_3bd071cc went out that way.
+            stored = self._claim_pending(chat_id)
             command = _normalized_command(text)
             if stored and not command.startswith("/"):
                 # Only a natural-language request becomes a task prompt; a slash
