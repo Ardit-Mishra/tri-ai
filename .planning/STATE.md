@@ -146,6 +146,85 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**The Telegram loop is proven end to end, and it found two defects doing it,
+2026-09-14.** The operator sent a task from their phone: *"Build a single home
+page that shows a live analog clock with a sweeping second hand, dark theme, no
+external libraries."*
+
+*Inbound works.* Staged `p_ca8cc015d7e63374` -> workspace `tri-ai-sandbox` ->
+confirmed 7s later -> task `t_a180b31e`. Intake, workspace quick-select and
+`/confirm` all fired. Outbound was proven separately: message 112 delivered, and
+the completion card for `t_c13940be` landed as message 115.
+
+*Then it failed, and the failure was mine.* The agent read "home page" as a site
+and wrote `clock/index.html`, `clock/script.js`, `clock/style.css`.
+`git status --porcelain` reports that as a single line - `?? clock/` - because
+git collapses untracked directories unless asked not to. The verifier skipped
+the entry (it names no file), concluded the run produced nothing, and exited 1.
+The worker duly reverted; `git stash -u` saved the files but could not remove
+the directory on Windows (`failed to remove clock/: Permission denied`); the
+post-revert tree read dirty; the workspace was quarantined and the worker
+stopped. **One missing flag turned a correct-looking run into a halted kernel.**
+
+Fixed in tri-ai `864b39e` and sandbox `98535b0` with
+`--untracked-files=all`, added to `GIT_ALLOWED_FORMS` as its own exact form so
+nothing can fall back to the collapsing one. Cleanliness assertions keep plain
+porcelain - they test for dirt, not enumeration.
+
+*A second gate was hollow underneath it.* With enumeration fixed, the same run
+**passed** - on three EMPTY files. The agent had created placeholders and given
+up (*"I'm unable to create the analog clock for you right now... The commands
+are failing due to syntax errors"*), and an empty string is valid input to
+`HTMLParser`, so existence and parseability both passed on nothing. The verifier
+now requires content. Note the correct outcome for run 30 was always FAIL; the
+verifier was reaching it for the wrong reason.
+
+*A diagnosis of mine was wrong.* I told the operator the claim lease had expired
+and killed the agent mid-run. Codex disproved it: `run_once` registers
+`worker_pid` after claim and the kernel *extends* an expired claim when the
+host-local PID is alive (`reclaimed 0 / expires_extended True`). Run 30 was
+reclaimed because the worker had already stopped itself after quarantining. The
+real gap is the inverse: `last_heartbeat_at` is only ever set to NULL, and the
+kernel treats NULL as never-stale, so a live-but-wedged worker is extendable
+forever. **Unfixed, and the right fix is a heartbeat that represents real
+progress rather than a blind timer.**
+
+**Codex review of the batch - four findings, every one with a repro.**
+
+1. *BLOCKER, now closed (`f37020c`).* The runtime gate from `cf4ddbc` read
+   `runtime_failed` truthily, so it only caught a runtime that ran and recorded
+   failure. When hermes cannot spawn at all, `run_agent` returns
+   `AgentResult(1, msg)` with no usage file and `runtime_failed=None` - which
+   walked into verify and was accepted on the previous run's output
+   (`attempt passed / task_status done / verify_calls 1`). None alone still
+   means nothing; None **plus a non-zero exit** now fires the gate
+   (`environment_backoff / ready / verify_calls 0`).
+   Codex also caught that my own test proved the wrong thing:
+   `test_no_usage_record_leaves_the_verify_command_as_the_only_gate` passed
+   `agent_writes=[...]`, demonstrating compatibility for a completed run and
+   never exercising the dangerous case. Four tests added for what it missed.
+2. *HIGH, now closed (`f37020c`).* Artifact enumeration could fan out into
+   unbounded uploads: the card truncated what it *named* at 6, but
+   `deliverable_documents` returned every match, so 250 small pages queued 250
+   `sendDocument` calls. Capped at `MAX_DOCUMENTS_SENT`.
+3. *MEDIUM, now closed (sandbox `f854d25`).* `MIN_DELIVERABLE_BYTES` applied per
+   file would reject `body{margin:0}` (14 bytes) beside a real `index.html`. The
+   bar belongs to the run: at least one produced file must carry content.
+4. *MEDIUM, open.* The heartbeat gap above.
+
+Codex confirmed the allowlist widening is safe (only the exact form is
+admitted), that remaining plain-porcelain uses are all cleanliness assertions,
+and that environment backoff is bounded when the signal exists
+(`backoff, backoff, backoff, exhausted` -> `blocked`).
+
+*The re-run succeeded.* `t_a180b31e` run 33: `clock.html`, 5,569 bytes, one
+artifact recorded, delivered as message 121. Verified independently of the
+agent's report - served and driven in a browser, the digital readout advanced
+`1:02:58` -> `1:03:02` and the second hand swept with it. Zero external
+dependencies.
+
+**Latest verification:** `python tests/run.py` -> **437 tests, exit 0**.
+
 **GitHub is not a model source for this project, 2026-09-13.** Checked directly
 rather than assumed, because the config still carried `github/*` aliases.
 
