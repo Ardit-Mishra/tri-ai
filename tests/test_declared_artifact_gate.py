@@ -43,6 +43,7 @@ class DeclaredArtifactGate(BoardTestCase):
         (self.repo / "marker.txt").write_text("baseline\n", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=self.repo, check=True)
         subprocess.run(["git", "commit", "-qm", "baseline"], cwd=self.repo, check=True)
+        self.verify_calls: list[str] = []
 
     def task(self, *, declares=()) -> str:
         return board.create_task(
@@ -65,6 +66,7 @@ class DeclaredArtifactGate(BoardTestCase):
             return executor.AgentResult(0, "agent ran\n", 1.0)
 
         def run_verify(*_args, **_kwargs):
+            self.verify_calls.append("ran")
             for name, body in verify_writes:
                 (self.repo / name).write_text(body, encoding="utf-8")
             return verify or executor.VerifyResult("passed", 0, "ok\n", 0.2)
@@ -132,6 +134,48 @@ class DeclaredArtifactGate(BoardTestCase):
         self.assertNotIn(
             "coverage.xml", recorded,
             "the verify command's own output was attributed to the agent",
+        )
+
+    # -- ordering: the gate is upstream of the command ---------------------
+
+    def test_a_missing_deliverable_means_verify_is_never_invoked(self):
+        """A verify command is not required to be free of side effects.
+
+        The sandbox verifier files each run into a dated folder and commits it.
+        With this check downstream of the command, run 38 of t_80dab89f had its
+        scattered output archived and listed in the workspace gallery as a
+        delivered result before the gate failed the task, and the revert that
+        followed found a clean tree with nothing to undo.
+
+        The agent's output is known the moment it exits, so a run that did not
+        produce what it promised gets no command at all.
+        """
+        tid = self.task(declares=["report.html"])
+        attempt = self.run_task(tid, agent_writes=[("notes.txt", "something else")])
+        self.assertEqual(attempt.outcome, "failed")
+        self.assertEqual(
+            self.verify_calls, [],
+            "the verify command ran for a run that had already failed its "
+            "declared-artifact contract - anything it writes or commits is now "
+            "attached to work that was rejected",
+        )
+
+    def test_a_produced_deliverable_still_reaches_the_command(self):
+        tid = self.task(declares=["report.html"])
+        attempt = self.run_task(tid, agent_writes=[("report.html", "<h1>done</h1>")])
+        self.assertEqual(attempt.outcome, "passed")
+        self.assertEqual(self.verify_calls, ["ran"])
+
+    def test_the_workspace_is_restored_when_the_gate_fails(self):
+        tid = self.task(declares=["report.html"])
+        self.run_task(tid, agent_writes=[("half.txt", "partial work")])
+        status = subprocess.run(
+            ["git", "status", "--porcelain"], cwd=self.repo,
+            capture_output=True, text=True, check=True,
+        )
+        self.assertEqual(
+            status.stdout.strip(), "",
+            "the rejected run's writes were left in the workspace",
         )
 
 
