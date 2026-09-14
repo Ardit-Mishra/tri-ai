@@ -303,12 +303,31 @@ def execute_task(
     # change, and any verifier that inspects state rather than a diff passes on
     # the previous run's output. The task is retried, not blamed — a model the
     # provider does not serve is an environment fault, not a logic one.
-    if agent.runtime_failed:
+    #
+    # Two shapes reach this gate, and the second was missed on the first pass:
+    #
+    #   runtime_failed is True  — a turn ran and the runtime recorded failure.
+    #   runtime_failed is None  — no usage record exists at all. On its own that
+    #       means nothing (a runtime that completed may simply not write one, so
+    #       None must stay compatible), but paired with a NON-ZERO exit it means
+    #       the process died before it could write one: hermes missing, spawn
+    #       refused, killed at the timeout. `run_agent` returns exactly that on
+    #       its containment-failure path — AgentResult(1, "FileNotFoundError:
+    #       hermes.exe not found") with no usage file — and without this clause
+    #       such a launch failure walks straight into verify and a
+    #       state-inspecting verifier accepts the *previous* run's output.
+    #       Same hollow gate as run 26, reached through a different door.
+    launch_failed = agent.runtime_failed is None and agent.exit_code != 0
+    if agent.runtime_failed or launch_failed:
         last = next(
             (ln for ln in reversed(agent.output.strip().splitlines()) if ln.strip()),
             "",
         )
-        _write_log(verify_log, "worker: verify never invoked — agent runtime reported failure\n")
+        why = (
+            "agent runtime exited %d without recording a turn" % agent.exit_code
+            if launch_failed else "agent runtime reported failure"
+        )
+        _write_log(verify_log, f"worker: verify never invoked — {why}\n")
         unrestored = _restore_workspace(
             conn, claimed, run_id, repo, branch, agent_log=agent_log,
             verify_log=verify_log, ledger_path=lp, started=started,
@@ -319,8 +338,7 @@ def execute_task(
         return _environment_backoff(
             conn, claimed, run_id, repo, branch,
             verify_outcome=None, verify_exit=None, agent=agent,
-            reason=f"agent runtime did not complete its turn: {last[:250]}"
-            if last else "agent runtime did not complete its turn",
+            reason=f"{why}: {last[:250]}" if last else why,
             ledger_path=lp, agent_log=agent_log, verify_log=verify_log,
             seconds=agent.seconds,
         )
