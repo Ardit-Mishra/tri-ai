@@ -723,6 +723,35 @@ def record_proposal_notification(
     return inserted == 1
 
 
+def relocate_run_artifact(
+    conn: sqlite3.Connection,
+    *,
+    task_id: str,
+    run_id: int,
+    old_path: str,
+    new_path: str,
+) -> bool:
+    """Point a recorded artifact at where the file actually is now.
+
+    Artifacts are captured the moment the agent exits, which is the only point
+    at which "the agent produced this" is provable. A verify command may then
+    move them — the sandbox verifier files each run into a dated folder — and
+    the recorded path is left naming nothing, so artifact serving and Telegram
+    delivery both reach for files that are no longer there.
+
+    This updates the *location* only. Attribution is untouched: the row still
+    says this run produced this file, which is what was observed and remains
+    true. It is never a way to add an artifact that was not captured.
+    """
+    with kanban().write_txn(conn):
+        cur = conn.execute(
+            "UPDATE triai_run_artifacts SET path = ? "
+            "WHERE task_id = ? AND run_id = ? AND path = ?",
+            (str(new_path), str(task_id), int(run_id), str(old_path)),
+        )
+    return cur.rowcount == 1
+
+
 def record_run_artifacts(
     conn: sqlite3.Connection,
     *,

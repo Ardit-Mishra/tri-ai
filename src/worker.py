@@ -479,6 +479,7 @@ def execute_task(
                 seconds=seconds, skip_board=True,
             )
         _record_artifacts(conn, task_id, run_id, repo, agent_artifacts)
+        _relocate_moved_artifacts(conn, task_id, run_id, repo)
         entry = _entry(
             claimed, run_id=run_id, repo=repo, branch=branch,
             outcome="passed", verify_exit=0, verify_outcome="passed",
@@ -724,6 +725,54 @@ def _heartbeat_while_active(
     finally:
         stop.set()
         thread.join(timeout=5)
+
+
+def _relocate_moved_artifacts(conn, task_id: str, run_id: int, repo: Path | str) -> int:
+    """Re-point recorded artifacts a verify command moved. Location only.
+
+    A verify command may relocate what it verified — the sandbox verifier files
+    each run into `runs/YYYY-MM-DD-slug/`. Artifacts were recorded at agent
+    exit, before that, so every recorded path then names nothing: artifact
+    serving 404s and Telegram delivery queues uploads for files that are not
+    there. Measured after the filing change landed: every artifact row in the
+    sandbox, eight of eight, pointed at a path that no longer existed.
+
+    Only rows whose path has stopped resolving are touched, and only when the
+    workspace holds exactly ONE file with that name and size. An ambiguous
+    match is left alone and reported: a wrong path is worse than a missing one,
+    because it looks like evidence. Attribution never changes — the row still
+    says this run produced this file, which is what was observed.
+    """
+    root = Path(repo)
+    moved = 0
+    for row in board.run_artifacts(conn, task_id=task_id):
+        if int(row.get("run_id") or 0) != int(run_id):
+            continue
+        recorded = str(row.get("path") or "")
+        if not recorded or (root / recorded).exists():
+            continue
+        name = Path(recorded).name
+        size = row.get("size_bytes")
+        candidates = [
+            c for c in root.rglob(name)
+            if c.is_file() and ".git" not in c.parts
+            and (size is None or c.stat().st_size == size)
+        ]
+        if len(candidates) != 1:
+            print(
+                f"worker: artifact {recorded!r} moved during verify and could not "
+                f"be located unambiguously ({len(candidates)} candidates); "
+                f"leaving the recorded path as it is",
+                file=sys.stderr,
+            )
+            continue
+        relative = candidates[0].relative_to(root).as_posix()
+        if board.relocate_run_artifact(
+            conn, task_id=task_id, run_id=run_id,
+            old_path=recorded, new_path=relative,
+        ):
+            moved += 1
+    return moved
 
 
 def _restore_workspace(

@@ -118,6 +118,11 @@ def deliverable_documents(
             continue
         if not resolved.is_relative_to(root):
             continue
+        # The record says the file was there when the agent exited; a verify
+        # command may have moved or removed it since. Queueing an upload for a
+        # path that no longer resolves turns one stale row into a failed send.
+        if not resolved.is_file():
+            continue
         picked.append({"path": relative, "absolute": str(resolved), "caption": relative})
         if len(picked) >= MAX_DOCUMENTS_SENT:
             break
