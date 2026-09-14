@@ -49,11 +49,26 @@ CD_PREAMBLE = (
     "Prefix EVERY command with: cd {repo} && \n\n"
 )
 
+# "Touch ONLY the files this task names" was unsatisfiable for the requests this
+# system is actually given. Task t_c9b08613 — "build me a landing page for a
+# brand called Mishwan" — names no files at all, so a careful agent noticed the
+# contradiction and did the reasonable thing: it asked which files it was allowed
+# to create. In a single unattended turn there is nobody to answer, so a correct
+# instinct became a failed run. The rule now distinguishes the two cases, and
+# says plainly that no one is listening.
 HARD_RULES = """
 NON-NEGOTIABLE:
 - Never run: git push, git merge, git rebase, any deploy command.
 - Never modify .env, credentials, tokens, or keys.
-- Touch ONLY the files this task names.
+- If this task names specific files, touch only those. If it does not, create
+  whatever files the work needs inside this workspace, and leave files that are
+  already here alone unless the task asks you to change them.
+- Nobody can answer you. This is one unattended turn with no human watching: a
+  question cannot be replied to and is recorded as a failed run. Where the task
+  is ambiguous, choose the reasonable reading, say which assumption you made in
+  your final message, and do the work.
+- You are judged on what is on disk when you stop, never on what you say. A
+  description of a file is not a file — write it.
 - If you cannot complete the task, say so plainly. Do NOT partially edit a file
   and report success — a half-finished edit is worse than an untouched one.
 """
