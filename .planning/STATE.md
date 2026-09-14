@@ -146,6 +146,70 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**Artifacts filed, and a third review pass, 2026-09-14.** The operator's
+complaint: *"i don't have time to sift through the files... what if the tasks
+required multiple artifacts"*. Ad-hoc work landed flat in the workspace root, so
+the sandbox held `celestial.html`, `clock/`, `clock.html` and
+`telegram-loop-test.html` side by side with nothing saying which run made what.
+
+Each run now gets `runs/YYYY-MM-DD-slug/`, named from the operator's own words,
+holding exactly what it produced with nesting intact plus a `_run.html` landing
+page; `deliverables.html` is the gallery. The slug comes from `TRIAI_TASK_PROMPT`,
+which `executor.verify_env` now passes to the verify command. Existing files were
+backfilled from the board's artifact records. **This is workspace policy, not
+kernel policy** - right for a scratch workspace, wrong for genelens.
+
+*Building it caused three defects, each caught only after it shipped.*
+
+1. **It destroyed a deliverable.** The gallery lived at root `index.html` - the
+   likeliest filename for "make me a web page" - so an agent's own `index.html`
+   was excluded from its run as furniture and then overwritten. Task
+   `t_fd232d1c` lost a file. Naming the per-run page `index.html` repeated the
+   collision one level down. Both names are now reserved.
+2. **It stranded every artifact record.** Artifacts are captured at agent exit;
+   the verifier then moves them. Eight of eight rows pointed at nothing, which
+   breaks artifact serving *and* Telegram delivery - the operator's main
+   channel. `_relocate_moved_artifacts` reconciles location only, refusing
+   ambiguity (5 of 8 repaired; the 3 refused genuinely do not exist).
+3. **It let a rejected run be archived.** The declared-artifact gate ran after
+   verify, so run 38 of `t_80dab89f` had its scattered output filed, committed
+   and listed in the gallery before the gate failed it - and run 39 *failed
+   despite producing all three declared files*, because the verifier had moved
+   them before the gate looked. The gate now runs before verify (`8d25f26`).
+
+**Codex third pass - four findings, all fixed and re-verified against its own
+repros.**
+
+- *BLOCKER*: the verifier staged and committed before its cleanliness check, so
+  a run about to be rejected was archived first. Refusal now precedes any move
+  or commit; a rejected run leaves no commit and no half-filed directory.
+- *HIGH*: the heartbeat's workspace scan capped at 4000 entries with `os.walk`,
+  whose order is undefined - 4001 stale files ahead of the agent's directory and
+  a **healthy** run earns no beat, then gets reclaimed mid-flight. Repro:
+  `fresh_seen False`. Replaced with "did anything change since T", exiting on
+  the first newer file and bounded by time. Same repro: `True` in 0.165s; full
+  walk of genelens 0.499s.
+- *HIGH*: an artifact beyond unambiguous repair was dropped from delivery
+  silently. The card now names how many could not be attached.
+- *MEDIUM*: `TRIAI_TASK_PROMPT` could change an operator verifier's behaviour -
+  `safe & echo x > file` created the file. Shell-active characters are stripped.
+  Verified by side effect, not string match.
+
+**The gate held; the model did not.** `t_c5374def` asked for three named files
+and is **blocked** after two failures: run 40 scattered its output, run 41
+produced nothing and emitted a truncated `"Understood your"`. Both were rejected
+before verify ran, the workspace stayed clean and the gallery uncontaminated.
+That is the system working - and `auto/best-coding` failing a plain
+three-file request twice is its own finding.
+
+**Latest verification:** `python tests/run.py` -> **471 tests, exit 0**.
+
+**Still open:** Tri-AI runs on the laptop (`VIVO-S14`, chassis 10, battery
+present), so closing the lid kills the bot. The always-on host is
+`desktop-jhq7hjm` / `100.67.149.86`, already serving Ollama. SSH is open there
+but keyless and SMB is closed, so the migration is blocked on one manual step:
+installing `~/.ssh/triai_desktop.pub` into `administrators_authorized_keys`.
+
 **The Telegram loop is proven end to end, and it found two defects doing it,
 2026-09-14.** The operator sent a task from their phone: *"Build a single home
 page that shows a live analog clock with a sweeping second hand, dark theme, no
