@@ -16,13 +16,16 @@ MAX_ARTIFACTS_SHOWN = 6
 # the operator to be on the tailnet; the file itself does not.
 DOCUMENT_SUFFIXES = frozenset({".html", ".htm", ".json", ".txt", ".md", ".csv"})
 DOCUMENT_MAX_BYTES = 2 * 1024 * 1024
-# Upper bound on files uploaded for one run. The card already truncates what it
-# *names* at MAX_ARTIFACTS_SHOWN, but uploads were uncapped: a run that wrote
-# 250 small pages queued 250 sendDocument calls behind one tidy-looking card.
-# Artifact capture enumerates untracked files individually, so a stray build
-# directory is enough to reach that. The card's link to the dashboard remains
-# the complete list; this bounds only what is pushed at the operator.
-MAX_DOCUMENTS_SENT = 5
+# Upper bound on files uploaded for one run. Uploads used to be uncapped: a run
+# that wrote 250 small pages queued 250 sendDocument calls behind one tidy card,
+# and artifact capture enumerating untracked files individually means a stray
+# build directory reaches that easily.
+#
+# It matches MAX_ARTIFACTS_SHOWN deliberately. At 5-against-6 the card linked a
+# sixth file that was never going to arrive, which is a small lie of exactly the
+# kind this project exists to refuse. Every file the card names as a link is a
+# file it also tries to send, and when there are more the card says so in words.
+MAX_DOCUMENTS_SENT = MAX_ARTIFACTS_SHOWN
 OUTCOME_MARK = {"completed": "DONE", "cancelled": "CANCELLED", "failed": "FAILED"}
 
 
@@ -175,7 +178,14 @@ def render(
             if dashboard_url:
                 lines.append(f"    {artifact_url(dashboard_url, task_id, index)}")
         if len(artifacts) > MAX_ARTIFACTS_SHOWN:
-            lines.append(f"  … and {len(artifacts) - MAX_ARTIFACTS_SHOWN} more")
+            # Say what is NOT coming. The operator otherwise counts the files
+            # named above, counts the attachments, and has to guess why they
+            # differ.
+            held = len(artifacts) - MAX_ARTIFACTS_SHOWN
+            lines.append(
+                f"  … and {held} more, not attached — open the dashboard for all "
+                f"{len(artifacts)}"
+            )
     else:
         lines.extend(["", "produced no files in the workspace"])
 
