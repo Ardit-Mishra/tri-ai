@@ -48,7 +48,18 @@ Non-negotiables (the safety-boundary test asserts the first two structurally):
    for this — hermes prints a provider error as its final response and exits
    0 — and a verifier handed an unchanged workspace will pass on the previous
    run's output.
-7. **Only a passed verify completes.** Everything else reverts —
+7. **The claim is held only while the agent is demonstrably working.** The
+   kernel renews an expired claim whenever the worker PID is alive, and its
+   staleness backstop reads ``hb is not None and now - hb > MAX_STALE`` — so a
+   worker that never writes ``last_heartbeat_at`` holds its claim forever,
+   wedged or not, because NULL can never go stale. A heartbeat on a *timer*
+   would be worse than none: it would assert health for a run hung on a dead
+   socket, which is the exact case the backstop exists to catch. So the beat is
+   earned — ``run_agent`` reports each chunk of agent output, and
+   ``_heartbeat_while_active`` writes a heartbeat only when output arrived
+   since the last one. Silence stops the beat, the beat goes stale, the kernel
+   reclaims.
+8. **Only a passed verify completes.** Everything else reverts —
    ``executor.revert`` (stash, never delete), then a post-revert
    ``git status --porcelain`` re-assertion, then the failure is recorded
    through the kernel's own bookkeeping so the row is neither stranded
@@ -75,7 +86,9 @@ import argparse
 import os
 import sqlite3
 import sys
+import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
@@ -102,6 +115,12 @@ DEFAULT_AGENT_TIMEOUT = 30 * 60
 # kernel's logic circuit breaker, and prevents an unattended worker loop.
 ENVIRONMENT_BACKOFF_SECONDS = 5
 ENVIRONMENT_RETRY_LIMIT = 3
+
+# How often the heartbeat thread checks whether the agent produced output.
+# Well under the kernel's 15-minute claim TTL so a working agent's claim is
+# refreshed long before it expires, and far under the 1-hour staleness
+# backstop so a wedged one is still caught promptly once beats stop.
+HEARTBEAT_INTERVAL_SECONDS = 60
 
 # Block kind for a quarantined workspace. `needs_input` is the "truly blocked /
 # human must look" bucket in the kernel's VALID_BLOCK_KINDS; only an operator
@@ -276,10 +295,18 @@ def execute_task(
         )
 
     agent_timeout = claimed.max_runtime_seconds or DEFAULT_AGENT_TIMEOUT
-    agent = executor.run_agent(
-        repo, oracle.get("prompt") or "",
-        timeout=agent_timeout, usage_path=usage_path,
-    )
+    # The claim outlives its 15-minute TTL only while the agent is demonstrably
+    # working. See _heartbeat_while_active: output earns the beat, elapsed time
+    # does not.
+    activity = _AgentActivity()
+    with _heartbeat_while_active(
+        task_id, run_id, activity, db_path=_database_file(conn),
+    ):
+        agent = executor.run_agent(
+            repo, oracle.get("prompt") or "",
+            timeout=agent_timeout, usage_path=usage_path,
+            on_activity=activity.touch,
+        )
     _write_log(agent_log, agent.output)
 
     # The agent's own report is NOT evidence; but a live process tree in the
@@ -483,6 +510,124 @@ def _skip(
     )
     ledger.record(entry, path=ledger_path)
     return Attempt("skipped", entry=entry)
+
+
+class _AgentActivity:
+    """Records that the agent emitted output. Cheap, thread-safe, no I/O.
+
+    Touched from ``run_agent``'s reader thread, read by the heartbeat thread.
+    Deliberately holds nothing but a clock reading: the pipe-draining thread
+    must never block, and anything it says about the agent beyond "bytes
+    arrived" would be the agent's own account of itself.
+    """
+
+    __slots__ = ("_at", "_lock")
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._at = time.monotonic()
+
+    def touch(self) -> None:
+        with self._lock:
+            self._at = time.monotonic()
+
+    @property
+    def at(self) -> float:
+        with self._lock:
+            return self._at
+
+
+def _database_file(conn) -> Optional[str]:
+    """The file this connection is actually open on.
+
+    Asked of the connection rather than re-resolved from configuration. A
+    second thread that opens "the board" by global lookup can open a different
+    board than the run is executing against — which is exactly what a
+    dispatcher-spawned worker exists to prevent (non-negotiable 2), and what a
+    test harness pinning a temp board would hit.
+    """
+    try:
+        for _, name, path in conn.execute("PRAGMA database_list"):
+            if name == "main":
+                return path or None
+    except sqlite3.Error:
+        pass
+    return None
+
+
+@contextmanager
+def _heartbeat_while_active(
+    task_id: str,
+    run_id: int,
+    activity: _AgentActivity,
+    *,
+    db_path: Optional[str] = None,
+    interval: float = HEARTBEAT_INTERVAL_SECONDS,
+):
+    """Beat the claim only while the agent is actually producing output.
+
+    The kernel extends an expired claim whenever the worker PID is alive, and
+    treats a NULL ``last_heartbeat_at`` as never-stale — so a worker that never
+    heartbeats holds its claim forever, wedged or not. Its documented backstop
+    (``DEFAULT_CLAIM_HEARTBEAT_MAX_STALE_SECONDS``) only engages once a
+    heartbeat exists to go stale.
+
+    So the heartbeat has to *mean* something. A thread that beats on a timer
+    would satisfy the kernel while proving nothing: it would report a healthy
+    worker for a run hung on a dead socket, which is precisely the case the
+    backstop exists to catch, and would leave the system worse than the NULL it
+    replaced. This beats only when ``activity`` advanced since the last beat.
+    A wedged agent stops emitting, the heartbeat stops, it goes stale, and the
+    kernel reclaims.
+
+    The thread owns its own connection: SQLite objects belong to the thread
+    that made them, and the worker's connection is busy with the run. A failed
+    beat is logged into the event stream by the kernel and otherwise ignored —
+    losing one is a missed extension, never a reason to fail the task.
+    """
+    stop = threading.Event()
+    seen = activity.at
+
+    def _beat() -> None:
+        nonlocal seen
+        conn = None
+        try:
+            conn = board.connect(Path(db_path)) if db_path else board.connect()
+            kb = board.kanban()
+            while not stop.wait(interval):
+                current = activity.at
+                if current == seen:
+                    # No output since the last beat. Say nothing rather than
+                    # asserting liveness we cannot see.
+                    continue
+                seen = current
+                try:
+                    kb.heartbeat_worker(
+                        conn, task_id,
+                        note="agent output observed",
+                        expected_run_id=run_id,
+                    )
+                except sqlite3.Error:
+                    # Ownership moved, or the board is momentarily busy. The
+                    # claim simply does not get extended this tick.
+                    pass
+        except Exception:
+            # A liveness helper must never be able to fail a run.
+            pass
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    thread = threading.Thread(target=_beat, name="claim-heartbeat", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join(timeout=5)
 
 
 def _restore_workspace(
