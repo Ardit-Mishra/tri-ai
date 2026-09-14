@@ -16,6 +16,13 @@ MAX_ARTIFACTS_SHOWN = 6
 # the operator to be on the tailnet; the file itself does not.
 DOCUMENT_SUFFIXES = frozenset({".html", ".htm", ".json", ".txt", ".md", ".csv"})
 DOCUMENT_MAX_BYTES = 2 * 1024 * 1024
+# Upper bound on files uploaded for one run. The card already truncates what it
+# *names* at MAX_ARTIFACTS_SHOWN, but uploads were uncapped: a run that wrote
+# 250 small pages queued 250 sendDocument calls behind one tidy-looking card.
+# Artifact capture enumerates untracked files individually, so a stray build
+# directory is enough to reach that. The card's link to the dashboard remains
+# the complete list; this bounds only what is pushed at the operator.
+MAX_DOCUMENTS_SENT = 5
 OUTCOME_MARK = {"completed": "DONE", "cancelled": "CANCELLED", "failed": "FAILED"}
 
 
@@ -109,6 +116,8 @@ def deliverable_documents(
         if not resolved.is_relative_to(root):
             continue
         picked.append({"path": relative, "absolute": str(resolved), "caption": relative})
+        if len(picked) >= MAX_DOCUMENTS_SENT:
+            break
     return tuple(picked)
 
 

@@ -69,13 +69,16 @@ class AgentRuntimeGate(BoardTestCase):
         )
 
     @contextmanager
-    def runners(self, *, runtime_failed, agent_exit=0, agent_writes=()):
+    def runners(self, *, runtime_failed, agent_exit=0, agent_writes=(),
+                agent_output=None):
         def run_agent(*_args, **_kwargs):
             for name, body in agent_writes:
                 (self.repo / name).write_text(body, encoding="utf-8")
+            out = agent_output or (
+                RUN_26_OUTPUT if runtime_failed else "agent ran\n"
+            )
             return executor.AgentResult(
-                agent_exit, RUN_26_OUTPUT if runtime_failed else "agent ran\n", 1.0,
-                runtime_failed=runtime_failed,
+                agent_exit, out, 1.0, runtime_failed=runtime_failed,
             )
 
         def run_verify(*_args, **_kwargs):
@@ -159,15 +162,67 @@ class AgentRuntimeGate(BoardTestCase):
         self.assertEqual(attempt.outcome, "passed")
         self.assertEqual(self.task_row(tid)["status"], "done")
 
-    def test_no_usage_record_leaves_the_verify_command_as_the_only_gate(self):
-        # `None` means the runtime wrote no such field. Absence of a record is
-        # not a record of failure, and the gate must not invent one.
+    def test_no_usage_record_after_a_clean_exit_leaves_verify_as_the_only_gate(self):
+        # `None` + exit 0 means the runtime completed and simply wrote no usage
+        # field. Absence of a record is not a record of failure, and the gate
+        # must not invent one - older runtimes must keep working.
         tid = self.task()
         attempt = self.run_task(
-            tid, runtime_failed=None, agent_writes=[("toggle.html", "<h1>x</h1>")],
+            tid, runtime_failed=None, agent_exit=0,
+            agent_writes=[("toggle.html", "<h1>x</h1>")],
         )
         self.assertEqual(attempt.outcome, "passed")
         self.assertEqual(self.verify_calls, ["ran"])
+
+    # -- the launch-failure door (found by review, not by me) --------------
+    #
+    # The test above proves COMPATIBILITY for a runtime that completed. It says
+    # nothing about SAFETY when the runtime never started, and the first version
+    # of this suite stopped there - it wrote files and passed a verifier, so the
+    # dangerous case was never exercised. These are that case.
+
+    def test_a_launch_failure_with_no_usage_record_does_not_reach_done(self):
+        # run_agent's containment-failure path verbatim: AgentResult(1, msg)
+        # with no usage file, so runtime_failed stays None. Nothing was written
+        # and the verifier still passes on celestial.html from the earlier run.
+        tid = self.task()
+        attempt = self.run_task(
+            tid, runtime_failed=None, agent_exit=1,
+            agent_output="FileNotFoundError: hermes.exe not found\n",
+        )
+        self.assertNotEqual(
+            self.task_row(tid)["status"], "done",
+            "a task whose agent never launched was accepted as complete",
+        )
+        self.assertNotEqual(attempt.outcome, "passed")
+
+    def test_a_launch_failure_never_reaches_the_verify_command(self):
+        self.run_task(
+            self.task(), runtime_failed=None, agent_exit=1,
+            agent_output="ContainmentError: job object refused\n",
+        )
+        self.assertEqual(
+            self.verify_calls, [],
+            "verify ran over a workspace no agent ever touched",
+        )
+
+    def test_a_timeout_with_no_usage_record_is_caught_too(self):
+        # run_agent returns 124 on timeout; if the tree was killed before the
+        # runtime could write usage, that is still a turn that did not complete.
+        attempt = self.run_task(
+            self.task(), runtime_failed=None, agent_exit=124,
+            agent_output="agent TIMEOUT after 1800s; process tree terminated\n",
+        )
+        self.assertNotEqual(attempt.outcome, "passed")
+        self.assertEqual(self.verify_calls, [])
+
+    def test_the_launch_failure_reason_names_the_exit_code(self):
+        attempt = self.run_task(
+            self.task(), runtime_failed=None, agent_exit=1,
+            agent_output="FileNotFoundError: hermes.exe not found\n",
+        )
+        self.assertIn("exited 1", attempt.entry["reason"])
+        self.assertIn("hermes.exe", attempt.entry["reason"])
 
 
 class UsageFileIsReadForCompletion(unittest.TestCase):
