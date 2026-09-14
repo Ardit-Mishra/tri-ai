@@ -380,6 +380,47 @@ def execute_task(
     # agent's output would be a claim the worker cannot support.
     agent_artifacts = _porcelain_artifacts(repo)
 
+    # --- VERIFY-06: the promised deliverable, checked BEFORE the command. ---
+    # A verify command proves the command; it says nothing about whether what
+    # the task promised exists. That check used to run after verify, on the
+    # reasoning that a passing command should not be able to rescue a missing
+    # deliverable — true, but the ordering was still wrong, because a verify
+    # command is not required to be free of side effects.
+    #
+    # Task t_80dab89f showed the cost. Its verifier files each run into a dated
+    # folder and commits it; run 38 scattered its output (`css/style.css`,
+    # `recipes/index.html`) instead of producing the three declared files, and
+    # the verifier happily filed and committed all of it before exiting 0. The
+    # gate then failed the task — correctly — but the work was already archived
+    # and listed in the workspace gallery as a delivered result, and the revert
+    # that followed found a clean tree with nothing left to undo.
+    #
+    # The agent's output is known the moment it exits, so the check belongs
+    # here: a run that did not produce what it promised gets no verify command
+    # at all, and nothing downstream can enshrine it.
+    declared_ok, declared_problem = _declared_artifacts_present(oracle, repo)
+    if not declared_ok:
+        _write_log(
+            verify_log,
+            f"worker: verify never invoked — declared artifact check failed: "
+            f"{declared_problem}\n",
+        )
+        unrestored = _restore_workspace(
+            conn, claimed, run_id, repo, branch, agent_log=agent_log,
+            verify_log=verify_log, ledger_path=lp, started=started,
+            verify_outcome=None,
+        )
+        if unrestored is not None:
+            return unrestored
+        return _fail(
+            conn, claimed, run_id, repo, branch,
+            outcome="failed", verify_outcome=None, verify_exit=None,
+            agent=agent,
+            reason=f"declared artifact check failed: {declared_problem}",
+            ledger_path=lp, agent_log=agent_log, verify_log=verify_log,
+            seconds=agent.seconds,
+        )
+
     # Facts about the run, for a workspace that files its own deliverables.
     # Information, never instruction: the exit code is still the only thing
     # read back from this command.
@@ -408,20 +449,6 @@ def execute_task(
         )
 
     seconds = round(agent.seconds + verifier.seconds, 2)
-
-    # A verify command proves the command. It says nothing about whether the
-    # deliverable the task promised exists, so a declared artifact is checked
-    # on its own terms and can fail a task whose command exited zero.
-    declared_ok, declared_problem = _declared_artifacts_present(oracle, repo)
-    if verifier.outcome == "passed" and not declared_ok:
-        return _fail(
-            conn, claimed, run_id, repo, branch,
-            outcome="failed", verify_outcome="passed", verify_exit=0,
-            agent=agent,
-            reason=f"declared artifact check failed: {declared_problem}",
-            ledger_path=lp, agent_log=agent_log, verify_log=verify_log,
-            seconds=seconds,
-        )
 
     if verifier.outcome == "passed":
         ok = kb.complete_task(
