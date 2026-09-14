@@ -146,6 +146,62 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**Tri-AI moved to the desktop, 2026-09-14.** The laptop was always the wrong
+host: `VIVO-S14` is a notebook, so closing the lid killed the bot. It now runs on
+`DESKTOP-JHQ7HJM` / `100.67.149.86` - 16 cores, 32 GB, uptime 8 days.
+
+*Access.* Tailscale supplies the network path but not authentication, and
+Tailscale SSH's server side is not supported on Windows, so a key was needed.
+`~/.ssh/triai_desktop` (private half stays on the laptop). Two mistakes on the
+way: the key first went to `administrators_authorized_keys`, which only applies
+to members of the Administrators group, and the account is **`Ardit II`** - with
+a space - which is why every username guess failed.
+
+*What moved.* `tri-ai`, `.tri-ai` (board, ledger, runs, config) and
+`tri-ai-sandbox`, ~5.3 MB packed. **`career-ops` was deliberately excluded** -
+133 MB of personal job-search data that stays local.
+
+*What broke, and why it is worth writing down.*
+
+1. **Hermes version drift.** The desktop had v0.18.2, whose `write_txn` lacks
+   `allow_nested`: 143 errors. `hermes update` took it to **v0.21.2**, which was
+   worse - that release removes `_record_task_failure`, `_pid_alive` and
+   `_set_worker_pid`. **Tri-AI calls six private kernel functions** (`kb._*`),
+   and three vanished in one minor release. The desktop is now pinned to the
+   laptop's exact commit `23a64a97`, where all six exist. That commit is carried
+   locally by hermes' updater and `_record_task_failure` is **absent from
+   upstream `ee35a462`** - so the kernel depends on a locally-patched function
+   that upstream does not have. That is a real fragility, not a migration
+   artifact, and adapting to the public API is work that needs its own review.
+2. **Python environment.** Tri-AI imports `hermes_cli` under the *system*
+   interpreter, so the desktop needed the laptop's dependency set. Both are
+   Python 3.14.3. `pip install -r` is all-or-nothing and aborted on a package
+   needing MSVC, so installs run per-package with `--only-binary=:all:`:
+   **167 of 174**, the 7 skipped all career-ops scrapers Tri-AI never imports.
+3. **My own repath script reported a false negative.** It guarded with
+   `if OLD in raw_text` using the unescaped path while JSON stores
+   `C:\Users\ardit`, so it skipped `intake_policy.json` and said "no laptop
+   paths" - worse than failing. The telegram daemon then refused to start every
+   few seconds until the supervisor exhausted its restart budget. Fixed by
+   parsing the JSON rather than pattern-matching its text.
+4. **PowerShell 5.1 `Set-Content -Encoding utf8` writes a BOM**, which the
+   daemon's plain-UTF-8 read rejects: `cannot read intake policy:
+   JSONDecodeError`. Rewritten from Python.
+
+*Verified.* `python tests/run.py` on the desktop -> **471 tests, exit 0** - the
+same count as the laptop, which is how environment parity was confirmed rather
+than assumed. Scheduled task **"Tri-AI Daemons"**, boot + logon triggers,
+highest run level, S4U so it needs no interactive session. All three daemons
+alive; the laptop's are stopped, so there is exactly one Telegram poller.
+
+*Open.* `genclarus` is dropped from the intake policy - genelens is not on the
+desktop yet, and a workspace alias pointing at a missing directory blocks the
+telegram daemon outright. Restore it after copying genelens and running
+`npm install` there. And the proving task `t_3879ea0f` **blocked**: the agent
+printed HTML to stdout instead of writing the file, twice - the same
+`auto/best-coding` failure that blocked `t_c5374def` on the laptop. The kernel,
+verifier, gates and daemons are all correct on the desktop; the model is not.
+
 **Artifacts filed, and a third review pass, 2026-09-14.** The operator's
 complaint: *"i don't have time to sift through the files... what if the tasks
 required multiple artifacts"*. Ad-hoc work landed flat in the workspace root, so
