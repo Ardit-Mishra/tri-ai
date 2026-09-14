@@ -146,6 +146,55 @@ process-spawn path. Focused proof: `python -m unittest tests.test_dashboard`
 → **7 tests, exit 0, 3.026s**. Full suite: `python tests/run.py` -> **253
 tests, exit 0, 150.571s**.
 
+**The agent could not act, and the model was not why, 2026-09-14.** Two tasks
+blocked on the desktop with the agent printing HTML to stdout instead of writing
+a file - the same shape that blocked `t_c5374def` on the laptop. The obvious
+reading was model capability: the desktop's primary was **`qwen3.5:4b`**, far
+too small for reliable tool use, with `gemma4:latest` behind it.
+
+Setting `devstral:24b` as primary did **not** fix it. `t_51ce35ea` blocked
+twice more, and the usage file named the real cause:
+
+    model: devstral:24b   completed: true   failed: false   api_calls: 1
+
+**One API call.** A tool-using turn makes many - each tool call is a round trip,
+and the laptop's working runs show 13, 26 and 49. One means the model answered
+once and invoked nothing, which is exactly what the log says: *"I'm executing
+the necessary steps now"*, a code block, and no file. The agent was not failing
+to use its tools; it had none.
+
+The laptop declares `toolsets: [hermes-cli, web]`. The desktop had **no
+toolsets key at all**, and whatever hermes defaults to does not include the
+terminal. Adding it fixed the run on the first attempt:
+
+    model devstral:24b · api_calls 2 · verify: devstral-proof.html parses
+    (566 bytes) · filed under runs/2026-09-14-devstral-proof-.../ · done/verified
+
+*What this cost, and the lesson.* Roughly an hour went into model selection -
+pulling devstral, comparing local models, writing a probe - for a problem that
+was one missing config key. The `api_calls: 1` was in the usage file from the
+first failed run and would have pointed straight at it. **The evidence was
+there before the theory was.**
+
+The probe also mismeasured: it passed `-m <model>` to override the model per
+run, and hermes ignored it - Ollama had `qwen3.5:4b` loaded throughout, so it
+was testing one model five times. `-m` does not override the configured model
+in this setup; only the config does. Worth knowing before trusting any future
+per-run model comparison.
+
+*Desktop model chain, local only* (the laptop's router times out from here, and
+depending on it would undo the migration): `devstral:24b` ->
+`qwen2.5-coder:14b` -> `gemma4:31b`.
+
+*Separately, a documentation claim that outruns its evidence.* Three modules -
+`executor.py`, `ledger.py`, `worker.py` - state the agent "runs under
+`HERMES_YOLO_MODE=1` with every shell approval auto-granted". **Nothing sets
+it**, on either machine: not the worker, not `agent_env()`, and it is unset in
+process, user and machine scope. The safety discussion in those docstrings rests
+on a variable that does not exist. Either the agent is more constrained than
+documented, or the approval path is granted some other way - worth establishing
+which before the claim is repeated.
+
 **Tri-AI moved to the desktop, 2026-09-14.** The laptop was always the wrong
 host: `VIVO-S14` is a notebook, so closing the lid killed the bot. It now runs on
 `DESKTOP-JHQ7HJM` / `100.67.149.86` - 16 cores, 32 GB, uptime 8 days.
