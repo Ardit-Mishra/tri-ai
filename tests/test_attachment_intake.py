@@ -125,6 +125,50 @@ class AttachmentIntake(unittest.TestCase):
         for path in landed:
             self.assertIn("attachments", str(path))
 
+    def test_a_file_with_a_caption_is_listed_exactly_once(self):
+        """The prompt must not name a path that no longer exists.
+
+        Files land in `pending/` and are moved to `claimed/` when a request
+        takes them. An earlier version also kept the pre-move path, so a single
+        logo arrived as "2 files" with one entry pointing into `pending/` at a
+        file that had already been moved out of it. Task t_3bd071cc went to the
+        agent that way.
+        """
+        transport = FakeTransport([self.message(
+            caption="Build a landing page with this logo",
+            document={"file_id": "F1", "file_name": "logo.png", "file_size": 64},
+        )])
+        self.build(transport).poll_once(offset=None, timeout=1)
+        prompt = self.seen[0]
+        self.assertIn("1 file", prompt)
+        self.assertNotIn("2 files", prompt)
+        self.assertEqual(
+            prompt.count("logo.png"), 1,
+            "the same file was listed more than once",
+        )
+        self.assertNotIn(
+            "pending", prompt,
+            "the prompt names a pending path the file has already left",
+        )
+
+    def test_every_path_in_the_prompt_exists_on_disk(self):
+        # The strongest form of the above: whatever the agent is told to read
+        # must actually be readable.
+        transport = FakeTransport([self.message(
+            caption="use these",
+            document={"file_id": "F1", "file_name": "a.txt", "file_size": 10},
+        )])
+        self.build(transport).poll_once(offset=None, timeout=1)
+        named = [
+            line.strip().split("   (")[0].strip()
+            for line in self.seen[0].splitlines()
+            if "attachments" in line and line.strip().startswith(str(self.tmp)[:3])
+        ]
+        self.assertTrue(named, "no absolute path was given to the agent")
+        for path in named:
+            self.assertTrue(Path(path).is_file(), f"prompt names a missing file: {path}")
+
+
     # -- files with no words -----------------------------------------------
 
     def test_a_file_with_no_caption_is_held_and_acknowledged(self):
