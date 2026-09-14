@@ -22,6 +22,7 @@ from urllib import request
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import attachments
 import telegram_read_surface
 import telegram_control
 
@@ -208,6 +209,59 @@ class HttpsTelegramApi:
             raise TelegramTransportError("Telegram Bot API rejected the request")
         return decoded.get("result")
 
+    def download_file(
+        self,
+        file_id: str,
+        destination: Path,
+        *,
+        timeout: int = 120,
+        max_bytes: int = attachments.MAX_ATTACHMENT_BYTES,
+    ) -> int:
+        """Fetch one file by id into ``destination``. Returns bytes written.
+
+        Two calls, as the Bot API requires: ``getFile`` resolves an id to a
+        temporary path, then the file is read from the download host - a
+        different host to the API one, and the only place the token appears in a
+        URL rather than a header.
+
+        The read is chunked and capped. ``getFile`` reports a size but the
+        caller does not have to believe it: a body that keeps coming past
+        ``max_bytes`` is abandoned and the partial file removed, so a wrong or
+        absent Content-Length cannot fill the disk.
+        """
+        described = self._call("getFile", {"file_id": file_id}, timeout=timeout)
+        if not isinstance(described, dict):
+            raise TelegramTransportError("getFile returned no file description")
+        remote = described.get("file_path")
+        if not isinstance(remote, str) or not remote:
+            raise TelegramTransportError("getFile returned no file_path")
+
+        url = f"https://api.telegram.org/file/bot{self._token}/{remote}"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        written = 0
+        try:
+            with self._opener(request.Request(url), timeout=timeout) as response:
+                with destination.open("wb") as sink:
+                    while True:
+                        chunk = response.read(64 * 1024)
+                        if not chunk:
+                            break
+                        written += len(chunk)
+                        if written > max_bytes:
+                            raise TelegramTransportError(
+                                f"attachment exceeds {max_bytes} bytes"
+                            )
+                        sink.write(chunk)
+        except TelegramTransportError:
+            destination.unlink(missing_ok=True)
+            raise
+        except (OSError, ValueError) as exc:
+            destination.unlink(missing_ok=True)
+            raise TelegramTransportError(
+                f"attachment download failed: {type(exc).__name__}"
+            ) from exc
+        return written
+
     def _call_raw(self, method: str, body: bytes, *, content_type: str, timeout: int) -> Any:
         """Post an already-encoded body; used for multipart document uploads."""
         req = request.Request(
@@ -299,6 +353,24 @@ def _message_chunks(text: str, *, limit: int = MAX_MESSAGE_CHARS) -> list[str]:
     if limit <= 0:
         raise ValueError("message chunk limit must be positive")
     return [text[index:index + limit] for index in range(0, len(text), limit)] or [""]
+
+
+def _held_notice(stored: Sequence[attachments.StoredAttachment]) -> str:
+    """Acknowledge files sent with no instruction, and say what happens next.
+
+    Guessing what an unexplained file is for would be worse than waiting: the
+    same picture could be a logo to use, a design to copy, or a screenshot of a
+    bug. So it is held, and the operator is told plainly that it is held.
+    """
+    if not stored:
+        return "Nothing could be saved from that message."
+    noun = "file" if len(stored) == 1 else "files"
+    lines = [f"Got {len(stored)} {noun}:"]
+    for item in stored:
+        lines.append(f"  • {item.original}  ({item.size:,} bytes)")
+    lines.append("")
+    lines.append("Held for your next request — tell me what to build with them.")
+    return "\n".join(lines)
 
 
 def _normalized_command(text: str) -> str:
@@ -448,13 +520,43 @@ class TelegramDaemon:
             if not isinstance(message, dict):
                 continue
             chat = message.get("chat")
-            text = message.get("text")
-            if not isinstance(chat, dict) or not isinstance(text, str):
+            if not isinstance(chat, dict):
                 continue
             chat_id = str(chat.get("id", ""))
             if chat_id not in self._settings.authorized_chat_ids:
                 continue
+
+            # A message carrying a file puts its words in `caption`, not `text`.
+            # Requiring `text` meant every PDF, photo and document was dropped
+            # here in silence - the operator saw nothing happen at all.
+            offered = attachments.from_message(message)
+            text = message.get("text")
+            if not isinstance(text, str):
+                caption = message.get("caption")
+                text = caption if isinstance(caption, str) else ""
+            if not text and not offered:
+                continue
+
+            stored: tuple[attachments.StoredAttachment, ...] = ()
+            if offered:
+                stored, rejected = self._store_attachments(chat_id, offered)
+                for note in rejected:
+                    self._api.send_message(chat_id=chat_id, text=note)
+                if not text:
+                    # Files with no words. Hold them for the next instruction
+                    # rather than guessing what they are for.
+                    self._api.send_message(
+                        chat_id=chat_id, text=_held_notice(stored),
+                    )
+                    continue
+
+            # Anything sent earlier without words belongs to this instruction.
+            stored = self._claim_pending(chat_id) + stored
             command = _normalized_command(text)
+            if stored and not command.startswith("/"):
+                # Only a natural-language request becomes a task prompt; a slash
+                # command is a board query and has nothing to attach files to.
+                command = command + attachments.describe_for_prompt(stored)
             replied = message.get("reply_to_message")
             reply_to_message_id = None
             if isinstance(replied, dict):
@@ -529,6 +631,77 @@ class TelegramDaemon:
                     task_id=card.task_id, chat_id=chat_id, phase=card.phase,
                     closed=card.closed, board_path=self._board_path,
                 )
+
+    def _attachment_dir(self, chat_id: str, *, pending: bool) -> Path:
+        """Per-chat storage, outside every workspace. See src/attachments.py."""
+        # `runs_root` arrives as a str from the CLI and as a Path from tests;
+        # coerce rather than assume, since guessing wrong here would put
+        # attachments somewhere nobody looks.
+        root = attachments.attachments_root(Path(self._runs_root).parent)
+        safe_chat = attachments.safe_name(chat_id, fallback="chat")
+        return root / safe_chat / ("pending" if pending else "claimed")
+
+    def _store_attachments(
+        self, chat_id: str, offered: Sequence[attachments.Attachment],
+    ) -> tuple[tuple[attachments.StoredAttachment, ...], tuple[str, ...]]:
+        """Download what was offered. Returns what landed, and what to say about
+        what did not.
+
+        A download that fails is reported to the operator rather than swallowed:
+        a file they sent and never heard about again is the same silence this
+        whole feature exists to remove.
+        """
+        directory = self._attachment_dir(chat_id, pending=True)
+        landed: list[attachments.StoredAttachment] = []
+        problems: list[str] = []
+        for item in offered:
+            if item.too_large:
+                problems.append(
+                    f"{item.name} is {item.size:,} bytes — over the "
+                    f"{attachments.MAX_ATTACHMENT_BYTES:,} byte limit the "
+                    f"Telegram Bot API will serve, so it could not be fetched."
+                )
+                continue
+            try:
+                target = attachments.unique_path(directory, item.name)
+                size = self._api.download_file(item.file_id, target)
+            except (TelegramTransportError, ValueError, OSError) as exc:
+                problems.append(
+                    f"{item.name} could not be saved: {type(exc).__name__}."
+                )
+                continue
+            landed.append(attachments.StoredAttachment(
+                path=target, kind=item.kind, size=size,
+                original=item.name, mime=item.mime,
+            ))
+        return tuple(landed), tuple(problems)
+
+    def _claim_pending(
+        self, chat_id: str,
+    ) -> tuple[attachments.StoredAttachment, ...]:
+        """Take everything waiting for an instruction, so it attaches once only.
+
+        Files are moved out of `pending/` as they are claimed; leaving them
+        would silently re-attach them to every later request.
+        """
+        pending = self._attachment_dir(chat_id, pending=True)
+        if not pending.is_dir():
+            return ()
+        claimed_dir = self._attachment_dir(chat_id, pending=False)
+        out: list[attachments.StoredAttachment] = []
+        for path in sorted(pending.iterdir()):
+            if not path.is_file():
+                continue
+            try:
+                target = attachments.unique_path(claimed_dir, path.name)
+                size = path.stat().st_size
+                path.replace(target)
+            except (OSError, ValueError):
+                continue
+            out.append(attachments.StoredAttachment(
+                path=target, kind="file", size=size, original=path.name,
+            ))
+        return tuple(out)
 
     def _handle_callback(self, callback: Mapping[str, Any]) -> None:
         """Authorize an inline decision before it reaches the local control surface."""
