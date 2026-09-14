@@ -31,7 +31,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 IS_WINDOWS = sys.platform == "win32"
 
@@ -712,12 +712,42 @@ class VerifyResult:
         return self.outcome == "passed"
 
 
-def run_verify(command: str, *, cwd: Path | str, timeout: int) -> VerifyResult:
+# Task context handed to the verify command. A verifier is free to ignore all
+# of it — the exit code remains the only thing the worker reads back — but a
+# workspace that files its own deliverables needs to know which run produced
+# them and what was asked for. Capped so a long prompt cannot blow the
+# environment block, which on Windows is shared across the whole child.
+VERIFY_CONTEXT_MAX_CHARS = 2000
+
+
+def verify_env(context: Optional[Mapping[str, Any]] = None) -> dict[str, str]:
+    """The verify command's environment: inherited, minus credentials, plus task facts."""
+    env = dict(os.environ)
+    for name in CREDENTIAL_ENV_NAMES:
+        env.pop(name, None)
+    for key, value in (context or {}).items():
+        if value is None:
+            continue
+        env[str(key)] = " ".join(str(value).split())[:VERIFY_CONTEXT_MAX_CHARS]
+    return env
+
+
+def run_verify(
+    command: str,
+    *,
+    cwd: Path | str,
+    timeout: int,
+    context: Optional[Mapping[str, Any]] = None,
+) -> VerifyResult:
     """Run the operator's verify command. THE single unconstrained gateway.
 
     `shell=True` is intentional: the operator authored this command and it is
     the oracle the whole system rests on. What is constrained is everything
     else — see `git()` above.
+
+    ``context`` becomes ``TRIAI_*`` environment variables describing the run.
+    It is information, never instruction: nothing the verifier does with it
+    changes how its exit code is read.
     """
     popen_kwargs: dict[str, Any] = dict(
         cwd=str(cwd),
@@ -727,6 +757,7 @@ def run_verify(command: str, *, cwd: Path | str, timeout: int) -> VerifyResult:
         text=True,
         encoding="utf-8",
         errors="replace",
+        env=verify_env(context),
     )
     if IS_WINDOWS:
         popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP

@@ -380,7 +380,18 @@ def execute_task(
     # agent's output would be a claim the worker cannot support.
     agent_artifacts = _porcelain_artifacts(repo)
 
-    verifier = executor.run_verify(verify_command, cwd=repo, timeout=verify_timeout)
+    # Facts about the run, for a workspace that files its own deliverables.
+    # Information, never instruction: the exit code is still the only thing
+    # read back from this command.
+    verifier = executor.run_verify(
+        verify_command, cwd=repo, timeout=verify_timeout,
+        context={
+            "TRIAI_TASK_ID": task_id,
+            "TRIAI_RUN_ID": run_id,
+            "TRIAI_TASK_TITLE": claimed.title,
+            "TRIAI_TASK_PROMPT": oracle.get("prompt") or "",
+        },
+    )
     _write_log(verify_log, verifier.output)
 
     if verifier.tree_survived:
