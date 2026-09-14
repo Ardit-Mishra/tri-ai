@@ -70,6 +70,11 @@ NON-NEGOTIABLE:
 
 GIT_ALLOWED_FORMS: frozenset[tuple[str, ...]] = frozenset({
     ("status", "--porcelain"),
+    # Enumerating form. Plain `--porcelain` collapses an untracked directory
+    # into a single `?? dir/` line, so a run that writes `clock/index.html`,
+    # `clock/script.js` and `clock/style.css` reports as one entry naming no
+    # file. Artifact capture must name files, never a directory.
+    ("status", "--porcelain", "--untracked-files=all"),
     ("branch", "--show-current"),
     ("rev-parse", "--show-toplevel"),
     ("stash", "list"),

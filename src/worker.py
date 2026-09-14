@@ -752,9 +752,18 @@ def _porcelain_artifacts(repo: Path | str) -> list[dict[str, Any]]:
 
     Observation only: the tree is read, never modified. A rename reports its
     destination, which is the path that now exists.
+
+    ``--untracked-files=all`` is not optional. Plain porcelain collapses a new
+    untracked directory into one `?? clock/` line, so an agent that builds a
+    small site records as a single entry naming a directory rather than the
+    files it wrote — and anything downstream that expects files (delivery, the
+    declared-artifact gate, the operator reading the board) sees nothing it can
+    use.
     """
     try:
-        code, out = executor.git(["status", "--porcelain"], cwd=repo)
+        code, out = executor.git(
+            ["status", "--porcelain", "--untracked-files=all"], cwd=repo,
+        )
     except (executor.DisallowedGitCommand, OSError):
         return []
     if code != 0:
