@@ -1,0 +1,68 @@
+{
+  "_what_this_is": "What Tri-AI means by 'made for its subject'. Every value below is the shipped default, written out so it can be argued with. Delete the file and nothing changes; edit a value and every task from the next one onward is held to it. A typo here is logged and ignored, never fatal.",
+
+  "_how_it_works": "For any request to MAKE something a person looks at, the agent is told to use its web tools first, find real examples in that field, and write BRIEF.md - palette, type, layout, and a 'Must appear' list of concrete strings those real examples carry. The verifier then holds the finished file to that list. The agent sets its own bar by going and looking; this file only says how high the bar has to be.",
+
+  "enabled": true,
+
+  "_min_references": "How many real examples the agent must look at before it writes anything.",
+  "min_references": 3,
+
+  "_min_must_appear": "How many concrete, literal strings the brief must promise. Units, pack sizes, prices with their currency symbol, certifications, place names, terms of the trade. Not adjectives.",
+  "min_must_appear": 5,
+
+  "_min_palette": "Distinct hex colours that must appear in the finished file.",
+  "min_palette": 3,
+
+  "_require_typeface": "A real typeface, loaded from fonts.googleapis.com or an @font-face rule. The page the user rejected used the framework's default system stack and nothing else.",
+  "require_typeface": true,
+
+  "_require_imagery": "An img, svg, picture or background-image somewhere. A wall of text is not a designed page.",
+  "require_imagery": true,
+
+  "_max_generic_headings": "How many of the headings below may appear before the page is just a business template. One is ordinary; the set is the tell.",
+  "max_generic_headings": 1,
+  "generic_headings": [
+    "about us",
+    "why choose us",
+    "our services",
+    "our mission",
+    "what we do",
+    "our values",
+    "get in touch"
+  ],
+
+  "_banned_phrases": "Matched literally against the visible text, case-folded. Each is a phrase someone writing about their own product would not reach for. Add your own; an empty list is ignored rather than obeyed, so a check cannot be disarmed by accident.",
+  "banned_phrases": [
+    "lorem ipsum",
+    "your text here",
+    "your company name",
+    "placeholder",
+    "example.com",
+    "in today's fast-paced world",
+    "to the next level",
+    "we offer a wide range",
+    "wide range of products",
+    "unparalleled",
+    "seamlessly",
+    "elevate your",
+    "cutting-edge solutions",
+    "one-stop shop",
+    "best in class",
+    "world-class quality",
+    "customer satisfaction is our",
+    "product 1",
+    "product 2",
+    "item 1",
+    "tbd"
+  ],
+
+  "_visual_markers": "Words that mean the request produces something to look at. A request needs one of these AND a making verb, so 'fix the spacing in report.html' stays a repair and does not trigger a redesign.",
+  "visual_markers": [
+    "landing", "page", "website", "web site", "site", "homepage", "home page",
+    "store", "shop", "storefront", "portfolio", "brochure", "poster", "flyer",
+    "menu", "deck", "slides", "presentation", "resume", "cv", "dashboard",
+    "ui", "interface", "app", "html", "logo", "brand", "invitation", "card",
+    "newsletter", "blog", "profile"
+  ]
+}

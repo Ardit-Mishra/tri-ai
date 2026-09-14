@@ -100,6 +100,7 @@ import board  # noqa: F401  (closure module; all kernel access via board.kanban(
 import executor
 import failure_class
 import ledger
+import taste
 import worktrees
 
 # Exit codes. 3 is reserved for a quarantine stop so a Windows Scheduled Task
@@ -298,6 +299,22 @@ def execute_task(
         )
 
     agent_timeout = claimed.max_runtime_seconds or DEFAULT_AGENT_TIMEOUT
+
+    # --- TASTE: research before building, for work someone will look at. ----
+    # Appended here rather than stored on the task because it is policy, not
+    # the request: ~/.tri-ai/taste.json can change what "good" means without
+    # rewriting every task already on the board. Tasks that produce no visual
+    # artifact are untouched — a research pass on `fix the flaky test` would
+    # spend a model's whole turn budget looking at nothing.
+    task_prompt = oracle.get("prompt") or ""
+    standard = taste.load()
+    if standard.config_error:
+        _write_log(agent_log, f"worker: {standard.config_error} — taste defaults used\n")
+    taste_required = taste.applies_to(task_prompt, standard)
+    if taste_required:
+        task_prompt += taste.brief_block(standard)
+        _write_log(agent_log, "worker: taste brief required before build\n")
+
     # The claim outlives its 15-minute TTL only while the agent is demonstrably
     # working. See _heartbeat_while_active: output earns the beat, elapsed time
     # does not.
@@ -307,7 +324,7 @@ def execute_task(
         repo=repo, db_path=_database_file(conn),
     ):
         agent = executor.run_agent(
-            repo, oracle.get("prompt") or "",
+            repo, task_prompt,
             timeout=agent_timeout, usage_path=usage_path,
             on_activity=activity.touch,
         )
@@ -431,6 +448,11 @@ def execute_task(
             "TRIAI_RUN_ID": run_id,
             "TRIAI_TASK_TITLE": claimed.title,
             "TRIAI_TASK_PROMPT": oracle.get("prompt") or "",
+            # One decision, made once. The verifier could re-derive this from
+            # the prompt, and then a change to taste.applies_to would silently
+            # split the two: an agent never told to research, held to a brief
+            # it was never asked for.
+            "TRIAI_TASTE_REQUIRED": "1" if taste_required else "0",
         },
     )
     _write_log(verify_log, verifier.output)

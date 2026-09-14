@@ -41,6 +41,10 @@ CLOSURE_MODULES = (
     "executor.py", "board.py", "worktrees.py", "worker.py", "failure_class.py", "ledger.py", "assign.py", "chores.py",
     "planner.py", "dispatcher.py",
     "worker_daemon.py",
+    # taste.py shapes the prompt the worker hands the agent, and its CLI is
+    # invoked by verify commands. Anything that can change what the agent is
+    # told, or what the gate accepts, is on the execution path.
+    "taste.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole
