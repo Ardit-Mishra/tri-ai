@@ -234,8 +234,11 @@ rather than assumed, because the config still carried `github/*` aliases.
   no grace period and all keys invalidated. Every "free LLM API" list still
   recommending it is stale.
 - **Copilot Pro via the Student Pack caps at 300 premium requests/month.**
-  Tri-AI tasks take 8-49 API calls each, so that budget is roughly **11 tasks a
-  month**. Fine in an IDE; useless for an unattended worker.
+  Tri-AI tasks take up to 49 API calls each (1-49 observed, most substantial
+  tasks 8-26), so that budget is **tens of tasks a month at best**. Fine in an
+  IDE; useless for an unattended worker. Note the 300-request framing is
+  itself dated - GitHub's current Copilot docs describe credits rather than a
+  flat premium-request count, so treat the number as an order of magnitude.
 - The `github/*` router aliases do not resolve: `github/claude-sonnet-5` fell
   through to `qwen3.5:4b` when probed.
 
@@ -268,9 +271,13 @@ fallback chain, never on the configured model.**
 | fallback 2 | `qwen3.5:4b` @ `100.67.149.86` | a 4B model, on a box that also serves 14B/20B/31B |
 | fallback 3 | `gemma4:e4b` @ `localhost:11434` | **wrong host** - that model lives on the Tailscale box; local Ollama serves one GGUF. This is the entry that 404'd and produced run 26 |
 
-Every usage file in `~/.tri-ai/runs/*/*/usage.json` records `auto/best-free`,
-which is fallback 1 - direct evidence that the primary failed on every turn and
-nobody noticed, because failover is silent by design.
+Every usage file written *before the repair* records `auto/best-free`, which is
+fallback 1 - direct evidence that the primary failed on every turn and nobody
+noticed, because failover is silent by design. Stated as a present-tense claim
+about the whole directory this is now false and review caught it: a scan of
+`~/.tri-ai/runs/*/*/usage.json` today gives `auto/best-free` 7,
+`auto/best-coding` 4, one failed run with no model. The four are runs 28 and
+later, which is the repair showing up in the evidence.
 
 *Replacement, each probed before it was written in.* Primary
 `auto/best-coding` @ `:20128`, then `auto/smart`, `qwen2.5-coder:14b` and
@@ -284,6 +291,26 @@ and real task `t_628344fa` (run 28, 395.57s) carries
 `model=auto/best-coding, provider=custom, model_source=usage_file` in the
 ledger - the first run in the project's history not served by `auto/best-free`.
 
+**The PAT is more exposed than the scrub suggested, 2026-09-14.** Review flagged
+remaining literals; a content scan (fingerprinting each match rather than
+grepping paths) sharpened it:
+
+| File | Holds the live token? |
+|---|---|
+| `.env` | yes - **by design**, this is where it now lives |
+| `.hermes_history` | **yes** - shell history |
+| `state.db` | **yes**, plus a second, different PAT-shaped literal |
+| `config.yaml` and every `config.yaml.bak*` | clean |
+
+Two of the three backups review named (`.env.bak.20260821_214141`,
+`config.yaml.bak.20260708_031721`) are in fact clean - a path-level scan cannot
+tell a live token from an old one. But `.hermes_history` and `state.db` do hold
+it, `hermes backup` zips the whole profile directory, and the token is confirmed
+live (HTTP 200 as `Ardit-Mishra`). **This upgrades the recommendation from
+"rotate when convenient" to "rotate": scrubbing a SQLite session store and a
+history file is not worth attempting in place.** Interpolation itself was
+verified working, so a new token dropped into `.env` needs no config change.
+
 *Credential moved out of plaintext.* The GitHub PAT sat literally in
 `config.yaml` under `mcp_servers.github_copilot.headers.Authorization`. It is
 now `Bearer ${MCP_GITHUB_COPILOT_API_KEY}` with the value in the profile `.env`,
@@ -293,7 +320,8 @@ token still needs revoking and reissuing on GitHub** - it sat in plaintext and
 in backups, so it must be treated as disclosed. That is an operator action.
 
 *Workload note for any future model decision.* Real Tri-AI tasks consume
-**200K to 2.27M tokens each**, across 8-49 API calls. That number disqualifies
+**40K to 2.27M tokens each**, across 1-49 API calls; the substantial ones sit
+between ~200K and 2.3M. That range disqualifies
 most free API tiers outright (Groq's free lane is ~200K tokens/day - less than a
 single task). Only Mistral's Experiment tier (1B tokens/month) and Google AI
 Studio (no daily token cap, 1M TPM, 1,500 RPD) can carry this volume, and both
