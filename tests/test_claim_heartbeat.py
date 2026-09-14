@@ -364,5 +364,100 @@ class TheKernelCanNowReclaimAWedgedWorker(BoardTestCase):
 
 
 
+
+class WorkspaceChangeEarnsABeat(BoardTestCase):
+    """The signal that actually exists for `hermes -z`.
+
+    A heartbeat driven only by agent output is inert here: one-shot mode writes
+    stdout exactly once, immediately before exiting (`run_oneshot`), so the beat
+    lands after the run is over. Two real runs of 130s and 111s recorded zero
+    heartbeats, which is how this was caught. An agent's work shows up in the
+    workspace, so that is what gets watched.
+    """
+
+    INTERVAL = 0.05
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo = self.tmp / "workspace"
+        self.repo.mkdir()
+        (self.repo / "seed.txt").write_text("seed", encoding="utf-8")
+        self.task_id = board.create_task(
+            self.conn, title="writes files", prompt="work",
+            verify_command="python verify.py", repo=self.repo, verify_timeout=60,
+        )
+        claimed = self.kb.claim_task(
+            self.conn, self.task_id, claimer=worker.worker_id(),
+        )
+        self.run_id = claimed.current_run_id
+
+    def heartbeat_at(self):
+        return self.conn.execute(
+            "SELECT last_heartbeat_at FROM tasks WHERE id = ?", (self.task_id,)
+        ).fetchone()["last_heartbeat_at"]
+
+    def test_writing_files_earns_a_beat_with_no_output_at_all(self):
+        activity = worker._AgentActivity()   # never touched: no agent output
+        with worker._heartbeat_while_active(
+            self.task_id, self.run_id, activity,
+            repo=self.repo, db_path=str(self.db_path), interval=self.INTERVAL,
+        ):
+            for i in range(6):
+                (self.repo / f"page{i}.html").write_text(
+                    f"<h1>{i}</h1>", encoding="utf-8",
+                )
+                time.sleep(self.INTERVAL)
+        self.assertIsNotNone(
+            self.heartbeat_at(),
+            "the agent was writing files throughout and earned no heartbeat",
+        )
+
+    def test_an_untouched_workspace_still_earns_nothing(self):
+        activity = worker._AgentActivity()
+        with worker._heartbeat_while_active(
+            self.task_id, self.run_id, activity,
+            repo=self.repo, db_path=str(self.db_path), interval=self.INTERVAL,
+        ):
+            time.sleep(self.INTERVAL * 8)
+        self.assertIsNone(
+            self.heartbeat_at(),
+            "an idle workspace and a silent agent still reported progress",
+        )
+
+
+class WorkspaceScanIsBounded(unittest.TestCase):
+    """A liveness check that slows the machine down is its own defect."""
+
+    def test_dependency_and_build_trees_are_skipped(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text("x", encoding="utf-8")
+            old = worker._workspace_mtime(root)
+
+            noisy = root / "node_modules" / "pkg"
+            noisy.mkdir(parents=True)
+            for i in range(30):
+                (noisy / f"f{i}.js").write_text("y", encoding="utf-8")
+            self.assertEqual(
+                worker._workspace_mtime(root), old,
+                "churn in node_modules was mistaken for agent progress",
+            )
+
+    def test_the_walk_stops_at_the_limit(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for i in range(50):
+                (root / f"f{i}.txt").write_text("x", encoding="utf-8")
+            # A limit of 5 must return without examining all 50.
+            self.assertIsInstance(worker._workspace_mtime(root, limit=5), float)
+
+    def test_a_missing_workspace_is_not_an_error(self):
+        self.assertEqual(worker._workspace_mtime(Path("no-such-dir-anywhere")), 0.0)
+
+
+
 if __name__ == "__main__":
     unittest.main()

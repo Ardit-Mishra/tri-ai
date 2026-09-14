@@ -55,10 +55,13 @@ Non-negotiables (the safety-boundary test asserts the first two structurally):
    wedged or not, because NULL can never go stale. A heartbeat on a *timer*
    would be worse than none: it would assert health for a run hung on a dead
    socket, which is the exact case the backstop exists to catch. So the beat is
-   earned — ``run_agent`` reports each chunk of agent output, and
-   ``_heartbeat_while_active`` writes a heartbeat only when output arrived
-   since the last one. Silence stops the beat, the beat goes stale, the kernel
-   reclaims.
+   earned: it is written only when the run produced *observable* progress
+   since the last one — agent output, or a changed file in the workspace.
+   Both are needed. Hermes one-shot writes its stdout once, at exit, so the
+   output signal alone fires after the run is already over (measured: two
+   100s+ runs, zero beats); the workspace is what actually moves while an
+   agent works. Silence on both stops the beat, it goes stale, and the kernel
+   stops renewing.
 8. **Only a passed verify completes.** Everything else reverts —
    ``executor.revert`` (stash, never delete), then a post-revert
    ``git status --porcelain`` re-assertion, then the failure is recorded
@@ -300,7 +303,8 @@ def execute_task(
     # does not.
     activity = _AgentActivity()
     with _heartbeat_while_active(
-        task_id, run_id, activity, db_path=_database_file(conn),
+        task_id, run_id, activity,
+        repo=repo, db_path=_database_file(conn),
     ):
         agent = executor.run_agent(
             repo, oracle.get("prompt") or "",
@@ -512,6 +516,17 @@ def _skip(
     return Attempt("skipped", entry=entry)
 
 
+# Directory names never worth walking for progress evidence. `.git` churns on
+# its own; the rest are dependency and build trees an agent does not hand-edit.
+UNWALKED_DIRS = frozenset({
+    ".git", "node_modules", ".venv", "venv", "__pycache__", ".next",
+    "dist", "build", ".pytest_cache", ".mypy_cache", "target",
+})
+# Ceiling on entries examined per scan, so one heartbeat tick cannot turn into a
+# full walk of a large repository every minute.
+WORKSPACE_SCAN_LIMIT = 4000
+
+
 class _AgentActivity:
     """Records that the agent emitted output. Cheap, thread-safe, no I/O.
 
@@ -535,6 +550,45 @@ class _AgentActivity:
     def at(self) -> float:
         with self._lock:
             return self._at
+
+
+def _workspace_mtime(repo: Path | str, *, limit: int = WORKSPACE_SCAN_LIMIT) -> float:
+    """Newest modification time under ``repo``, as evidence the agent is working.
+
+    Output alone is not a usable liveness signal for this runtime, and finding
+    that out cost a wasted fix. Hermes one-shot (`-z`) writes its response to
+    stdout exactly once, immediately before exiting — see `run_oneshot`. So a
+    heartbeat driven only by output fires once, after the run is already over,
+    and two real 100s+ runs recorded zero beats.
+
+    An agent's job here is to change files, so the workspace itself is the
+    progress signal that actually exists: a run that is editing is advancing
+    some mtime, and one wedged on a dead socket is not. Like output, this is raw
+    evidence rather than the agent's account of itself.
+
+    Bounded on purpose — dependency and build trees are skipped, and the walk
+    stops at ``limit`` entries. A heartbeat that made the machine slower every
+    minute would be its own defect.
+    """
+    newest = 0.0
+    seen = 0
+    try:
+        root = Path(repo)
+        for current, dirs, files in os.walk(root):
+            dirs[:] = [d for d in dirs if d not in UNWALKED_DIRS]
+            for name in files:
+                seen += 1
+                if seen > limit:
+                    return newest
+                try:
+                    stamp = os.stat(os.path.join(current, name)).st_mtime
+                except OSError:
+                    continue
+                if stamp > newest:
+                    newest = stamp
+    except OSError:
+        pass
+    return newest
 
 
 def _database_file(conn) -> Optional[str]:
@@ -561,6 +615,7 @@ def _heartbeat_while_active(
     run_id: int,
     activity: _AgentActivity,
     *,
+    repo: Optional[Path | str] = None,
     db_path: Optional[str] = None,
     interval: float = HEARTBEAT_INTERVAL_SECONDS,
 ):
@@ -587,20 +642,23 @@ def _heartbeat_while_active(
     """
     stop = threading.Event()
     seen = activity.at
+    seen_mtime = _workspace_mtime(repo) if repo is not None else 0.0
 
     def _beat() -> None:
-        nonlocal seen
+        nonlocal seen, seen_mtime
         conn = None
         try:
             conn = board.connect(Path(db_path)) if db_path else board.connect()
             kb = board.kanban()
             while not stop.wait(interval):
                 current = activity.at
-                if current == seen:
-                    # No output since the last beat. Say nothing rather than
-                    # asserting liveness we cannot see.
+                mtime = _workspace_mtime(repo) if repo is not None else 0.0
+                progressed = current != seen or mtime > seen_mtime
+                if not progressed:
+                    # Neither output nor a file change since the last beat. Say
+                    # nothing rather than asserting liveness we cannot see.
                     continue
-                seen = current
+                seen, seen_mtime = current, max(mtime, seen_mtime)
                 try:
                     kb.heartbeat_worker(
                         conn, task_id,
