@@ -561,9 +561,12 @@ UNWALKED_DIRS = frozenset({
     ".git", "node_modules", ".venv", "venv", "__pycache__", ".next",
     "dist", "build", ".pytest_cache", ".mypy_cache", "target",
 })
-# Ceiling on entries examined per scan, so one heartbeat tick cannot turn into a
-# full walk of a large repository every minute.
-WORKSPACE_SCAN_LIMIT = 4000
+# Time budget for one workspace scan. A ceiling on *entries* was the earlier
+# design and was wrong: os.walk has no defined order, so a count cap can make
+# part of the tree structurally unreachable and starve a healthy run of its
+# heartbeat. A time budget bounds the cost without excluding anything, and the
+# scan exits early the moment it finds proof of progress anyway.
+WORKSPACE_SCAN_SECONDS = 5.0
 
 
 class _AgentActivity:
@@ -591,43 +594,50 @@ class _AgentActivity:
             return self._at
 
 
-def _workspace_mtime(repo: Path | str, *, limit: int = WORKSPACE_SCAN_LIMIT) -> float:
-    """Newest modification time under ``repo``, as evidence the agent is working.
+def _workspace_changed_since(
+    repo: Path | str,
+    mark: float,
+    *,
+    budget: float = WORKSPACE_SCAN_SECONDS,
+) -> tuple[bool, float]:
+    """Did anything under ``repo`` change after ``mark``? Returns (changed, newest).
 
-    Output alone is not a usable liveness signal for this runtime, and finding
-    that out cost a wasted fix. Hermes one-shot (`-z`) writes its response to
-    stdout exactly once, immediately before exiting — see `run_oneshot`. So a
-    heartbeat driven only by output fires once, after the run is already over,
-    and two real 100s+ runs recorded zero beats.
+    The question is "did this run advance", not "what is the newest file", and
+    that difference is load-bearing. An earlier version took the maximum mtime
+    with a 4000-entry cap, which review showed is order-dependent: `os.walk`
+    has no defined order, so a workspace with 4001 stale files ahead of the
+    directory the agent is writing to returns before ever seeing the new work.
+    A *healthy* run then earns no heartbeat and the kernel eventually reclaims
+    a live worker mid-flight — the fix starving the case it exists to protect.
 
-    An agent's job here is to change files, so the workspace itself is the
-    progress signal that actually exists: a run that is editing is advancing
-    some mtime, and one wedged on a dead socket is not. Like output, this is raw
-    evidence rather than the agent's account of itself.
-
-    Bounded on purpose — dependency and build trees are skipped, and the walk
-    stops at ``limit`` entries. A heartbeat that made the machine slower every
-    minute would be its own defect.
+    Asking the yes/no question instead lets the common case exit on the first
+    file newer than the mark, wherever the walk happens to reach it. Only a run
+    that genuinely produced nothing pays for a full traversal, and that is
+    bounded by time rather than by a count, so no part of the tree is
+    structurally unreachable. Measured on `~/projects/genelens`, a real Next.js
+    repository: 0.57s for the full walk.
     """
     newest = 0.0
-    seen = 0
+    deadline = time.monotonic() + budget
     try:
-        root = Path(repo)
-        for current, dirs, files in os.walk(root):
+        for current, dirs, files in os.walk(Path(repo)):
             dirs[:] = [d for d in dirs if d not in UNWALKED_DIRS]
             for name in files:
-                seen += 1
-                if seen > limit:
-                    return newest
                 try:
                     stamp = os.stat(os.path.join(current, name)).st_mtime
                 except OSError:
                     continue
                 if stamp > newest:
                     newest = stamp
+                if stamp > mark:
+                    return True, newest
+            if time.monotonic() > deadline:
+                # Out of budget with nothing new found. Report no change rather
+                # than a partial maximum that would be mistaken for progress.
+                return False, newest
     except OSError:
         pass
-    return newest
+    return False, newest
 
 
 def _database_file(conn) -> Optional[str]:
@@ -681,7 +691,10 @@ def _heartbeat_while_active(
     """
     stop = threading.Event()
     seen = activity.at
-    seen_mtime = _workspace_mtime(repo) if repo is not None else 0.0
+    _, seen_mtime = (
+        _workspace_changed_since(repo, float('inf')) if repo is not None
+        else (False, 0.0)
+    )
 
     def _beat() -> None:
         nonlocal seen, seen_mtime
@@ -691,13 +704,16 @@ def _heartbeat_while_active(
             kb = board.kanban()
             while not stop.wait(interval):
                 current = activity.at
-                mtime = _workspace_mtime(repo) if repo is not None else 0.0
-                progressed = current != seen or mtime > seen_mtime
+                touched, newest = (
+                    _workspace_changed_since(repo, seen_mtime)
+                    if repo is not None else (False, seen_mtime)
+                )
+                progressed = current != seen or touched
                 if not progressed:
                     # Neither output nor a file change since the last beat. Say
                     # nothing rather than asserting liveness we cannot see.
                     continue
-                seen, seen_mtime = current, max(mtime, seen_mtime)
+                seen, seen_mtime = current, max(newest, seen_mtime)
                 try:
                     kb.heartbeat_worker(
                         conn, task_id,

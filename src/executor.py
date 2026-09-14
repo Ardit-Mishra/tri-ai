@@ -720,6 +720,21 @@ class VerifyResult:
 VERIFY_CONTEXT_MAX_CHARS = 2000
 
 
+# Characters that change what a shell does rather than what it says. The verify
+# command is the one deliberately unconstrained shell in the system, and these
+# values land in its environment, so a verifier that expands one unquoted —
+# `echo %TRIAI_TASK_PROMPT%` under cmd.exe — executes what the text contains.
+# Review demonstrated it: the prompt "safe & echo INJECTED_MARKER" printed the
+# marker. Nothing downstream needs these characters; the context exists to be
+# read as a label, so they are dropped rather than escaped for one shell's rules.
+SHELL_ACTIVE_CHARS = str.maketrans({c: None for c in '&|<>^"`$();!%\n\r\t\0'})
+
+
+def _shell_inert(value: str) -> str:
+    """Collapse whitespace and strip what a shell would act on."""
+    return " ".join(value.translate(SHELL_ACTIVE_CHARS).split())
+
+
 def verify_env(context: Optional[Mapping[str, Any]] = None) -> dict[str, str]:
     """The verify command's environment: inherited, minus credentials, plus task facts."""
     env = dict(os.environ)
@@ -728,7 +743,7 @@ def verify_env(context: Optional[Mapping[str, Any]] = None) -> dict[str, str]:
     for key, value in (context or {}).items():
         if value is None:
             continue
-        env[str(key)] = " ".join(str(value).split())[:VERIFY_CONTEXT_MAX_CHARS]
+        env[str(key)] = _shell_inert(str(value))[:VERIFY_CONTEXT_MAX_CHARS]
     return env
 
 

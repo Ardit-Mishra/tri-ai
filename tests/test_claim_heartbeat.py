@@ -425,8 +425,9 @@ class WorkspaceChangeEarnsABeat(BoardTestCase):
         )
 
 
-class WorkspaceScanIsBounded(unittest.TestCase):
-    """A liveness check that slows the machine down is its own defect."""
+class WorkspaceScanIsHonestAndBounded(unittest.TestCase):
+    """A liveness check that slows the machine is one defect; one that misses a
+    working agent is a worse one."""
 
     def test_dependency_and_build_trees_are_skipped(self):
         import tempfile
@@ -434,29 +435,62 @@ class WorkspaceScanIsBounded(unittest.TestCase):
             root = Path(tmp)
             (root / "src").mkdir()
             (root / "src" / "a.py").write_text("x", encoding="utf-8")
-            old = worker._workspace_mtime(root)
+            _, mark = worker._workspace_changed_since(root, float("inf"))
 
             noisy = root / "node_modules" / "pkg"
             noisy.mkdir(parents=True)
             for i in range(30):
                 (noisy / f"f{i}.js").write_text("y", encoding="utf-8")
-            self.assertEqual(
-                worker._workspace_mtime(root), old,
-                "churn in node_modules was mistaken for agent progress",
+            changed, _ = worker._workspace_changed_since(root, mark)
+            self.assertFalse(
+                changed, "churn in node_modules was mistaken for agent progress",
             )
 
-    def test_the_walk_stops_at_the_limit(self):
+    def test_a_change_is_found_however_deep_the_walk_reaches_it(self):
+        """Review's repro: a count cap made this order-dependent.
+
+        os.walk has no defined order, so capping at N entries can return before
+        ever reaching the directory the agent is writing to - and a HEALTHY run
+        then earns no heartbeat and is reclaimed mid-flight. The scan asks
+        "anything newer than the mark?" and is bounded by time, so no part of
+        the tree is structurally unreachable.
+        """
+        import tempfile, time as _t
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bulk = root / "a_bulk"
+            bulk.mkdir()
+            for i in range(4100):
+                (bulk / f"old{i}.txt").write_text("x", encoding="utf-8")
+            _, mark = worker._workspace_changed_since(root, float("inf"))
+
+            _t.sleep(0.05)
+            fresh = root / "z_agent_output"
+            fresh.mkdir()
+            (fresh / "deliverable.html").write_text("<h1>new</h1>", encoding="utf-8")
+
+            changed, _ = worker._workspace_changed_since(root, mark)
+            self.assertTrue(
+                changed,
+                "a healthy run's output was missed because of where the walk "
+                "happened to reach it",
+            )
+
+    def test_an_untouched_tree_reports_no_change(self):
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for i in range(50):
-                (root / f"f{i}.txt").write_text("x", encoding="utf-8")
-            # A limit of 5 must return without examining all 50.
-            self.assertIsInstance(worker._workspace_mtime(root, limit=5), float)
+            (root / "a.txt").write_text("x", encoding="utf-8")
+            _, mark = worker._workspace_changed_since(root, float("inf"))
+            changed, _ = worker._workspace_changed_since(root, mark)
+            self.assertFalse(changed)
 
     def test_a_missing_workspace_is_not_an_error(self):
-        self.assertEqual(worker._workspace_mtime(Path("no-such-dir-anywhere")), 0.0)
-
+        changed, newest = worker._workspace_changed_since(
+            Path("no-such-dir-anywhere"), 0.0,
+        )
+        self.assertFalse(changed)
+        self.assertEqual(newest, 0.0)
 
 
 if __name__ == "__main__":

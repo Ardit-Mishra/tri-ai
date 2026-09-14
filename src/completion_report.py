@@ -129,6 +129,37 @@ def deliverable_documents(
     return tuple(picked)
 
 
+def _unresolvable(
+    artifacts: Sequence[Mapping[str, Any]],
+    workspace: object,
+) -> int:
+    """How many recorded artifacts no longer exist where the board says.
+
+    Counted so the card can admit it. Nothing is opened; the path is resolved
+    inside the workspace exactly as delivery resolves it, and one that escapes
+    is treated as unresolvable rather than followed.
+    """
+    if not isinstance(workspace, str) or not workspace.strip():
+        return 0
+    try:
+        root = Path(workspace).resolve()
+    except OSError:
+        return 0
+    gone = 0
+    for artifact in artifacts:
+        relative = artifact.get("path")
+        if not isinstance(relative, str) or not relative.strip():
+            continue
+        try:
+            resolved = (root / relative).resolve()
+        except OSError:
+            gone += 1
+            continue
+        if not resolved.is_relative_to(root) or not resolved.is_file():
+            gone += 1
+    return gone
+
+
 def render(
     row: Mapping[str, Any],
     *,
@@ -190,6 +221,17 @@ def render(
             lines.append(
                 f"  … and {held} more, not attached — open the dashboard for all "
                 f"{len(artifacts)}"
+            )
+        # A recorded artifact whose file is gone is dropped from delivery rather
+        # than queued as a failing upload. Dropping it silently is the wrong
+        # half of that fix: the operator sees a card naming files, receives
+        # fewer, and has nothing to go on. Name the gap.
+        missing = _unresolvable(artifacts, row.get("workspace_path"))
+        if missing:
+            noun = "file" if missing == 1 else "files"
+            lines.append(
+                f"  ⚠ {missing} {noun} could not be attached — recorded, but no "
+                f"longer at the recorded path"
             )
     else:
         lines.extend(["", "produced no files in the workspace"])
