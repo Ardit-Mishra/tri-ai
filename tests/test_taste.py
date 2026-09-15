@@ -228,6 +228,18 @@ class TheBriefIsReadBack(unittest.TestCase):
              "Uttar Pradesh", "1 kg"),
         )
 
+    def test_an_apostrophe_mid_bullet_is_not_a_quoted_span(self) -> None:
+        # Unanchored, two apostrophes anywhere in a bullet read as a quoted
+        # span: "Don't miss the chef's pick" became "t miss the chef", a
+        # promise no page could ever keep.
+        brief = taste.parse_brief("\n".join([
+            "## Must appear",
+            "- Don't miss the chef's pick",
+            "- chef's special",
+        ]))
+        self.assertEqual(
+            brief.must_appear, ("Don't miss the chef's pick", "chef's special"))
+
     def test_a_parenthetical_gloss_is_not_part_of_the_promise(self) -> None:
         brief = taste.parse_brief(
             "## Must appear\n- Net wt. 100 g (per pack)\n")
@@ -552,6 +564,19 @@ class TheFloorCatchesTheObviouslyEmpty(unittest.TestCase):
         ))
         self.assertEqual(self.ws.check(), [])
 
+    def test_a_page_painted_in_gradients_has_something_to_look_at(self) -> None:
+        # Run 68 of t_92cd3d3c answered "Self-contained, no external assets"
+        # with four CSS gradients, two box-shadows, five radii and a Playfair
+        # Display / Inter pairing, and was rejected for having no <img> - the
+        # one thing the request had ruled out.
+        self.ws.write("index.html", page(
+            f"<h1>Mishwan</h1><p>{KEPT}</p>", head="<meta charset='utf-8'>",
+            style="<style>body{font-family:'Playfair Display',Georgia,serif;"
+                  "background:linear-gradient(#FDFBF7,#F4E3D7)}"
+                  "a{color:#C85A32}b{color:#9E3D18}c{color:#2C221E}</style>",
+        ))
+        self.assertEqual(self.ws.check(), [])
+
     def test_a_page_with_no_image_at_all_is_a_finding(self) -> None:
         self.ws.write("index.html", page(f"<h1>Brand</h1><p>{KEPT}</p>"))
         self.assertTrue(any("image" in p for p in self.ws.check()))
@@ -691,6 +716,19 @@ class TheInstructionSaysWhatTheGateChecks(unittest.TestCase):
         block = taste.brief_block().lower()
         self.assertIn("in this same turn", block)
         self.assertIn("writing it is not finishing", block)
+
+    def test_the_agent_is_warned_off_label_plus_value_promises(self) -> None:
+        # Run 69 of t_92cd3d3c promised "Calories per serving: 399.6" and
+        # "Servings: 4". A page renders the label as a heading and the number
+        # somewhere else, so the joined string never appears contiguously and
+        # the promise cannot be kept by any correct page.
+        block = taste.brief_block().lower()
+        self.assertIn("contiguously", block)
+        self.assertIn("servings: 4", block)
+
+    def test_the_agent_is_told_to_check_its_own_page_first(self) -> None:
+        block = taste.brief_block().lower()
+        self.assertIn("search your finished page for each bullet", block)
 
     def test_the_counts_asked_for_are_the_counts_required(self) -> None:
         standard = taste.Standard(min_must_appear=7, min_references=4)

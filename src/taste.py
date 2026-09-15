@@ -25,8 +25,9 @@ What a gate must not do
 -----------------------
 Reject work that should have passed. That failure is quieter than the other
 one - nobody sees a page that was never delivered - and on an unattended board
-it just looks like the system stopped working. Review of the first version
-found six ways it could happen, and every rule here is shaped by them:
+it just looks like the system stopped working. Review found seven ways the
+first version could do it, and putting real tasks through the gate found five
+more. Every rule here is shaped by one of them:
 
   - The run is judged as ONE piece of work, never file by file. A page whose
     colours and fonts live in a linked stylesheet is styled; a two-page site
@@ -41,6 +42,15 @@ found six ways it could happen, and every rule here is shaped by them:
   - Promises are matched against what a reader can see - not comments, not
     script bodies, not attributes. A contract satisfied inside an HTML comment
     is not satisfied.
+  - A promise is read the way agents write one. `- "FSSAI Certified"` asks for
+    the words, not the quotation marks; `500 g` is kept by a page that sets
+    `500g`; `MRP &#8377;185` renders as the rupee sign the brief asked for.
+  - The page keeps MOST of its promises, not all. A brief is research, not a
+    specification, and a page carrying ten of twelve marks of its field has
+    done the work.
+  - A typeface is a choice, not a network request. Georgia counts; the
+    framework's default stack and nothing else does not - which is exactly
+    what the page the user rejected had.
 
 And the standard the agent was given is the standard it is judged by: the
 worker snapshots it and the verifier reads the snapshot, so editing
@@ -153,13 +163,28 @@ DEFAULT_FONT_NAMES = frozenset({
     "apple color emoji", "segoe ui emoji", "segoe ui symbol",
     "noto color emoji", "emoji", "math", "fangsong",
 })
-_IMAGERY = re.compile(r"<img\b|<svg\b|<picture\b|background-image\s*:", re.I)
+# Something to look at. A gradient counts, and that is not a concession: run 68
+# of t_92cd3d3c answered "Self-contained, no external assets" with a page
+# painted in four CSS gradients, two box-shadows, five radii and a Playfair
+# Display / Inter pairing — and was rejected for having no <img>, which is the
+# one thing the request had ruled out. The rule is meant to catch a wall of text
+# with no visual composition at all; it was measuring whether a file had been
+# fetched.
+_IMAGERY = re.compile(
+    r"<img\b|<svg\b|<picture\b|background-image\s*:"
+    r"|(?:linear|radial|conic|repeating-linear|repeating-radial)-gradient\s*\(",
+    re.I,
+)
 _BULLET = re.compile(r"^\s*[-*+]\s+(.*\S)\s*$")
 _MD_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.*\S)\s*$")
 _URL = re.compile(r"https?://\S+")
 # A "Must appear" bullet, as models actually write them: sometimes the bare
 # string, sometimes quoted, sometimes with a gloss or markdown emphasis.
-_QUOTED = re.compile(r'"([^"]+)"' + "|" + r"“([^”]+)”" + "|" + r"'([^']+)'")
+# Anchored at the start of the bullet, which is where a quoted promise sits.
+# Unanchored, `- Don't miss the chef's pick` has two apostrophes and would be
+# read as the quoted span "t miss the chef" - a promise no page could keep.
+_QUOTED = re.compile(
+    r'^"([^"]+)"' + "|" + r"^“([^”]+)”" + "|" + r"^'([^']+)'")
 _GLOSS = re.compile(r"\s+[—–]\s+|\s+-\s+|\s*\(")
 _EMPHASIS = re.compile(r"\*\*|__|[*`]")
 # Curly quotes and the non-breaking space, folded to what a person types.
@@ -379,9 +404,17 @@ with these headings:
 
   Promise the MARKS OF THE FIELD, not values you invent for this page. "Rs"
   and "500 g" and "FSSAI" are marks; "Rs 1240.00" is a number you made up and
-  will probably price differently once you are building. If you do change
-  something while you build, edit the brief so the two agree before you stop -
-  it is your brief, and it is read after you finish, not before.
+  will probably price differently once you are building.
+
+  Each bullet must be text that will appear CONTIGUOUSLY on the page, exactly
+  as written. Do not promise a label joined to a value - "Servings: 4" and
+  "Calories per serving: 399.6" are never rendered as one run of text, because
+  the label is a heading and the value sits somewhere else. Promise "Servings"
+  or "kcal" or "Prep time" and let the numbers be whatever they turn out to be.
+
+  LAST THING BEFORE YOU STOP: search your finished page for each bullet you
+  wrote. Anything you cannot find, fix - either put it on the page or change
+  the bullet. It is your brief, and it is read after you finish, not before.
 
 Then build the thing, to that brief, in this same turn.
 
@@ -422,7 +455,7 @@ def _promise_text(bullet: str) -> str:
     direction to err in.
     """
     text = (bullet or "").strip()
-    quoted = _QUOTED.search(text)
+    quoted = _QUOTED.match(text)
     if quoted:
         text = quoted.group(1) or quoted.group(2) or quoted.group(3) or ""
     else:
