@@ -349,8 +349,13 @@ with these headings:
   field carry them: units, pack sizes, prices with their currency symbol,
   certifications, place names, terms of the trade. Not adjectives. Each
   bullet is searched for in what a READER CAN SEE - not in a comment, not in
-  an attribute, not in a script. Write it exactly as it should appear on the
-  page.
+  an attribute, not in a script. Write it exactly as it should appear.
+
+  Promise the MARKS OF THE FIELD, not values you invent for this page. "Rs"
+  and "500 g" and "FSSAI" are marks; "Rs 1240.00" is a number you made up and
+  will probably price differently once you are building. If you do change
+  something while you build, edit the brief so the two agree before you stop -
+  it is your brief, and it is read after you finish, not before.
 
 Then build the thing, to that brief.
 
@@ -420,6 +425,23 @@ def visible_text(markup: str) -> str:
     stripped = _COMMENT.sub(" ", markup or "")
     stripped = _HIDDEN_BLOCK.sub(" ", stripped)
     return _TAG.sub(" ", stripped)
+
+
+def _visible_promise(item: str, visible: str) -> bool:
+    """Is this promise on the page, allowing for how a page sets its spacing?
+
+    Whitespace inside a promise is treated as optional, so a brief that wrote
+    "500 g" is kept by a page that sets "500g". Spacing between a number and
+    its unit is a typesetting choice and never a semantic one; rejecting good
+    work over it is the gate failing, not the page.
+    """
+    wanted = normalize(item)
+    if not wanted:
+        return True
+    if wanted in visible:
+        return True
+    pattern = r"\s*".join(re.escape(part) for part in wanted.split(" ") if part)
+    return bool(pattern) and re.search(pattern, visible) is not None
 
 
 def normalize(text: str) -> str:
@@ -503,6 +525,23 @@ def collect(paths: Sequence[Path], root: Optional[Path] = None) -> Work:
     )
 
 
+def promises(work: Work) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(kept, unmet) from this run's own brief, for reporting."""
+    if work.brief is None or not work.brief_is_this_runs:
+        return (), ()
+    visible = _visible_of(work)
+    kept = tuple(i for i in work.brief.must_appear if _visible_promise(i, visible))
+    unmet = tuple(i for i in work.brief.must_appear if i not in kept)
+    return kept, unmet
+
+
+def _visible_of(work: Work) -> str:
+    """Everything a reader can see across the whole run, normalized once."""
+    return normalize(" ".join(
+        [visible_text(page) for page in work.pages] + list(work.prose)
+    ))
+
+
 def check_work(
     work: Work,
     standard: Optional[Standard] = None,
@@ -536,21 +575,42 @@ def check_work(
         problems.extend(check_brief(work.brief, std))
 
     # One piece of work, not a pile of files.
-    visible = normalize(" ".join(
-        [visible_text(page) for page in work.pages] + list(work.prose)
-    ))
+    visible = _visible_of(work)
     markup = "\n".join(work.pages + work.styles)
 
     for phrase in std.banned_phrases:
         if normalize(phrase) in visible:
             problems.append(f"filler phrase present: {phrase!r}")
 
+    # How many of its own promises the work kept.
+    #
+    # Not all of them, and the reason is a run that was thrown away for it. Run
+    # 62 of t_d43a762a researched properly, copied the user's logo, and built a
+    # 25 KB page carrying FSSAI, ISO 22000, Halal, Kosher, Meerut, Uttar Pradesh
+    # and a rupee sign - ten of its twelve promises. It was rejected for two:
+    # "500 g", which the page wrote as "500g", and "Rs 1240.00", a price the
+    # agent invented before building and then priced differently.
+    #
+    # A brief is research, not a specification. The page has to carry the marks
+    # of its field; it does not have to match every bullet an agent guessed at
+    # before it started. So the bar is the same one the brief itself had to
+    # clear - keep at least `min_must_appear` of them - and the rest are
+    # reported without failing the run, because an agent that promises twelve
+    # and keeps ten has done the work, while one that keeps two has not.
+    unmet: list[str] = []
     if work.brief is not None and work.brief_is_this_runs:
-        for item in work.brief.must_appear:
-            if normalize(item) not in visible:
-                problems.append(
-                    f"brief promised but not visible on the page: {item!r}"
-                )
+        promises = work.brief.must_appear
+        unmet = [item for item in promises if not _visible_promise(item, visible)]
+        kept = len(promises) - len(unmet)
+        if promises and kept < min(std.min_must_appear, len(promises)):
+            problems.append(
+                f"the page keeps {kept} of its own {len(promises)} promises, "
+                f"needs {min(std.min_must_appear, len(promises))} — "
+                "the research was done and then ignored"
+            )
+            problems.extend(
+                f"promised but not visible on the page: {item!r}" for item in unmet
+            )
 
     # The floor is about pages. A run that produced no page has none to fail.
     if not work.pages:
@@ -618,9 +678,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for problem in problems:
             print(f"    - {problem}")
         return 1
-    kept = len(work.brief.must_appear) if work.brief else 0
+    kept, unmet = promises(work)
     seen = len(work.brief.references) if work.brief else 0
-    print(f"  OK: held to {kept} promise(s) from {seen} reference(s)")
+    print(f"  OK: kept {len(kept)} of {len(kept) + len(unmet)} promise(s) "
+          f"from {seen} reference(s)")
+    for item in unmet:
+        print(f"    promised and not on the page: {item!r}")
     return 0
 
 
