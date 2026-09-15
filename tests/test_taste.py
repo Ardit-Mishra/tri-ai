@@ -240,14 +240,54 @@ class ThePromiseIsTheGate(unittest.TestCase):
         self.ws.write("index.html", page())
         self.assertEqual(self.ws.check(), [])
 
-    def test_a_promise_made_and_not_kept_fails(self) -> None:
+    def test_a_generous_brief_may_miss_a_few_and_still_pass(self) -> None:
+        # Run 62 of t_d43a762a researched properly, copied the logo and built a
+        # 25 KB page carrying ten of its twelve promises - and was thrown away
+        # for two: "500 g", which the page set as "500g", and a price the agent
+        # invented before building. A brief is research, not a specification;
+        # the page has to carry the marks of its field, and it does.
+        extra = ["Meerut", "ISO 22000", "Halal", "Kosher", "Rs 1240.00", "500 g"]
+        brief = GOOD_BRIEF.rstrip() + "\n" + "\n".join(f"- {x}" for x in extra) + "\n"
+        ws = Workspace(self)
+        ws.write("BRIEF.md", brief)
+        ws.write("index.html", page(
+            "<h1>Mishwan</h1><img src='a.jpg' alt='pack'>"
+            "<p>FSSAI 10021999000123 &middot; 200 g &middot; MRP Rs 185 &middot; "
+            "cold-pressed in Uttar Pradesh, ground in Meerut. "
+            "ISO 22000, Halal and Kosher certified.</p>"
+        ))
+        self.assertEqual(ws.check(), [])
+        _, unmet = taste.promises(taste.collect(ws.produced, ws.root))
+        self.assertEqual(set(unmet), {"Rs 1240.00", "500 g"})
+
+    def test_a_page_that_ignores_its_research_fails(self) -> None:
+        # Two of five kept is not a page built against a reference.
+        self.ws.write("index.html", page(
+            "<h1>Mishwan</h1><img src='a.jpg' alt='pack'>"
+            "<p>MRP Rs 185, from Uttar Pradesh</p>"
+        ))
+        problems = self.ws.check()
+        self.assertTrue(any("keeps 2 of its own 5 promises" in p for p in problems))
+        self.assertTrue(any("FSSAI" in p for p in problems))
+
+    def test_spacing_between_a_number_and_its_unit_is_not_semantic(self) -> None:
+        # The brief wrote "200 g"; the page sets "200g". Same thing to a reader.
+        self.ws.write("index.html", page(
+            "<h1>Mishwan</h1><img src='a.jpg' alt='pack'>"
+            "<p>FSSAI 10021999000123 &middot; 200g &middot; MRP Rs 185 &middot; "
+            "cold-pressed in Uttar Pradesh</p>"
+        ))
+        self.assertEqual(self.ws.check(), [])
+
+    def test_what_was_kept_and_missed_is_reportable(self) -> None:
         self.ws.write("index.html", page(
             "<h1>Mishwan</h1><img src='a.jpg' alt='pack'>"
             "<p>200 g &middot; MRP Rs 185 &middot; cold-pressed in Uttar Pradesh</p>"
         ))
-        problems = self.ws.check()
-        self.assertEqual(len(problems), 1)
-        self.assertIn("FSSAI", problems[0])
+        work = taste.collect(self.ws.produced, self.ws.root)
+        kept, unmet = taste.promises(work)
+        self.assertEqual(unmet, ("FSSAI",))
+        self.assertEqual(len(kept), 4)
 
     def test_a_promise_is_matched_regardless_of_case(self) -> None:
         self.ws.write("index.html", page().replace("cold-pressed", "Cold-Pressed"))
@@ -260,22 +300,22 @@ class ThePromiseIsTheGate(unittest.TestCase):
             f"<!-- {KEPT} -->"
         ))
         problems = self.ws.check()
-        self.assertEqual(len(problems), 5)
-        self.assertTrue(all("not visible" in p for p in problems))
+        self.assertTrue(any("keeps 0 of its own 5 promises" in p for p in problems))
+        self.assertEqual(len([p for p in problems if "not visible" in p]), 5)
 
     def test_a_promise_hidden_in_a_script_is_not_kept(self) -> None:
         self.ws.write("index.html", page(
             "<h1>Mishwan</h1><img src='a.jpg' alt='x'><p>Flavour.</p>"
             f"<script>var meta = '{KEPT}';</script>"
         ))
-        self.assertEqual(len(self.ws.check()), 5)
+        self.assertTrue(any("keeps 0 of" in p for p in self.ws.check()))
 
     def test_the_brief_cannot_satisfy_its_own_promises(self) -> None:
         # BRIEF.md is a .md file this run produced. Read in as prose it would
         # contain every promised string by construction, and the gate would
         # pass on a page that says nothing.
         self.ws.write("index.html", page("<h1>Mishwan</h1><img src='a.jpg' alt='x'><p>Hi.</p>"))
-        self.assertEqual(len(self.ws.check()), 5)
+        self.assertTrue(any("keeps 0 of its own 5 promises" in p for p in self.ws.check()))
 
     def test_a_promise_kept_on_any_page_of_a_site_is_kept(self) -> None:
         # A two-page site: the story page carries the place, the products page
