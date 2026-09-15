@@ -567,6 +567,20 @@ class TheInstructionSaysWhatTheGateChecks(unittest.TestCase):
         block = taste.brief_block().lower()
         self.assertIn("linked stylesheet", block)
 
+    def test_the_brief_is_asked_for_at_an_exact_path(self) -> None:
+        # Run 60 of t_7fbf6644 did the research, built a real page with a
+        # stylesheet, a script and the user's logo - and wrote the brief into
+        # the home directory. "in this workspace" was read two ways on a turn
+        # with nobody to ask, and good work was rejected for it.
+        block = taste.brief_block(workspace=r"C:\somewhere\sandbox")
+        self.assertIn(r"C:\somewhere\sandbox\BRIEF.md", block)
+        self.assertIn("not in your home directory", block)
+
+    def test_without_a_workspace_it_still_says_where(self) -> None:
+        block = taste.brief_block()
+        self.assertIn("BRIEF.md", block)
+        self.assertIn("not in your home directory", block)
+
     def test_the_counts_asked_for_are_the_counts_required(self) -> None:
         standard = taste.Standard(min_must_appear=7, min_references=4)
         block = taste.brief_block(standard)

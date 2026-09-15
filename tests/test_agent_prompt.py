@@ -96,3 +96,52 @@ class ThePromptCarriesTheWorkspace(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheAgentIsToldWhereWorkGoesAndWhatNotToRun(unittest.TestCase):
+    """Two rules earned by one stress-test task, t_7fbf6644.
+
+    Run 59 finished its work and then ran the verifier itself. verify.py moves
+    a run's output into `runs/<slug>/` and commits it, so by the time the
+    worker's own verify executed the workspace was clean and the run was
+    recorded as having produced nothing at all. The agent had done the job; the
+    evidence was gone because it had filed it.
+
+    Run 60 wrote its files to the workspace and its BRIEF.md to the home
+    directory, and was rejected for a missing brief that existed one directory
+    away.
+
+    Neither is the agent being careless. Both are instructions that could be
+    read another way, on an unattended turn, with nobody to ask.
+    """
+
+    def rules(self) -> str:
+        return " ".join(executor.HARD_RULES.split()).lower()
+
+    def test_the_verifier_is_off_limits(self) -> None:
+        rules = self.rules()
+        self.assertIn("never run the verifier", rules)
+        self.assertIn("verify.py", rules)
+
+    def test_it_says_why_running_the_verifier_destroys_the_run(self) -> None:
+        # A bare prohibition invites working around it. The reason is the rule.
+        rules = self.rules()
+        self.assertIn("archives and commits", rules)
+        self.assertIn("produced nothing", rules)
+
+    def test_files_are_required_to_land_in_the_workspace(self) -> None:
+        rules = self.rules()
+        self.assertIn("inside this workspace directory", rules)
+        self.assertIn("not your home directory", rules)
+
+    def test_the_rules_still_read_as_one_list(self) -> None:
+        # Cheap structural guard: every line of the block is a bullet, so an
+        # edit cannot leave prose dangling where an instruction should be.
+        body = [
+            line for line in executor.HARD_RULES.strip().splitlines()[1:]
+            if line.strip()
+        ]
+        self.assertTrue(body)
+        for line in body:
+            with self.subTest(line=line[:40]):
+                self.assertTrue(line.startswith("- ") or line.startswith("  "))

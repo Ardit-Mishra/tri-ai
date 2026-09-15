@@ -323,7 +323,7 @@ def execute_task(
     )
     taste_snapshot: Optional[Path] = None
     if taste_required:
-        task_prompt += taste.brief_block(standard)
+        task_prompt += taste.brief_block(standard, workspace=repo)
         # The bar the agent is set is the bar it is judged by. Without this the
         # verifier re-reads taste.json, and an edit landing mid-run would move
         # the requirement under a brief already written to the old one.
