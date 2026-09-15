@@ -291,25 +291,46 @@ class WorktreeMaterializationTest(BoardTestCase):
         self.assertTrue(target.exists(), "rejected worktree remains retained evidence")
 
     def test_named_worker_materializes_before_claiming(self):
+        # What this test is about is in its name: a worker invoked with an
+        # explicit --task-id must materialize the worktree before it claims,
+        # exactly as the selection path does. The dispatcher spawns every
+        # worker that way, so a gap here would be the normal case.
+        #
+        # It used to assert that by looking for `.git` in the workspace AFTER
+        # the run, and failed - not because materialization was skipped, but
+        # because the KERNEL removes a task-owned worktree when the task
+        # completes (kanban_db.complete_task -> _cleanup_workspace ->
+        # `git worktree remove`). Tri-AI's worktrees.py says it never removes
+        # one, and that is true of the module and misleading about the system.
+        # The removal is guarded - see the test below - but the workspace is
+        # legitimately gone by the time the run is over, so the evidence has to
+        # be taken while it exists.
         source = self._source_repo()
         task_id = self._worktree_task(source, "triai/named-worker")
-        ledger_path = self.tmp / "ledger.jsonl"
-        runs_root = self.tmp / "runs"
+        observed: dict[str, object] = {}
+        materialize = worktrees.resolve_task
 
-        with mock.patch.object(
-            executor,
-            "run_agent",
-            return_value=executor.AgentResult(0, "agent\n", 0.01),
-        ), mock.patch.object(
-            executor,
-            "run_verify",
-            return_value=executor.VerifyResult("passed", 0, "verify\n", 0.01),
-        ):
+        def watched(conn, task):
+            resolution = materialize(conn, task)
+            if resolution.ready:
+                path = Path(resolution.task["workspace_path"])
+                observed["path"] = path
+                observed["is_checkout"] = (path / ".git").exists()
+            return resolution
+
+        with mock.patch.object(worktrees, "resolve_task", watched), \
+            mock.patch.object(
+                executor, "run_agent",
+                return_value=executor.AgentResult(0, "agent\n", 0.01),
+            ), mock.patch.object(
+                executor, "run_verify",
+                return_value=executor.VerifyResult("passed", 0, "verify\n", 0.01),
+            ):
             attempt = worker.run_once(
                 self.conn,
                 task_id=task_id,
-                ledger_path=ledger_path,
-                runs_root=runs_root,
+                ledger_path=self.tmp / "ledger.jsonl",
+                runs_root=self.tmp / "runs",
             )
 
         row = self.task_row(task_id)
@@ -317,7 +338,51 @@ class WorktreeMaterializationTest(BoardTestCase):
         self.assertEqual(attempt.outcome, "passed")
         self.assertEqual(row["status"], "done")
         self.assertNotEqual(Path(row["workspace_path"]), source)
-        self.assertTrue((Path(row["workspace_path"]) / ".git").exists())
+
+        self.assertTrue(
+            observed.get("is_checkout"),
+            "the worktree was not a real checkout when the claim was taken",
+        )
+        self.assertEqual(Path(row["workspace_path"]), observed.get("path"))
+        self.assertIsNotNone(
+            board.worktree_for_task(self.conn, task_id),
+            "ownership was never recorded, so a later run could not adopt it",
+        )
+
+    def test_work_left_in_a_worktree_survives_the_kernels_cleanup(self):
+        # The property that actually protects a deliverable. The kernel removes
+        # a completed task's worktree, but only when git says it is clean and
+        # carries nothing unpushed - no --force, and any doubt preserves it. A
+        # run that leaves real files behind must therefore still have them.
+        source = self._source_repo()
+        task_id = self._worktree_task(source, "triai/dirty-worktree")
+        left_behind: dict[str, Path] = {}
+
+        def agent_that_builds(repo, prompt, **kwargs):
+            deliverable = Path(repo) / "index.html"
+            deliverable.write_text("<h1>built</h1>", encoding="utf-8")
+            left_behind["path"] = deliverable
+            return executor.AgentResult(0, "agent\n", 0.01)
+
+        with mock.patch.object(executor, "run_agent", agent_that_builds), \
+            mock.patch.object(
+                executor, "run_verify",
+                return_value=executor.VerifyResult("passed", 0, "verify\n", 0.01),
+            ):
+            attempt = worker.run_once(
+                self.conn,
+                task_id=task_id,
+                ledger_path=self.tmp / "ledger.jsonl",
+                runs_root=self.tmp / "runs",
+            )
+
+        self.assertIsNotNone(attempt)
+        self.assertEqual(attempt.outcome, "passed")
+        self.assertIn("path", left_behind, "the stand-in agent never wrote")
+        self.assertTrue(
+            left_behind["path"].exists(),
+            "the kernel removed a worktree that still held this run's work",
+        )
 
     def test_dispatcher_worker_argv_carries_the_selected_task_id(self):
         argv = dispatcher._worker_argv(
