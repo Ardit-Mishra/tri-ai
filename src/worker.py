@@ -313,13 +313,22 @@ def execute_task(
     # names something visual and asks for it to be made, and sending the agent
     # off to study the field first would invite it to redesign a page it was
     # asked only to adjust.
-    task_prompt = oracle.get("prompt") or ""
+    # The REQUEST, kept separate from the prompt for the whole of this block.
+    # Everything below decides something about what the user asked for, and the
+    # brief appended further down is policy text, not a request: it contains the
+    # words "self-contained" and "offline" while explaining what to do about
+    # them, so reading the augmented prompt made every visual task look like one
+    # that forbids fetching — switching the imagery check off everywhere it was
+    # supposed to apply. Codex caught it; the fix is to never ask a question of
+    # the text this module wrote itself.
+    request = oracle.get("prompt") or ""
+    task_prompt = request
     standard = taste.load()
     if standard.config_error:
         _write_log(agent_log, f"worker: {standard.config_error} — taste defaults used\n")
-    touches_existing = _is_repair(task_prompt, repo)
+    touches_existing = _is_repair(request, repo)
     taste_required = taste.applies_to(
-        task_prompt, standard, touches_existing=touches_existing
+        request, standard, touches_existing=touches_existing
     )
     taste_snapshot: Optional[Path] = None
     if taste_required:
@@ -473,7 +482,7 @@ def execute_task(
             # Decided here, where the prompt is, and carried down rather than
             # re-derived, for the same reason TRIAI_TASTE_REQUIRED is.
             "TRIAI_TASTE_ASSETS": (
-                "1" if taste.allows_external_assets(task_prompt) else "0"
+                "1" if taste.allows_external_assets(request) else "0"
             ),
         },
     )
