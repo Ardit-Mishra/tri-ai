@@ -404,9 +404,17 @@ with these headings:
 
   Promise the MARKS OF THE FIELD, not values you invent for this page. "Rs"
   and "500 g" and "FSSAI" are marks; "Rs 1240.00" is a number you made up and
-  will probably price differently once you are building. If you do change
-  something while you build, edit the brief so the two agree before you stop -
-  it is your brief, and it is read after you finish, not before.
+  will probably price differently once you are building.
+
+  Each bullet must be text that will appear CONTIGUOUSLY on the page, exactly
+  as written. Do not promise a label joined to a value - "Servings: 4" and
+  "Calories per serving: 399.6" are never rendered as one run of text, because
+  the label is a heading and the value sits somewhere else. Promise "Servings"
+  or "kcal" or "Prep time" and let the numbers be whatever they turn out to be.
+
+  LAST THING BEFORE YOU STOP: search your finished page for each bullet you
+  wrote. Anything you cannot find, fix - either put it on the page or change
+  the bullet. It is your brief, and it is read after you finish, not before.
 
 Then build the thing, to that brief, in this same turn.
 

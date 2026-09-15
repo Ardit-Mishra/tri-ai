@@ -717,6 +717,19 @@ class TheInstructionSaysWhatTheGateChecks(unittest.TestCase):
         self.assertIn("in this same turn", block)
         self.assertIn("writing it is not finishing", block)
 
+    def test_the_agent_is_warned_off_label_plus_value_promises(self) -> None:
+        # Run 69 of t_92cd3d3c promised "Calories per serving: 399.6" and
+        # "Servings: 4". A page renders the label as a heading and the number
+        # somewhere else, so the joined string never appears contiguously and
+        # the promise cannot be kept by any correct page.
+        block = taste.brief_block().lower()
+        self.assertIn("contiguously", block)
+        self.assertIn("servings: 4", block)
+
+    def test_the_agent_is_told_to_check_its_own_page_first(self) -> None:
+        block = taste.brief_block().lower()
+        self.assertIn("search your finished page for each bullet", block)
+
     def test_the_counts_asked_for_are_the_counts_required(self) -> None:
         standard = taste.Standard(min_must_appear=7, min_references=4)
         block = taste.brief_block(standard)
