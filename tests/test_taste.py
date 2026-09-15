@@ -520,10 +520,37 @@ class TheFloorCatchesTheObviouslyEmpty(unittest.TestCase):
         ))
         self.assertEqual(self.ws.check(), [])
 
-    def test_the_system_font_stack_is_a_finding(self) -> None:
-        # The one thing the floor did catch on the page the user rejected.
-        self.ws.write("index.html", page(head="<meta charset='utf-8'>"))
+    def test_the_framework_default_stack_is_no_choice_at_all(self) -> None:
+        # The one thing the floor did catch on the page the user rejected, and
+        # this is its actual CSS: Tailwind's default, and nothing else.
+        self.ws.write("index.html", page(
+            head="<meta charset='utf-8'>",
+            style="<style>body{font-family:ui-sans-serif,system-ui,-apple-system,"
+                  "Segoe UI,Roboto,Helvetica,Arial,sans-serif}"
+                  "a{color:#8B2E1F}b{color:#F4E9D8}c{color:#2B2B2B}</style>",
+        ))
         self.assertTrue(any("typeface" in p for p in self.ws.check()))
+
+    def test_a_named_face_needs_no_network_to_be_a_choice(self) -> None:
+        # The blocked recipe-card task says "Self-contained, no external
+        # assets" in so many words. Demanding a Google font there rejects a
+        # page for doing exactly what it was asked. Georgia is a decision.
+        self.ws.write("index.html", page(
+            head="<meta charset='utf-8'>",
+            style="<style>body{font-family:Georgia,serif}"
+                  "a{color:#8B2E1F}b{color:#F4E9D8}c{color:#2B2B2B}</style>",
+        ))
+        self.assertEqual(self.ws.check(), [])
+
+    def test_a_quoted_face_name_is_read(self) -> None:
+        # `font-family: "Playfair Display", serif` is the common shape, and a
+        # pattern that stopped at the first quote captured nothing.
+        self.ws.write("index.html", page(
+            head="<meta charset='utf-8'>",
+            style='<style>h1{font-family:"Playfair Display",Georgia,serif}'
+                  "a{color:#8B2E1F}b{color:#F4E9D8}c{color:#2B2B2B}</style>",
+        ))
+        self.assertEqual(self.ws.check(), [])
 
     def test_a_page_with_no_image_at_all_is_a_finding(self) -> None:
         self.ws.write("index.html", page(f"<h1>Brand</h1><p>{KEPT}</p>"))

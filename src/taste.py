@@ -136,6 +136,23 @@ _COMMENT = re.compile(r"<!--.*?-->", re.S)
 _HIDDEN_BLOCK = re.compile(r"<(script|style)\b[^>]*>.*?</\1\s*>", re.I | re.S)
 _HEADING_TEXT = re.compile(r"<h[1-6][^>]*>(.*?)</h[1-6]>", re.I | re.S)
 _TYPEFACE = re.compile(r"fonts\.googleapis\.com|@font-face", re.I)
+# Runs to the declaration's end, not to the first quote: `font-family:
+# "Playfair Display", serif` is the common shape and stopping at the quote
+# captured nothing at all.
+_FONT_FAMILY = re.compile(r"font-family\s*:\s*([^;}]+)", re.I)
+# The stack a framework hands you when nobody chose anything. Matching these and
+# nothing else is the Mishwan page's actual CSS, in full - its only font-family
+# declaration was Tailwind's default. A page that names Georgia, or Iowan Old
+# Style, or Fraunces has made a decision; this set is the absence of one.
+DEFAULT_FONT_NAMES = frozenset({
+    "ui-sans-serif", "ui-serif", "ui-monospace", "ui-rounded",
+    "system-ui", "-apple-system", "blinkmacsystemfont",
+    "segoe ui", "roboto", "helvetica", "helvetica neue", "arial",
+    "noto sans", "liberation sans", "sans-serif", "serif", "monospace",
+    "cursive", "fantasy", "inherit", "initial", "unset", "revert",
+    "apple color emoji", "segoe ui emoji", "segoe ui symbol",
+    "noto color emoji", "emoji", "math", "fangsong",
+})
 _IMAGERY = re.compile(r"<img\b|<svg\b|<picture\b|background-image\s*:", re.I)
 _BULLET = re.compile(r"^\s*[-*+]\s+(.*\S)\s*$")
 _MD_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.*\S)\s*$")
@@ -343,7 +360,11 @@ with these headings:
 
   ## Type
   Two typefaces by name - a display face and a body face - each with a real
-  fallback stack. Load them from fonts.googleapis.com.
+  fallback stack. Load them from fonts.googleapis.com, unless the task asked
+  for something self-contained or offline: then name faces that need no
+  network, like Georgia or Iowan Old Style, and say so. What is not accepted
+  is no choice at all - the framework's default system stack and nothing
+  else.
 
   ## Layout
   Two sentences on the structure, specific to what this thing is for.
@@ -466,6 +487,29 @@ def visible_text(markup: str) -> str:
     stripped = _COMMENT.sub(" ", markup or "")
     stripped = _HIDDEN_BLOCK.sub(" ", stripped)
     return _TAG.sub(" ", stripped)
+
+
+def _has_chosen_type(markup: str) -> bool:
+    """Did anyone decide what this should be set in?
+
+    A loaded webfont counts, and so does naming a real face in CSS. The second
+    half matters because a request can rule the first half out: the blocked
+    recipe-card task says "Self-contained, no external assets" in so many words,
+    and a gate that then demands a Google font rejects a page for doing exactly
+    what it was asked. Georgia is a typographic choice; it is simply one that
+    needs no network.
+
+    What does not count is the framework default - which is precisely what the
+    page the user rejected had, and all it had.
+    """
+    if _TYPEFACE.search(markup or ""):
+        return True
+    for declaration in _FONT_FAMILY.findall(markup or ""):
+        for name in declaration.split(","):
+            cleaned = name.strip().strip("\"'").lower()
+            if cleaned and cleaned not in DEFAULT_FONT_NAMES:
+                return True
+    return False
 
 
 def _visible_promise(item: str, visible: str) -> bool:
@@ -675,8 +719,11 @@ def check_work(
             f"palette has {len(palette)} colour(s), needs {std.min_palette}"
         )
 
-    if std.require_typeface and not _TYPEFACE.search(markup):
-        problems.append("no typeface loaded - falls back to a system font")
+    if std.require_typeface and not _has_chosen_type(markup):
+        problems.append(
+            "no typeface chosen - every font-family here is the stack a "
+            "framework hands you when nobody picked one"
+        )
 
     if std.require_imagery:
         shipped_image = any(
