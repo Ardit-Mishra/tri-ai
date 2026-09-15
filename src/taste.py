@@ -296,9 +296,26 @@ def applies_to(
     return _mentions(text, std.visual_markers) and _mentions(text, MAKE_VERBS)
 
 
-def brief_block(standard: Optional[Standard] = None) -> str:
-    """The instruction that turns one beat into two."""
+def brief_block(
+    standard: Optional[Standard] = None,
+    *,
+    workspace: Optional[Path | str] = None,
+) -> str:
+    """The instruction that turns one beat into two.
+
+    ``workspace`` is named rather than implied. Run 60 of ``t_7fbf6644`` read
+    "write BRIEF.md in this workspace", did the research properly, built a real
+    page with a stylesheet, a script and the user's logo - and wrote the brief
+    into the home directory. The gate then rejected good work over a file that
+    had been written one directory away. An instruction that can be read two
+    ways will be, on an unattended turn, with nobody to ask.
+    """
     std = standard or Standard()
+    where = (
+        f"at this exact path: {Path(workspace) / BRIEF_FILENAME}"
+        if workspace is not None else
+        f"as {BRIEF_FILENAME} in the workspace directory you were told to cd into"
+    )
     return f"""
 
 BEFORE YOU BUILD ANYTHING - research, then write the brief.
@@ -309,7 +326,8 @@ field, and look at what they actually contain: the units they quote, the
 certifications they display, the words of the trade, what a photograph is of,
 what a buyer needs to see before deciding. Keep the URLs.
 
-Then write {BRIEF_FILENAME} in this workspace, with these headings:
+Then write the brief {where} — not in your home directory, not anywhere else —
+with these headings:
 
   ## References
   The URLs you looked at, one per line, and one sentence each on what that

@@ -69,6 +69,13 @@ NON-NEGOTIABLE:
   your final message, and do the work.
 - You are judged on what is on disk when you stop, never on what you say. A
   description of a file is not a file — write it.
+- Every file you create goes inside this workspace directory. Not your home
+  directory, not a temp directory, not a subdirectory you invent for archiving.
+  Anything written elsewhere does not exist as far as this task is concerned.
+- Never run the verifier yourself — not verify.py, not the task's verify
+  command, not a copy of either. It is the thing that judges your work, and
+  running it archives and commits what you made; a later real check then finds
+  an empty workspace and the run is recorded as having produced nothing.
 - If you cannot complete the task, say so plainly. Do NOT partially edit a file
   and report success — a half-finished edit is worse than an untouched one.
 """
