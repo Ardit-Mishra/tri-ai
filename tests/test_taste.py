@@ -228,6 +228,18 @@ class TheBriefIsReadBack(unittest.TestCase):
              "Uttar Pradesh", "1 kg"),
         )
 
+    def test_an_apostrophe_mid_bullet_is_not_a_quoted_span(self) -> None:
+        # Unanchored, two apostrophes anywhere in a bullet read as a quoted
+        # span: "Don't miss the chef's pick" became "t miss the chef", a
+        # promise no page could ever keep.
+        brief = taste.parse_brief("\n".join([
+            "## Must appear",
+            "- Don't miss the chef's pick",
+            "- chef's special",
+        ]))
+        self.assertEqual(
+            brief.must_appear, ("Don't miss the chef's pick", "chef's special"))
+
     def test_a_parenthetical_gloss_is_not_part_of_the_promise(self) -> None:
         brief = taste.parse_brief(
             "## Must appear\n- Net wt. 100 g (per pack)\n")

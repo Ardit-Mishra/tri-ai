@@ -159,7 +159,11 @@ _MD_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.*\S)\s*$")
 _URL = re.compile(r"https?://\S+")
 # A "Must appear" bullet, as models actually write them: sometimes the bare
 # string, sometimes quoted, sometimes with a gloss or markdown emphasis.
-_QUOTED = re.compile(r'"([^"]+)"' + "|" + r"“([^”]+)”" + "|" + r"'([^']+)'")
+# Anchored at the start of the bullet, which is where a quoted promise sits.
+# Unanchored, `- Don't miss the chef's pick` has two apostrophes and would be
+# read as the quoted span "t miss the chef" - a promise no page could keep.
+_QUOTED = re.compile(
+    r'^"([^"]+)"' + "|" + r"^“([^”]+)”" + "|" + r"^'([^']+)'")
 _GLOSS = re.compile(r"\s+[—–]\s+|\s+-\s+|\s*\(")
 _EMPHASIS = re.compile(r"\*\*|__|[*`]")
 # Curly quotes and the non-breaking space, folded to what a person types.
@@ -422,7 +426,7 @@ def _promise_text(bullet: str) -> str:
     direction to err in.
     """
     text = (bullet or "").strip()
-    quoted = _QUOTED.search(text)
+    quoted = _QUOTED.match(text)
     if quoted:
         text = quoted.group(1) or quoted.group(2) or quoted.group(3) or ""
     else:
