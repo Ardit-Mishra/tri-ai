@@ -25,8 +25,9 @@ What a gate must not do
 -----------------------
 Reject work that should have passed. That failure is quieter than the other
 one - nobody sees a page that was never delivered - and on an unattended board
-it just looks like the system stopped working. Review of the first version
-found six ways it could happen, and every rule here is shaped by them:
+it just looks like the system stopped working. Review found seven ways the
+first version could do it, and putting real tasks through the gate found five
+more. Every rule here is shaped by one of them:
 
   - The run is judged as ONE piece of work, never file by file. A page whose
     colours and fonts live in a linked stylesheet is styled; a two-page site
@@ -41,6 +42,15 @@ found six ways it could happen, and every rule here is shaped by them:
   - Promises are matched against what a reader can see - not comments, not
     script bodies, not attributes. A contract satisfied inside an HTML comment
     is not satisfied.
+  - A promise is read the way agents write one. `- "FSSAI Certified"` asks for
+    the words, not the quotation marks; `500 g` is kept by a page that sets
+    `500g`; `MRP &#8377;185` renders as the rupee sign the brief asked for.
+  - The page keeps MOST of its promises, not all. A brief is research, not a
+    specification, and a page carrying ten of twelve marks of its field has
+    done the work.
+  - A typeface is a choice, not a network request. Georgia counts; the
+    framework's default stack and nothing else does not - which is exactly
+    what the page the user rejected had.
 
 And the standard the agent was given is the standard it is judged by: the
 worker snapshots it and the verifier reads the snapshot, so editing
