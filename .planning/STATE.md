@@ -1468,3 +1468,68 @@ triggers — AtStartup, AtLogOn, and a **15-minute repetition** — with
 one is restarted within 15 minutes. That covers the case the supervisor cannot:
 its own budget is 8 restarts per hour, after which it deliberately "stops the
 fleet", and before this that was permanent until a human noticed.
+
+### Two more the gate would have got wrong, found by reading rather than running
+
+**A typeface is a choice, not a network request.** The blocked recipe-card task
+says *"Self-contained, no external assets"* in so many words, and the floor
+demanded a font from `fonts.googleapis.com` or an `@font-face` rule — so a page
+doing exactly what it was asked would have been rejected. The rule was aimed at
+the right thing and measuring the wrong one: what was wrong with the page the
+user rejected was not that its font came from no server, it was that **nobody
+chose**. Its only `font-family` declaration, in full, was Tailwind's default.
+`_has_chosen_type` now accepts a loaded webfont *or* a named face in CSS, and
+still fails on the framework default and nothing else. Verified against both
+real pages, not fixtures. A related bug: the pattern stopped at the first quote,
+so `font-family: "Playfair Display", serif` — the common shape — captured
+nothing at all.
+
+**A quoted promise is now anchored to the start of its bullet.** Unanchored,
+two apostrophes anywhere in a bullet read as a quoted span: `Don't miss the
+chef's pick` became `t miss the chef`, a promise no page could keep.
+
+### A mistake worth recording, because it is the session's own lesson
+
+Re-filing the recipe-card request to test the gate on a second subject, the
+patch script that rewrote the prompt **printed "request switched" and changed
+only the title**. The `.replace()` found no match and said nothing, so a
+Mishwan task was filed, ran twice, and its brief — FSSAI, Uttar Pradesh, masala
+— looked at first like cross-task memory contamination. It was not. It was a
+silent no-op wearing a success message, which is the same defect class as the
+loader errors that hid 102 tests and the chunked transfer that kept only its
+last fragment. **Assert the replacement matched.** Verified afterwards by
+reading the prompt back off the board before watching the run.
+
+### Second subject: the recipe cards, and where the gate is still weak
+
+Your blocked recipe-card request — *"three files: index.html, style.css,
+recipes.json ... warm cream-and-terracotta ... Self-contained, no external
+assets"* — was re-filed to check the gate had not been tuned to Mishwan. It had
+not: the agent's brief cited Google's JSON-LD recipe spec, FSSAI **menu
+labelling** (calorific value per serving, serving size, veg/non-veg indicators),
+and picked `#FDFBF7` cream with `#C85A32` terracotta, which is what was asked
+for. Completely different research, appropriate to the subject.
+
+Two more gate defects fell out of it, both the same shape as the typeface one —
+a rule aimed at the right thing and measuring the wrong property:
+
+- **Imagery meant "a file was fetched" when it means "is there any visual
+  composition".** Run 68 answered "no external assets" with four CSS gradients,
+  two box-shadows, five radii and a Playfair Display / Inter pairing, and was
+  rejected for having no `<img>` — the one thing the request ruled out. Counted
+  out of the revert stash before changing anything. Gradients now count.
+- **Label-plus-value promises cannot be kept by any correct page.** Run 69
+  promised `Calories per serving: 399.6` and `Servings: 4`. A page renders the
+  label as a heading and the number elsewhere, so the joined string never
+  appears contiguously. The instruction now names those exact shapes as what
+  not to write, and the last thing it tells the agent is to search its own
+  finished page for every bullet and fix whichever end is wrong.
+
+**Still open, honestly.** The promise contract works well for categorical marks
+(FSSAI, Uttar Pradesh, 500 g) and badly for value-shaped ones. Two Mishwan
+tasks passed cleanly; the recipe-card task has not yet, and after the
+instruction changes above one more attempt is running. If it fails again the
+next thing to try is not another rule — it is whether `min_must_appear` should
+scale with how many promises were made, rather than being a flat floor that a
+five-promise brief must clear perfectly while a twelve-promise brief may miss
+seven.
