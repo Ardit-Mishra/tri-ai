@@ -549,10 +549,30 @@ CREDENTIAL_ENV_NAMES = (
 )
 
 
+# The verify command's identity. These name the run to the verifier, and the
+# sandbox verifier treats TRIAI_RUN_ID as proof that the worker is the caller —
+# so the agent must never be able to hold one, however this worker was started.
+#
+# Run 63 of t_e7b0028b is why. HARD_RULES told the agent not to run the
+# verifier; it ran it anyway, which archived and committed its own output, and
+# the worker's real verify then found an empty workspace and recorded the run as
+# having produced nothing. A rule in a prompt is a request. This is the control.
+VERIFY_IDENTITY_ENV: tuple[str, ...] = (
+    "TRIAI_RUN_ID",
+    "TRIAI_TASK_ID",
+    "TRIAI_TASK_TITLE",
+    "TRIAI_TASK_PROMPT",
+    "TRIAI_TASTE_REQUIRED",
+    "TRIAI_TASTE_SNAPSHOT",
+)
+
+
 def agent_env() -> dict[str, str]:
     """The child environment: inherited, minus credentials, plus hard defaults."""
     env = dict(os.environ)
     for name in CREDENTIAL_ENV_NAMES:
+        env.pop(name, None)
+    for name in VERIFY_IDENTITY_ENV:
         env.pop(name, None)
     env["GIT_TERMINAL_PROMPT"] = "0"
     return env

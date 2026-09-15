@@ -16,8 +16,10 @@ happens to carry them today.
 
 from __future__ import annotations
 
+import os
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -145,3 +147,50 @@ class TheAgentIsToldWhereWorkGoesAndWhatNotToRun(unittest.TestCase):
         for line in body:
             with self.subTest(line=line[:40]):
                 self.assertTrue(line.startswith("- ") or line.startswith("  "))
+
+
+class TheAgentCannotHoldTheVerifiersIdentity(unittest.TestCase):
+    """A rule in a prompt is a request; this is the control.
+
+    Run 63 of `t_e7b0028b` researched the field, built the page, and then ran
+    the sandbox verifier to check its own work. verify.py archives and commits
+    a run's output, so the worker's real verify - seconds later - found a clean
+    tree and recorded a complete, researched page as "this run changed nothing
+    in the workspace". Run 59 had done the same an hour earlier, and HARD_RULES
+    had been told to forbid it in between.
+
+    The sandbox verifier now refuses to run unless TRIAI_RUN_ID is set. That is
+    only worth anything if the agent can never have one, which is what these
+    assert: the identity is built for the verify subprocess, and stripped from
+    the agent's environment however the worker itself was started.
+    """
+
+    def test_the_identity_is_stripped_from_the_agent(self) -> None:
+        with mock.patch.dict(
+            os.environ,
+            {name: "leaked" for name in executor.VERIFY_IDENTITY_ENV},
+            clear=False,
+        ):
+            env = executor.agent_env()
+        for name in executor.VERIFY_IDENTITY_ENV:
+            with self.subTest(name=name):
+                self.assertNotIn(name, env)
+
+    def test_the_verifier_is_given_exactly_that_identity(self) -> None:
+        env = executor.verify_env({
+            "TRIAI_RUN_ID": "7",
+            "TRIAI_TASK_ID": "t_abc",
+        })
+        self.assertEqual(env["TRIAI_RUN_ID"], "7")
+        self.assertEqual(env["TRIAI_TASK_ID"], "t_abc")
+
+    def test_run_id_is_the_token_the_verifier_keys_on(self) -> None:
+        # Named first in the tuple and asserted here, so a rename cannot
+        # silently decouple the stripping from the check that relies on it.
+        self.assertIn("TRIAI_RUN_ID", executor.VERIFY_IDENTITY_ENV)
+
+    def test_credentials_are_still_stripped_too(self) -> None:
+        # The identity strip must not have displaced the older guarantee.
+        name = next(iter(executor.CREDENTIAL_ENV_NAMES))
+        with mock.patch.dict(os.environ, {name: "secret"}, clear=False):
+            self.assertNotIn(name, executor.agent_env())
