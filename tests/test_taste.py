@@ -596,6 +596,22 @@ class TheFloorCatchesTheObviouslyEmpty(unittest.TestCase):
             [],
         )
 
+    def test_the_brief_text_cannot_answer_a_question_about_the_request(self) -> None:
+        # Codex, reviewing this branch: the worker asked
+        # allows_external_assets() about the prompt AFTER appending the brief,
+        # and the brief explains what to do when a task is "self-contained" or
+        # "offline" - so it contains both phrases. Every visual task therefore
+        # read as one that forbids fetching, and the imagery check was switched
+        # off everywhere it was meant to apply.
+        request = "Build me a landing page for a brand called Mishwan"
+        self.assertTrue(taste.allows_external_assets(request))
+        augmented = request + taste.brief_block(workspace="C:/x")
+        self.assertFalse(
+            taste.allows_external_assets(augmented),
+            "the brief no longer carries these phrases - if that is deliberate, "
+            "this test can go, but the worker must still ask about the request",
+        )
+
     def test_which_requests_forbid_fetching(self) -> None:
         for prompt, allowed in (
             ("Create a recipe card site. Self-contained, no external assets.", False),

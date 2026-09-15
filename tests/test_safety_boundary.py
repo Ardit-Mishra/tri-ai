@@ -35,6 +35,7 @@ sys.path.insert(0, str(SRC))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import executor  # noqa: E402
+import worker  # noqa: E402
 
 # The audited closure: every module on the execution path.
 CLOSURE_MODULES = (
@@ -769,3 +770,57 @@ class DispatcherCannotBypassOrPush(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DecisionsAboutTheRequestReadTheRequest(unittest.TestCase):
+    """The worker must not ask questions of text the worker itself wrote.
+
+    Codex, reviewing this branch: `worker.execute_task` called
+    `taste.allows_external_assets()` on the prompt *after* appending
+    `taste.brief_block()`. The brief explains what to do when a task is
+    "self-contained" or "offline", so it contains both phrases — and every
+    visual task therefore read as one that forbids fetching, switching the
+    imagery check off exactly where it was meant to apply.
+
+    The fix is a naming discipline: `request` is what the user asked for and
+    never changes; `task_prompt` is what the agent is handed and accumulates
+    policy. Anything deciding something *about the request* takes `request`.
+    Asserted structurally, because the two are one keystroke apart.
+    """
+
+    #: Functions whose answer is about the user's request, not the agent's prompt.
+    ABOUT_THE_REQUEST = frozenset({
+        "allows_external_assets",
+        "applies_to",
+        "_is_repair",
+    })
+
+    def _worker_tree(self):
+        source = (SRC / "worker.py").read_text(encoding="utf-8")
+        return ast.parse(source, filename=str(SRC / "worker.py"))
+
+    def test_none_of_them_are_handed_the_augmented_prompt(self):
+        offenders = []
+        for node in ast.walk(self._worker_tree()):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+            if name not in self.ABOUT_THE_REQUEST:
+                continue
+            for argument in list(node.args) + [kw.value for kw in node.keywords]:
+                if isinstance(argument, ast.Name) and argument.id == "task_prompt":
+                    offenders.append(f"{name}(task_prompt) at line {node.lineno}")
+        self.assertEqual(
+            offenders, [],
+            "these decide something about the user's request and were handed the "
+            "prompt the worker augmented: " + repr(offenders),
+        )
+
+    def test_the_guard_is_watching_functions_that_exist(self):
+        # A typo in ABOUT_THE_REQUEST would make the test above vacuous.
+        import taste as taste_module
+        for name in ("allows_external_assets", "applies_to"):
+            with self.subTest(name=name):
+                self.assertTrue(hasattr(taste_module, name))
+        self.assertTrue(hasattr(worker, "_is_repair"))
