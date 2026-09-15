@@ -186,14 +186,18 @@ per-run model comparison.
 depending on it would undo the migration): `devstral:24b` ->
 `qwen2.5-coder:14b` -> `gemma4:31b`.
 
-*Separately, a documentation claim that outruns its evidence.* Three modules -
-`executor.py`, `ledger.py`, `worker.py` - state the agent "runs under
-`HERMES_YOLO_MODE=1` with every shell approval auto-granted". **Nothing sets
-it**, on either machine: not the worker, not `agent_env()`, and it is unset in
-process, user and machine scope. The safety discussion in those docstrings rests
-on a variable that does not exist. Either the agent is more constrained than
-documented, or the approval path is granted some other way - worth establishing
-which before the claim is repeated.
+*Separately, a documentation claim that outran its evidence - and then did not.*
+Three modules - `executor.py`, `ledger.py`, `worker.py` - state the agent "runs
+under `HERMES_YOLO_MODE=1` with every shell approval auto-granted", and nothing
+in Tri-AI sets it: not the worker, not `agent_env()`, and it is unset in
+process, user and machine scope. **RESOLVED 2026-09-14: the claim is correct and
+the search was looking in the wrong repository.** `hermes_cli/oneshot.py:255-256`
+sets both `HERMES_YOLO_MODE=1` and `HERMES_ACCEPT_HOOKS=1` itself, for every
+`-z` call, with the reason in the comment above it: "Auto-approve any shell /
+tool approvals. Non-interactive by definition - a prompt would hang forever."
+Tri-AI uses `-z` exclusively, so the docstrings describe what actually happens.
+The residual risk they discuss is real and unchanged: a YOLO agent on this
+account can reach anything this user can.
 
 **Tri-AI moved to the desktop, 2026-09-14.** The laptop was always the wrong
 host: `VIVO-S14` is a notebook, so closing the lid killed the bot. It now runs on
@@ -1218,3 +1222,249 @@ gone. GSD is a marketplace plugin and can be reinstalled; `research-repo-grade` 
 in `skills-lock.json`, so it is lost. Until GSD is reinstalled, phases are planned directly against
 the roadmap's success criteria rather than via `/gsd:plan-phase`.
 Resume file: None
+
+---
+
+## 2026-09-14 — the system moved machines, and learned to look before it builds
+
+**Where Tri-AI runs now.** The worker, the Telegram bot and the router all live on the desktop
+(`DESKTOP-JHQ7HJM`, account `Ardit II`, reachable over Tailscale at `100.67.149.86` with
+`~/.ssh/triai_desktop`). The laptop is where code is written; nothing is true until it is on the
+desktop. `career-ops` stays on the laptop only — it is the operator's real job-search data.
+
+**Root cause of everything that failed after the move.** OmniRoute binds `127.0.0.1`. Moving Tri-AI
+to the desktop silently severed it from all ten providers and dropped it to raw Ollama, which
+narrates instead of acting. The tell was in the first failed run's usage file: `api_calls: 1` means
+the model answered once and invoked no tool. Hours were spent swapping local models before reading
+it. **When an agent stops acting, read `api_calls` in the usage file before touching the model.**
+
+**OmniRoute on the desktop.** `omniroute@3.8.50`, serving on `127.0.0.1:20129` (20128 is held by a
+Windows service). The store moved via SQLite's `backup()` API, not a file copy — the WAL held 4 MB
+that a copy would have dropped. Both `.env` files travelled; credentials are encrypted with
+`STORAGE_ENCRYPTION_KEY` and decrypt correctly on the new machine (proved by a live call returning
+`gpt-4o-mini-2024-07-18`). All 10 provider connections active. Autostart is the Scheduled Task
+`OmniRoute Router`, AtStartup + AtLogOn, S4U. **Not yet proven across an actual reboot.**
+Verify with: `omniroute providers list` and `curl http://127.0.0.1:20129/v1/models`.
+
+Hermes chain: `auto/best-coding` @ router → `auto/smart` → `devstral:24b` → `qwen2.5-coder:14b`.
+The local models cannot do complex work; they are the difference between degraded and stopped.
+
+**The taste pass** (`66e3cf6` here, `c0d3ed3` on the desktop; sandbox `a827b87`).
+Run 58 of `t_036e27e3` produced a masala-brand landing page that passed every gate and was still
+slop: no FSSAI licence, no net weights, no MRP, no batch date, the framework's default system font.
+No check could be written in advance to know that spices need a licence number, so the standard is
+not hard-coded — the agent researches the field with its web tools, writes `BRIEF.md` with a
+"Must appear" list of concrete strings real examples carry, and the verifier holds the finished file
+to that list. `~/.tri-ai/taste.json` holds the thresholds; a malformed file logs and falls back.
+`TRIAI_TASTE_REQUIRED` carries the worker's decision to the verifier so the two cannot drift.
+Verify with: `python -m unittest discover -s tests -p test_taste.py -t tests` (31 tests).
+
+**Honest limit:** the mechanical floor finds exactly one thing on the page the user rejected (the
+missing typeface). Taste is not mechanically detectable. The brief is the only part with teeth, and
+it has teeth only because the agent went and looked first.
+
+**Known failures, both pre-existing and neither in this path:**
+- `test_worktree_materialization.test_named_worker_materializes_before_claiming` fails identically
+  with `src/worker.py` reverted to HEAD. A locked `tmprkxevjap/` sits in the repo root that the OS
+  will not let `rm` or `git` open; `git worktree prune` finds nothing. Not yet diagnosed.
+- 8 loader errors (`test_telegram_*`, `test_daemon_*`, `test_mobile_ergonomics`,
+  `test_reply_revision_loop`, `test_attachment_intake`): `tests/run.ps1` picks the Hermes venv's
+  Python 3.11, which rejects `telegram_control.py:96`'s backslash-in-f-string. The daemons run
+  under 3.12+, so the code is fine and the *runner* is wrong — the whole Telegram surface is
+  therefore untested by `tests/run.ps1`. This is worth fixing before trusting that suite.
+
+**Open, operator-owned:** rotate the GitHub PAT (confirmed live as `Ardit-Mishra`, present in
+`.hermes_history` and `state.db`, both of which `hermes backup` zips).
+
+---
+
+## 2026-09-14 (later) — the gate got teeth, then got audited
+
+Two commits: `4af2584` (the taste gate rewritten) and the test-infrastructure work
+folded into it. Deployed to the desktop as `46a1f9e`; sandbox verifier `4138955`.
+
+**The suite was lying, and by more than it looked.** `tests/run.ps1` runs under the
+Hermes venv's Python 3.11. `src/telegram_control.py:96` had one f-string with a unicode
+escape inside its expression — legal from 3.12, a SyntaxError before it. Eight test
+files failed to *load*, and unittest reported each as a single
+`unittest.loader._FailedTest` error. "463 tests, 8 errors" actually meant **102 tests
+were not running**, and the entire Telegram surface — intake, attachments, the daemon,
+the transport, the revision loop — was checked by nothing. A loader error is not a
+failing test; it is the absence of tests wearing one test's clothes.
+
+Fixed by hoisting the escape to a module constant, and pinned by
+`tests/test_modules_import.py`, which imports every module in `src/` under whatever
+interpreter is running the suite. **565 → 575 tests, all passing, on both machines.**
+
+**Two flaky tests, both real races in the tests, not the code.**
+`test_a_beat_stops_when_the_output_stops` read the heartbeat row the instant touching
+stopped, racing the beat still in flight for the final touch — that beat is earned, it
+just lands after the read. Now takes two readings inside the silence.
+`test_touch_advances_the_reading` slept 10 ms against a monotonic clock whose
+resolution on Windows is 15.625 ms, so the two readings could compare equal; it now
+sleeps past `time.get_clock_info("monotonic").resolution`. 24 consecutive clean runs
+after both fixes, one unexplained failure in the 8 runs before that.
+
+**The kernel deletes a task-owned worktree on completion.** `test_worktree_materialization`
+had been failing for an unknown length of time and was assumed stale. It was not.
+`kanban_db.complete_task` → `_cleanup_workspace` → `_cleanup_worktree_workspace` runs
+`git worktree remove`, so a *passing* worktree task ends with its workspace gone —
+while `src/worktrees.py` said in its first line that worktrees are never removed. The
+kernel's guard is careful and worth knowing: no `--force`, removal refused if the tree
+is dirty or holds unpushed commits, never the main checkout, and only an
+auto-generated `wt/<task-id>` branch is deleted with it. Tri-AI names its branches, so
+commits survive. **What does not survive is an absolute artifact path into a removed
+worktree** — artifacts are recorded before verify runs. Directory workspaces (every
+workspace the Telegram intake offers) are unaffected. Pinned by
+`test_work_left_in_a_worktree_survives_the_kernels_cleanup`.
+
+**Codex review, and its limit.** The first taste gate went to Codex (`cx/gpt-5.5`
+through the router) and came back with seven findings, every one real — all of them
+ways the gate could reject work that should have passed. That is the quieter failure
+and the worse one: nobody sees a page that was never delivered. The rewrite closed all
+seven. Then the account hit its quota: *"All codex accounts reached configured quota
+threshold (reset after 617h 46m 30s)"* — 26 days, from 2026-09-14.
+
+Substitutes were tried and are worse. The `nvidia` connection's live catalog does not
+contain the models the router lists for it (`z-ai/glm-5.2`, `qwen/qwen3.5-397b-a17b`
+both 400). `gemini-3.1-pro-preview` never clears its cooldown. GitHub Copilot refuses
+`claude-opus-5` and `gpt-5.3-codex` for this account. `auto/best-coding` currently
+resolves to `gpt-4o-2024-08-06` / `gemini-flash-lite-latest`, which answered a real
+concurrency question correctly and returned NO FINDINGS on a 25 KB review — not a
+substitute for Codex, and any report quoting one should say which it was.
+
+**Two findings the review did not get to, both worse than anything in its list.**
+Found by auditing the rewrite by hand:
+
+  - The repair signal used `intake_preflight.check().present`, which matches bare
+    filenames *anywhere* under the workspace. The sandbox files every finished run
+    under `runs/<slug>/`, so one past run containing `index.html` would have made every
+    later "create index.html" look like a repair — **the research pass would have
+    switched itself off permanently after the first task, silently, with every test
+    green.** `worker._is_repair` now asks whether the named file is where the agent
+    will actually work.
+  - Promises were compared literally, so `MRP &#8377;185`, `Net wt.<br>100 g` and
+    `200&nbsp;g` all read as broken promises. That is ordinary good markup.
+    `taste.normalize` folds entities, whitespace and typographic quotes on both sides —
+    which also stops a curly apostrophe hiding a banned phrase.
+
+**Useful router facts learned.** `omniroute simulate -m <model> --explain` prints the
+real routing ids and the per-model breaker/quota state; the display names in
+`omniroute models` are not routable. `omniroute chat --file` prints its banner and
+exits silently on a ~24 KB prompt, so scripted calls should POST to
+`http://127.0.0.1:20129/v1/chat/completions` directly. Building the JSON body in
+PowerShell turns a 24 KB string into a 461 KB body whose `content` reads back empty —
+build it in Python and let PowerShell only POST the bytes.
+
+**Nine blocked tasks** sit on the board, all from the pre-OmniRoute period when the
+agent narrated instead of acting: four Mishwan attempts, two recipe-card sites, and
+three of my own proof tasks (`heartbeat-proof`, `desktop-proof`, `devstral-proof`).
+They are inert and were left alone — they are the user's requests and the evidence of
+that period, and neither is mine to delete.
+
+**The approval pause was deliberately NOT built.** The user asked for research, then
+"tells me", then makes it. The brief is delivered *with* the result — `BRIEF.md` is a
+produced artifact and `.md` is in `completion_report.DOCUMENT_SUFFIXES`, so it is
+attached to the completion card. A *blocking* approval step would have been actively
+harmful this week: it parks every visual task in `needs_input` waiting for a person who
+is away. Worth building when they are back and can say how they want it.
+
+---
+
+## 2026-09-14 (night) — what a live stress test found that 593 unit tests could not
+
+The taste gate was deployed and then put through the real thing: the same
+Mishwan request that produced the page the user rejected, with the same logo,
+filed on the desktop board and watched. Four attempts, six agent runs. Every
+rejection was correct behaviour under a defective instruction, and each one
+exposed something no unit test would have.
+
+**Run 59 and run 63 — the agent ran the verifier.** `verify.py` is not a check,
+it is a mutation: it moves a run's output into `runs/<slug>/` and commits it.
+The agent researched, built the page, and then ran the verifier to check its own
+work. Sandbox commit `d2a3c79` at 19:52:32 is the agent's own archive. Seconds
+later the worker's real verify found a clean tree and recorded a complete,
+researched page as *"this run changed nothing in the workspace"*. Run 63 did it
+**after** `HARD_RULES` had been changed to forbid it explicitly.
+
+  **A rule in a prompt is a request, not a control.** `verify.py` now refuses
+  unless `TRIAI_RUN_ID` is set, and `executor.agent_env()` strips the whole
+  `TRIAI_*` verify identity from the agent's environment, so an agent cannot
+  hold one however the worker was started. Exit code 2, distinct from the 1 that
+  means "this run failed".
+
+**Run 60 — the brief landed in the home directory.** The agent researched
+properly, built `index.html` with `styles.css`, `script.js` and the user's logo
+copied in, and wrote `BRIEF.md` to `C:\Users\Ardit II\BRIEF.md`. "Write BRIEF.md
+in this workspace" was read as "somewhere sensible", and good work was rejected
+over a file one directory away. `taste.brief_block` now takes the workspace and
+prints the absolute path.
+
+**Run 62 — the gate threw away a good page over two strings.** A 25 KB page
+carrying FSSAI, ISO 22000, Halal, Kosher, Meerut, Uttar Pradesh and a rupee sign
+— ten of its twelve promises — failed on `"500 g"` (the page set `500g`) and
+`"Rs 1240.00"` (a price invented before building and revised during it). Fixed
+three ways: whitespace inside a promise is optional when matching; the page must
+keep `min_must_appear` of its promises rather than all of them; and the
+instruction asks for the marks of the field rather than invented values, and
+says the brief may be edited while building.
+
+**Run 64 — promises were read too literally.** It kept *none* of its ten
+promises because it had written them the way models write lists:
+`- "FSSAI Certified"`, `- "Rs" (currency symbol)`, `- **500gm**`. Taken at face
+value those ask the page to contain the quotation marks. `taste._promise_text`
+now reads a quoted span as the promise, otherwise cuts at the first gloss, and
+strips markdown emphasis — a cut that only ever makes a promise shorter, because
+the failure being guarded against is refusing work that was done.
+
+**Runs 59 and 61 — the brief was treated as the finish line.** Each wrote a good
+brief and stopped, spending an attempt and making the next agent redo the same
+research. The instruction now says both beats happen in one turn.
+
+### Operational findings from the same session
+
+- **The desktop has 15.8 GB free of 931 GB.** Tri-AI's whole runtime footprint is
+  0.6 MB (`.tri-ai/runs` 0.2 MB, `tri-ai-sandbox/runs` 0.3 MB, logs ~0), and
+  `.omniroute` is 45 MB. Nothing here is the cause, and everything here stops if
+  the disk fills. Enumerating the profile to find the cause timed out twice over
+  SSH; worth a look locally.
+- **A config error can stop the whole fleet permanently.** The supervisor's
+  budget is 8 restarts per hour, after which it "stops the fleet". Earlier today
+  `intake_policy.json` referenced `genclarus` — a laptop-only path — and the
+  telegram daemon crash-looped until the budget was exhausted. Both scheduled
+  tasks now carry a **15-minute repeating trigger** alongside AtStartup and
+  AtLogOn; with `MultipleInstances = IgnoreNew` a running instance is untouched
+  and a dead one is restarted within 15 minutes.
+- **`run_daemons.ps1` waits for the router** (port 20129, up to 180 s) before
+  starting the supervisor, then starts anyway. Both are AtStartup tasks with
+  nothing sequencing them, and every model call resolves through the router.
+- **The daemon logs have no timestamps**, which made two resolved incidents look
+  current during triage. Worth fixing.
+- **`HERMES_YOLO_MODE` is set by hermes itself**, in `oneshot.py:255`, for every
+  `-z` call — see the correction earlier in this file.
+
+### The dashboard every completion card links to was not running
+
+`--dashboard-url http://100.67.149.86:8080` was configured on the daemons task
+and **port 8080 on the desktop is held by `svchost.exe`** — the same squat that
+pushed OmniRoute off 20128. No dashboard process was registered at all, so every
+completion card the user received carried a link that could not resolve.
+
+Now `scripts/run_dashboard.ps1` + the `Tri-AI Dashboard` scheduled task, on
+**8081** (checked free), bound to loopback and the Tailscale address with
+`--allow-non-loopback` passed deliberately — that flag exists to make exposing
+task titles, workspace paths and log tails an explicit choice, and Tailscale is
+how the phone reaches it. The dashboard stays strictly read-only: SQLite in
+`mode=ro` with `PRAGMA query_only`, no mutating route. The daemons task's
+`--dashboard-url` was moved to 8081 to match.
+
+Verified: `http://127.0.0.1:8081/` and `http://100.67.149.86:8081/` both 200.
+
+### Three tasks, one recovery story
+
+`OmniRoute Router`, `Tri-AI Daemons` and `Tri-AI Dashboard` each now carry three
+triggers — AtStartup, AtLogOn, and a **15-minute repetition** — with
+`MultipleInstances = IgnoreNew`, so a running instance is untouched and a dead
+one is restarted within 15 minutes. That covers the case the supervisor cannot:
+its own budget is 8 restarts per hour, after which it deliberately "stops the
+fleet", and before this that was permanent until a human noticed.
