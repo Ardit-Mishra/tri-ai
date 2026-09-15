@@ -45,6 +45,10 @@ CLOSURE_MODULES = (
     # invoked by verify commands. Anything that can change what the agent is
     # told, or what the gate accepts, is on the execution path.
     "taste.py",
+    # intake_preflight.py reads the workspace to decide whether a request is a
+    # repair, which decides whether the agent is sent to research first. It was
+    # already used by the Telegram intake; the worker now depends on it too.
+    "intake_preflight.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole

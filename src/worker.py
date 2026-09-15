@@ -99,6 +99,7 @@ from typing import Any, Mapping, Optional, Sequence
 import board  # noqa: F401  (closure module; all kernel access via board.kanban())
 import executor
 import failure_class
+import intake_preflight
 import ledger
 import taste
 import worktrees
@@ -306,13 +307,27 @@ def execute_task(
     # rewriting every task already on the board. Tasks that produce no visual
     # artifact are untouched — a research pass on `fix the flaky test` would
     # spend a model's whole turn budget looking at nothing.
+    #
+    # A prompt naming files the workspace already holds is a repair, and a
+    # repair inherits the taste on disk. "make the header bigger in index.html"
+    # names something visual and asks for it to be made, and sending the agent
+    # off to study the field first would invite it to redesign a page it was
+    # asked only to adjust.
     task_prompt = oracle.get("prompt") or ""
     standard = taste.load()
     if standard.config_error:
         _write_log(agent_log, f"worker: {standard.config_error} — taste defaults used\n")
-    taste_required = taste.applies_to(task_prompt, standard)
+    touches_existing = _is_repair(task_prompt, repo)
+    taste_required = taste.applies_to(
+        task_prompt, standard, touches_existing=touches_existing
+    )
+    taste_snapshot: Optional[Path] = None
     if taste_required:
         task_prompt += taste.brief_block(standard)
+        # The bar the agent is set is the bar it is judged by. Without this the
+        # verifier re-reads taste.json, and an edit landing mid-run would move
+        # the requirement under a brief already written to the old one.
+        taste_snapshot = taste.snapshot(standard, agent_log.parent / "taste.json")
         _write_log(agent_log, "worker: taste brief required before build\n")
 
     # The claim outlives its 15-minute TTL only while the agent is demonstrably
@@ -453,6 +468,7 @@ def execute_task(
             # split the two: an agent never told to research, held to a brief
             # it was never asked for.
             "TRIAI_TASTE_REQUIRED": "1" if taste_required else "0",
+            "TRIAI_TASTE_SNAPSHOT": str(taste_snapshot) if taste_snapshot else "",
         },
     )
     _write_log(verify_log, verifier.output)
@@ -589,6 +605,32 @@ UNWALKED_DIRS = frozenset({
 # heartbeat. A time budget bounds the cost without excluding anything, and the
 # scan exits early the moment it finds proof of progress anyway.
 WORKSPACE_SCAN_SECONDS = 5.0
+
+
+def _is_repair(prompt: str, repo: Path | str) -> bool:
+    """Does this request name a file that is already where the agent will work?
+
+    The signal that separates "build me a landing page" from "make the header
+    bigger in index.html". Only the second inherits taste from disk, and only
+    the first is worth a research pass.
+
+    Deliberately NOT ``intake_preflight.check(...).present``, which scans the
+    whole tree and matches bare filenames anywhere inside it. That is right for
+    warning an operator that a prompt names nothing real, and wrong here: the
+    sandbox files every finished run under ``runs/<slug>/``, so a single past
+    run containing ``index.html`` would make every future "create index.html"
+    look like a repair and switch the research pass off permanently after the
+    first task. A named subpath still resolves — ``src/app.py`` is checked at
+    ``<repo>/src/app.py`` — because that is where the agent would find it.
+    """
+    root = Path(repo)
+    for name in intake_preflight.named_files(prompt):
+        try:
+            if (root / name).exists():
+                return True
+        except OSError:
+            continue
+    return False
 
 
 class _AgentActivity:

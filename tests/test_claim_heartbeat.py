@@ -103,6 +103,15 @@ class HeartbeatIsEarned(BoardTestCase):
     def test_a_beat_stops_when_the_output_stops(self):
         # Output, then silence. The heartbeat must freeze at the last real
         # activity so the kernel's staleness window can start running.
+        #
+        # The reading is taken AFTER the silence has had time to settle, not
+        # the instant the touching stops. The first shape of this test read the
+        # row immediately and compared it with a later one, which raced the
+        # beat still in flight for the final touch: that beat is earned - the
+        # activity really happened - but it lands after the read, and the test
+        # failed two runs in three on a property the code was honouring. What
+        # matters is that the beat stops ADVANCING once the agent goes quiet,
+        # and two readings taken inside the silence say exactly that.
         activity = worker._AgentActivity()
         with worker._heartbeat_while_active(
             self.task_id, self.run_id, activity,
@@ -111,13 +120,15 @@ class HeartbeatIsEarned(BoardTestCase):
             for _ in range(4):
                 activity.touch()
                 time.sleep(self.INTERVAL)
-            beat_while_working = self.heartbeat_at()
-            time.sleep(self.INTERVAL * 8)
-            beat_after_silence = self.heartbeat_at()
+            worked = self.heartbeat_at()
+            time.sleep(self.INTERVAL * 4)     # let the last earned beat land
+            settled = self.heartbeat_at()
+            time.sleep(self.INTERVAL * 8)     # silence, and more silence
+            still_settled = self.heartbeat_at()
 
-        self.assertIsNotNone(beat_while_working)
+        self.assertIsNotNone(worked, "no beat was written while output flowed")
         self.assertEqual(
-            beat_while_working, beat_after_silence,
+            settled, still_settled,
             "the heartbeat kept advancing after the agent went quiet",
         )
 
@@ -172,9 +183,14 @@ class ActivityIsCheapAndThreadSafe(unittest.TestCase):
     """It is touched from the pipe-draining thread, which must never block."""
 
     def test_touch_advances_the_reading(self):
+        # Sleep past the clock's own resolution, asked for rather than assumed.
+        # Windows' monotonic clock ticks every ~15.6 ms, so the original 10 ms
+        # sleep could land inside a single tick and the reading would compare
+        # equal - a flake in the test, on a property the class does hold.
+        step = max(0.05, time.get_clock_info("monotonic").resolution * 4)
         a = worker._AgentActivity()
         first = a.at
-        time.sleep(0.01)
+        time.sleep(step)
         a.touch()
         self.assertGreater(a.at, first)
 

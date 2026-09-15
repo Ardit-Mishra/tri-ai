@@ -2,6 +2,25 @@
 
 Worktrees are created before a task is claimed. This module never removes one:
 failure evidence stays on disk until an operator explicitly decides otherwise.
+
+That is true of this module and it is not true of the system, which is worth
+saying plainly because the difference cost an afternoon. The kernel removes a
+task-owned worktree when the task COMPLETES — ``kanban_db.complete_task`` calls
+``_cleanup_workspace``, which runs ``git worktree remove`` — so a passing
+worktree task ends with its workspace gone, and only a failing one leaves the
+checkout behind for inspection.
+
+The kernel's guard is careful, and `tests/test_worktree_materialization.py`
+pins the part that matters: no ``--force``, removal refused if the tree is
+dirty or carries unpushed commits, never the main checkout, and only an
+auto-generated ``wt/<task-id>`` branch is deleted with it. Tri-AI's branches are
+named, so the commits survive on the branch even when the checkout does not.
+
+What does NOT survive is an absolute path into a removed worktree. Artifacts
+are recorded the moment the agent exits, before verify runs, so a worktree task
+that commits its deliverable and passes will have artifact rows pointing at a
+directory git has since removed. Directory workspaces — every workspace the
+Telegram intake offers — are unaffected.
 """
 
 from __future__ import annotations

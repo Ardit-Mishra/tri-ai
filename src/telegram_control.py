@@ -89,11 +89,20 @@ def confirm_keyboard(action_id: str) -> dict[str, Any]:
     ]]}
 
 
+# Named rather than written inline. An escape inside an f-string's expression
+# is a syntax error before Python 3.12, and `tests/run.ps1` runs the suite under
+# the Hermes venv's 3.11 - so one inline "\U0001f4c1" made this module, and
+# every test that imports it, unloadable. The whole Telegram surface sat
+# untested that way: eight test files reported as loader errors.
+OTHER_WORKSPACE_ICON = "\U0001f4c1"
+
+
 def workspace_keyboard(aliases: Sequence[str]) -> dict[str, Any]:
     """Offer the configured workspaces rather than asking for one by name."""
     icons = {"sandbox": "\U0001f9ea", "genclarus": "\U0001f9ec", "tri-ai": "\u26a1"}
     row = [
-        {"text": f"{icons.get(alias, '\U0001f4c1')} {alias}", "callback_data": f"ws:{alias}"}
+        {"text": f"{icons.get(alias, OTHER_WORKSPACE_ICON)} {alias}",
+         "callback_data": f"ws:{alias}"}
         for alias in aliases
     ]
     return {"inline_keyboard": [row[index:index + 3] for index in range(0, len(row), 3)]}
