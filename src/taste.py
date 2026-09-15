@@ -124,6 +124,18 @@ VISUAL_MARKERS: tuple[str, ...] = (
     "newsletter", "blog", "profile",
 )
 
+# Requests that rule out fetching anything. A page told "no external assets"
+# cannot show a photograph, and demanding one rejects it for obeying its brief -
+# which is what happened to four recipe-card runs in a row. Deliberately narrow:
+# each of these forbids fetching, rather than merely implying restraint.
+NO_ASSET_MARKERS: tuple[str, ...] = (
+    "self-contained", "self contained",
+    "no external assets", "no external dependencies", "no external resources",
+    "no external files", "no assets", "no images", "without images",
+    "no cdn", "no internet", "offline", "works offline", "text only",
+    "text-only",
+)
+
 MAKE_VERBS: tuple[str, ...] = (
     "build", "make", "create", "design", "write", "generate", "produce",
     "put together", "mock up", "draft",
@@ -343,6 +355,19 @@ def applies_to(
     return _mentions(text, std.visual_markers) and _mentions(text, MAKE_VERBS)
 
 
+def allows_external_assets(prompt: str) -> bool:
+    """May this page fetch a picture at all?
+
+    The imagery check asks whether there is anything to look at. When the
+    request forbids fetching, a page that shows nothing fetched is obeying it,
+    and failing it for that is the gate overruling the person who asked.
+    Phrase-matched rather than inferred: the list only contains wordings that
+    actually forbid fetching.
+    """
+    text = (prompt or "").lower()
+    return not any(marker in text for marker in NO_ASSET_MARKERS)
+
+
 def brief_block(
     standard: Optional[Standard] = None,
     *,
@@ -390,6 +415,10 @@ with these headings:
   network, like Georgia or Iowan Old Style, and say so. What is not accepted
   is no choice at all - the framework's default system stack and nothing
   else.
+
+  The same applies to pictures. If the task rules out external assets, you are
+  not expected to produce one, and an inline SVG or a gradient is a fine way to
+  give the page something to look at. If it does not, ship the image.
 
   ## Layout
   Two sentences on the structure, specific to what this thing is for.
@@ -665,6 +694,7 @@ def check_work(
     standard: Optional[Standard] = None,
     *,
     required: bool = True,
+    expects_imagery: bool = True,
 ) -> list[str]:
     """Hold one run's whole output to the brief, and to the floor beneath it.
 
@@ -758,7 +788,7 @@ def check_work(
             "framework hands you when nobody picked one"
         )
 
-    if std.require_imagery:
+    if std.require_imagery and expects_imagery:
         shipped_image = any(
             Path(name).suffix.lower() in IMAGE_SUFFIXES for name in work.names
         )
@@ -784,6 +814,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--not-required", action="store_true",
         help="the worker did not ask for research on this task",
     )
+    parser.add_argument(
+        "--no-external-assets", action="store_true",
+        help="the request forbids fetching, so imagery is not expected",
+    )
     args = parser.parse_args(argv)
 
     std = from_snapshot(args.snapshot) if args.snapshot else load(args.config)
@@ -792,7 +826,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     root = Path(args.root)
     work = collect([Path(p) for p in args.produced], root)
-    problems = check_work(work, std, required=not args.not_required)
+    problems = check_work(work, std, required=not args.not_required,
+                          expects_imagery=not args.no_external_assets)
 
     if problems:
         print(f"  FAIL: {len(problems)} finding(s)")
