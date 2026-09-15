@@ -469,6 +469,12 @@ def execute_task(
             # it was never asked for.
             "TRIAI_TASTE_REQUIRED": "1" if taste_required else "0",
             "TRIAI_TASTE_SNAPSHOT": str(taste_snapshot) if taste_snapshot else "",
+            # A request that forbids fetching gets no demand for a photograph.
+            # Decided here, where the prompt is, and carried down rather than
+            # re-derived, for the same reason TRIAI_TASTE_REQUIRED is.
+            "TRIAI_TASTE_ASSETS": (
+                "1" if taste.allows_external_assets(task_prompt) else "0"
+            ),
         },
     )
     _write_log(verify_log, verifier.output)

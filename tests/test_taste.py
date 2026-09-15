@@ -577,6 +577,36 @@ class TheFloorCatchesTheObviouslyEmpty(unittest.TestCase):
         ))
         self.assertEqual(self.ws.check(), [])
 
+    def test_a_request_that_forbids_fetching_is_not_asked_for_a_picture(self) -> None:
+        # Four recipe-card runs were refused for showing nothing fetched, on a
+        # request that said "Self-contained, no external assets". The rule
+        # stands where assets are allowed and steps aside where they are not.
+        self.ws.write("index.html", page(
+            f"<h1>Recipes</h1><p>{KEPT}</p>", head="<meta charset='utf-8'>",
+            style="<style>body{font-family:'Playfair Display',Georgia,serif;"
+                  "background-color:#FDFBF7}"
+                  "a{color:#E2725B}b{color:#C85A32}c{color:#2C221E}</style>",
+        ))
+        self.assertTrue(any("image" in p for p in self.ws.check()))
+        self.assertEqual(
+            taste.check_work(
+                taste.collect(self.ws.produced, self.ws.root),
+                required=True, expects_imagery=False,
+            ),
+            [],
+        )
+
+    def test_which_requests_forbid_fetching(self) -> None:
+        for prompt, allowed in (
+            ("Create a recipe card site. Self-contained, no external assets.", False),
+            ("build a dashboard that works offline", False),
+            ("make a poster, no images please", False),
+            ("Build me a landing page for a brand called Mishwan", True),
+            ("make me a shop page", True),
+        ):
+            with self.subTest(prompt=prompt[:40]):
+                self.assertEqual(taste.allows_external_assets(prompt), allowed)
+
     def test_a_page_with_no_image_at_all_is_a_finding(self) -> None:
         self.ws.write("index.html", page(f"<h1>Brand</h1><p>{KEPT}</p>"))
         self.assertTrue(any("image" in p for p in self.ws.check()))
