@@ -208,6 +208,42 @@ class TheBriefIsReadBack(unittest.TestCase):
         self.assertEqual(len(brief.references), 3)
         self.assertIn("palette", brief.sections)
 
+    def test_a_promise_is_read_the_way_agents_actually_write_one(self) -> None:
+        # Verbatim from run 64 of t_e7b0028b, which researched the field, built
+        # a 13 KB page - and kept none of its ten promises, because every one
+        # of them was quoted. Taken literally they asked the page to contain
+        # the quotation marks.
+        brief = taste.parse_brief("\n".join([
+            "## Must appear",
+            '- "FSSAI Certified"',
+            '- "Rs" (currency symbol)',
+            "- **500gm**",
+            "- “Lab tested”",
+            "- Uttar Pradesh — the origin",
+            "- 1 kg",
+        ]))
+        self.assertEqual(
+            brief.must_appear,
+            ("FSSAI Certified", "Rs", "500gm", "Lab tested",
+             "Uttar Pradesh", "1 kg"),
+        )
+
+    def test_a_parenthetical_gloss_is_not_part_of_the_promise(self) -> None:
+        brief = taste.parse_brief(
+            "## Must appear\n- Net wt. 100 g (per pack)\n")
+        self.assertEqual(brief.must_appear, ("Net wt. 100 g",))
+
+    def test_a_hyphenated_word_is_not_mistaken_for_a_gloss(self) -> None:
+        # "cold-pressed" has no spaces around its hyphen; only " - " separates.
+        brief = taste.parse_brief("## Must appear\n- cold-pressed\n")
+        self.assertEqual(brief.must_appear, ("cold-pressed",))
+
+    def test_a_quoted_promise_is_kept_by_an_unquoted_page(self) -> None:
+        ws = Workspace(self)
+        ws.write("BRIEF.md", GOOD_BRIEF.replace("- FSSAI", '- "FSSAI"'))
+        ws.write("index.html", page())
+        self.assertEqual(ws.check(), [])
+
     def test_bullets_outside_must_appear_are_not_promises(self) -> None:
         brief = taste.parse_brief(
             "## Layout\n- a shelf of packs\n\n## Must appear\n- FSSAI\n"
@@ -620,6 +656,14 @@ class TheInstructionSaysWhatTheGateChecks(unittest.TestCase):
         block = taste.brief_block()
         self.assertIn("BRIEF.md", block)
         self.assertIn("not in your home directory", block)
+
+    def test_the_agent_is_told_the_brief_is_not_the_deliverable(self) -> None:
+        # Runs 59 and 61 both wrote a good brief and stopped there. The retry
+        # then did both beats - so the instruction was costing an attempt, and
+        # a second agent had to redo the same research.
+        block = taste.brief_block().lower()
+        self.assertIn("in this same turn", block)
+        self.assertIn("writing it is not finishing", block)
 
     def test_the_counts_asked_for_are_the_counts_required(self) -> None:
         standard = taste.Standard(min_must_appear=7, min_references=4)

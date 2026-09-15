@@ -140,6 +140,11 @@ _IMAGERY = re.compile(r"<img\b|<svg\b|<picture\b|background-image\s*:", re.I)
 _BULLET = re.compile(r"^\s*[-*+]\s+(.*\S)\s*$")
 _MD_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.*\S)\s*$")
 _URL = re.compile(r"https?://\S+")
+# A "Must appear" bullet, as models actually write them: sometimes the bare
+# string, sometimes quoted, sometimes with a gloss or markdown emphasis.
+_QUOTED = re.compile(r'"([^"]+)"' + "|" + r"“([^”]+)”" + "|" + r"'([^']+)'")
+_GLOSS = re.compile(r"\s+[—–]\s+|\s+-\s+|\s*\(")
+_EMPHASIS = re.compile(r"\*\*|__|[*`]")
 # Curly quotes and the non-breaking space, folded to what a person types.
 _TYPOGRAPHY = str.maketrans({
     "‘": "'", "’": "'", "“": '"', "”": '"',
@@ -357,7 +362,12 @@ with these headings:
   something while you build, edit the brief so the two agree before you stop -
   it is your brief, and it is read after you finish, not before.
 
-Then build the thing, to that brief.
+Then build the thing, to that brief, in this same turn.
+
+The brief is not the deliverable and writing it is not finishing. You have one
+turn; a run that ends with research and no thing built is recorded as having
+produced nothing, and the task is retried from the beginning by an agent who
+will have to do the research again. Do both beats before you stop.
 
 The verifier reads everything this run produces as one piece of work, so a
 promise kept on any page of a site is kept, and colours and typefaces may live
@@ -368,6 +378,35 @@ Do not write: {", ".join(std.banned_phrases[:8])}, or any phrase of that kind.
 Words that would sit equally well on a page about anything are words about
 nothing. Every claim names something that is true of THIS subject.
 """
+
+
+def _promise_text(bullet: str) -> str:
+    """The string a reader should see, pulled out of how the agent wrote it.
+
+    Run 64 of ``t_e7b0028b`` did the research and built a 13 KB page, and kept
+    none of its ten promises — because it had written them like this:
+
+        - "FSSAI Certified"
+        - "Rs" (currency symbol)
+        - **500gm**
+
+    Taken literally, those ask the page to contain the quotation marks, the
+    gloss and the asterisks. It never will, and a good page failed for it. So:
+    a quoted span is the promise; otherwise the bullet up to the first gloss,
+    with markdown emphasis removed.
+
+    The cut is conservative on purpose. It only ever makes a promise *shorter*,
+    and a shorter promise is easier to keep — the failure this guards against
+    is refusing work that was done, so erring toward accepting is the right
+    direction to err in.
+    """
+    text = (bullet or "").strip()
+    quoted = _QUOTED.search(text)
+    if quoted:
+        text = quoted.group(1) or quoted.group(2) or quoted.group(3) or ""
+    else:
+        text = _GLOSS.split(text, maxsplit=1)[0]
+    return _EMPHASIS.sub("", text).strip().strip(":,;")
 
 
 def parse_brief(text: str) -> Brief:
@@ -384,7 +423,9 @@ def parse_brief(text: str) -> Brief:
             continue
         bullet = _BULLET.match(line)
         if current.startswith(MUST_APPEAR_HEADING) and bullet:
-            must.append(bullet.group(1).strip())
+            promise = _promise_text(bullet.group(1))
+            if promise:
+                must.append(promise)
         if current.startswith("reference"):
             refs.extend(url.rstrip(").,") for url in _URL.findall(line))
     return Brief(
