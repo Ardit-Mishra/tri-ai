@@ -564,6 +564,19 @@ class TheFloorCatchesTheObviouslyEmpty(unittest.TestCase):
         ))
         self.assertEqual(self.ws.check(), [])
 
+    def test_a_page_painted_in_gradients_has_something_to_look_at(self) -> None:
+        # Run 68 of t_92cd3d3c answered "Self-contained, no external assets"
+        # with four CSS gradients, two box-shadows, five radii and a Playfair
+        # Display / Inter pairing, and was rejected for having no <img> - the
+        # one thing the request had ruled out.
+        self.ws.write("index.html", page(
+            f"<h1>Mishwan</h1><p>{KEPT}</p>", head="<meta charset='utf-8'>",
+            style="<style>body{font-family:'Playfair Display',Georgia,serif;"
+                  "background:linear-gradient(#FDFBF7,#F4E3D7)}"
+                  "a{color:#C85A32}b{color:#9E3D18}c{color:#2C221E}</style>",
+        ))
+        self.assertEqual(self.ws.check(), [])
+
     def test_a_page_with_no_image_at_all_is_a_finding(self) -> None:
         self.ws.write("index.html", page(f"<h1>Brand</h1><p>{KEPT}</p>"))
         self.assertTrue(any("image" in p for p in self.ws.check()))

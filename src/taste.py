@@ -163,7 +163,18 @@ DEFAULT_FONT_NAMES = frozenset({
     "apple color emoji", "segoe ui emoji", "segoe ui symbol",
     "noto color emoji", "emoji", "math", "fangsong",
 })
-_IMAGERY = re.compile(r"<img\b|<svg\b|<picture\b|background-image\s*:", re.I)
+# Something to look at. A gradient counts, and that is not a concession: run 68
+# of t_92cd3d3c answered "Self-contained, no external assets" with a page
+# painted in four CSS gradients, two box-shadows, five radii and a Playfair
+# Display / Inter pairing — and was rejected for having no <img>, which is the
+# one thing the request had ruled out. The rule is meant to catch a wall of text
+# with no visual composition at all; it was measuring whether a file had been
+# fetched.
+_IMAGERY = re.compile(
+    r"<img\b|<svg\b|<picture\b|background-image\s*:"
+    r"|(?:linear|radial|conic|repeating-linear|repeating-radial)-gradient\s*\(",
+    re.I,
+)
 _BULLET = re.compile(r"^\s*[-*+]\s+(.*\S)\s*$")
 _MD_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.*\S)\s*$")
 _URL = re.compile(r"https?://\S+")
