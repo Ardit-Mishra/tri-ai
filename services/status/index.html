@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tri-AI Node Status</title>
+<style>
+  /* A single committed visual world: an instrument panel that lives on a
+     screen in a room, not a document that adapts to a reading theme. Every
+     colour is stated, so it renders the same wherever it is embedded. */
+  :root {
+    --bg:        #0c0f13;
+    --panel:     #141920;
+    --panel-2:   #1b2129;
+    --rule:      #262e38;
+    --ink:       #e8edf3;
+    --muted:     #97a3b2;
+    --faint:     #667181;
+    --up:        #3fb950;
+    --down:      #f85149;
+    --degraded:  #d29922;
+    --accent:    #58a6ff;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 56px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 4px; }
+  h1 { font-size: 19px; margin: 0; letter-spacing: -0.01em; }
+  h1 span { color: var(--faint); font-weight: 400; }
+  .verdict {
+    font-family: var(--mono); font-size: 13px; color: var(--muted);
+    font-variant-numeric: tabular-nums; margin-left: auto;
+  }
+  .sub { color: var(--faint); font-size: 13px; margin: 0 0 20px; }
+
+  .banner {
+    display: none; margin: 0 0 16px; padding: 10px 14px; border-radius: 8px;
+    background: #2d1618; border: 1px solid #5c2326; color: #ffb4ae; font-size: 13px;
+  }
+  .banner[data-show="1"] { display: block; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+
+  .node {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 10px;
+    padding: 14px 16px 15px; display: flex; flex-direction: column; gap: 11px;
+  }
+  /* The stripe is the only place state is spent as a large block of colour, so
+     a wall of nodes reads at a glance from across a room. */
+  .node { border-left: 3px solid var(--faint); }
+  .node[data-state="up"]       { border-left-color: var(--up); }
+  .node[data-state="degraded"] { border-left-color: var(--degraded); }
+  .node[data-state="down"]     { border-left-color: var(--down); }
+
+  .node-head { display: flex; align-items: center; gap: 9px; }
+  .name { font-weight: 650; font-size: 15px; }
+  .role { color: var(--faint); font-size: 12px; font-family: var(--mono); }
+  .pill {
+    margin-left: auto; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+    border: 1px solid currentColor;
+  }
+  .pill[data-state="up"]       { color: var(--up); }
+  .pill[data-state="degraded"] { color: var(--degraded); }
+  .pill[data-state="down"]     { color: var(--down); }
+
+  .procs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .proc {
+    display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono);
+    font-size: 11.5px; color: var(--muted); background: var(--panel-2);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 2px 7px 2px 6px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--down); flex: none; }
+  .proc[data-alive="1"] .dot { background: var(--up); }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 8px; }
+  .stat { background: var(--panel-2); border-radius: 7px; padding: 7px 9px; }
+  .stat b {
+    display: block; font-family: var(--mono); font-size: 16px; font-weight: 600;
+    font-variant-numeric: tabular-nums; line-height: 1.2;
+  }
+  .stat i { font-style: normal; font-size: 11px; color: var(--faint); }
+  .stat[data-warn="1"] b { color: var(--degraded); }
+
+  .models { font-family: var(--mono); font-size: 11.5px; color: var(--faint); line-height: 1.45; }
+  .models b { color: var(--muted); font-weight: 600; }
+
+  .age { font-family: var(--mono); font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .age[data-state="down"] { color: var(--down); }
+  .age[data-state="degraded"] { color: var(--degraded); }
+
+  .empty {
+    border: 1px dashed var(--rule); border-radius: 10px; padding: 28px 20px;
+    text-align: center; color: var(--faint); font-size: 14px;
+  }
+  .empty code { font-family: var(--mono); color: var(--accent); font-size: 12.5px; }
+
+  footer { margin-top: 22px; color: var(--faint); font-size: 12px; }
+  footer code { font-family: var(--mono); color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Tri-AI <span>&middot; node status</span></h1>
+    <div class="verdict" id="verdict">connecting&hellip;</div>
+  </header>
+  <p class="sub">Each node posts its own heartbeat. Silence is what turns a node red &mdash; nothing here polls a machine.</p>
+
+  <div class="banner" id="banner"></div>
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    Refreshes every 10s from <code>/api/status</code>. A node goes
+    <code>down</code> after <span id="stale">&mdash;</span>s without a heartbeat.
+  </footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const grid = document.getElementById("grid");
+  const verdict = document.getElementById("verdict");
+  const banner = document.getElementById("banner");
+  const staleEl = document.getElementById("stale");
+
+  let doc = null;        // last good document
+  let fetchedAt = 0;     // performance clock when it arrived
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  function ago(seconds) {
+    if (seconds < 60) return `${Math.floor(seconds)}s ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    return `${Math.floor(seconds / 3600)}h ago`;
+  }
+
+  function nodeCard(n, staleAfter, drift) {
+    // Age is recomputed against the local clock between fetches, so the number
+    // keeps moving and a stalled page is visibly stalled rather than frozen.
+    const age = (n.age_s || 0) + drift;
+    const procs = (n.daemons && n.daemons.processes) || [];
+    // Same three-way rule the collector applies: silence is `down`, a
+    // heartbeat that reports a dead process is `degraded`, not green.
+    const unhealthy =
+      (n.daemons && n.daemons.status && n.daemons.status !== "healthy") ||
+      procs.some((p) => !p.alive);
+    const state = age > staleAfter ? "down" : unhealthy ? "degraded" : "up";
+    const tasks = n.tasks || {};
+    const models = n.models || [];
+
+    const stats = [
+      ["task_total", n.task_total, "tasks", 0],
+      ["running", tasks.running || 0, "running", 0],
+      ["ledger", n.ledger_entries, "ledger", 0],
+      ["errors", n.source_errors || 0, "errors", (n.source_errors || 0) > 0 ? 1 : 0],
+    ];
+
+    return `
+      <div class="node" data-state="${state}">
+        <div class="node-head">
+          <span class="name">${esc(n.node)}</span>
+          <span class="role">${esc(n.role || "")}</span>
+          <span class="pill" data-state="${state}">${state}</span>
+        </div>
+        ${procs.length ? `<div class="procs">${procs.map((p) => `
+          <span class="proc" data-alive="${p.alive ? 1 : 0}"><span class="dot"></span>${esc(p.name)}</span>
+        `).join("")}</div>` : ""}
+        <div class="stats">${stats.map(([k, v, label, warn]) => `
+          <div class="stat" data-warn="${warn}"><b>${Number(v || 0)}</b><i>${label}</i></div>
+        `).join("")}</div>
+        ${models.length ? `<div class="models"><b>models</b> ${esc(models.join(" · "))}</div>` : ""}
+        <div class="age" data-state="${state}">heartbeat ${ago(age)}</div>
+      </div>`;
+  }
+
+  function render() {
+    if (!doc) return;
+    const drift = (performance.now() - fetchedAt) / 1000;
+    const staleAfter = doc.stale_after_s || 150;
+    staleEl.textContent = Math.round(staleAfter);
+
+    if (!doc.nodes.length) {
+      grid.innerHTML = `<div class="empty">No node has reported yet.<br>
+        Start one with <code>python src/beacon.py --url &lt;collector&gt;/api/beacon --node desktop</code></div>`;
+      verdict.textContent = "0 nodes";
+      return;
+    }
+
+    const cards = doc.nodes.map((n) => nodeCard(n, staleAfter, drift));
+    const live = doc.nodes.filter((n) => (n.age_s || 0) + drift <= staleAfter);
+    const bad = live.filter((n) => {
+      const procs = (n.daemons && n.daemons.processes) || [];
+      return (n.daemons && n.daemons.status && n.daemons.status !== "healthy") || procs.some((p) => !p.alive);
+    }).length;
+    grid.innerHTML = cards.join("");
+    const healthy = live.length - bad;
+    verdict.textContent =
+      `${healthy} of ${plural(doc.nodes.length, "node", "nodes")} up` +
+      (bad ? ` · ${bad} degraded` : "");
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch("/api/status", { cache: "no-store" });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      doc = await res.json();
+      fetchedAt = performance.now();
+      banner.dataset.show = "0";
+      render();
+    } catch (err) {
+      // Never leave a stale board looking live: say the page lost the
+      // collector, and keep showing the last known state beneath it.
+      banner.dataset.show = "1";
+      banner.textContent = `Cannot reach the collector (${err.message}). Showing the last state received.`;
+    }
+  }
+
+  poll();
+  setInterval(poll, 10000);
+  setInterval(render, 1000);   // keep the ages ticking between fetches
+})();
+</script>
+</body>
+</html>
