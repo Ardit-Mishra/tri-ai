@@ -7,7 +7,9 @@ until it changed.
 
 from __future__ import annotations
 
+import shutil
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -170,24 +172,63 @@ class ProgressCardTests(BoardTestCase):
 
 
 class DocumentDeliveryTests(unittest.TestCase):
+    """Delivery decisions must be made by the rules, not by the checkout.
+
+    These tests used to run against the repository root and assert that
+    `celestial.html` was picked - a file nobody tracks, which happened to exist
+    on the machine where they were written. They passed there and failed in
+    every clean clone, which is precisely the failure this project exists to
+    make impossible.
+
+    The negative cases were worse, because they still passed. They assert that
+    an oversize, binary or empty artifact is refused, and in a clean clone they
+    were refused for the wrong reason: the file was missing, so `is_file()`
+    dropped them before the size and type rules were ever consulted. A test
+    that cannot fail when the rule it names is deleted is not testing it.
+
+    So the workspace is now built here: every artifact below exists on disk,
+    and every rejection has to come from the rule under test.
+    """
+
     def setUp(self) -> None:
-        self.root = Path(__file__).resolve().parents[1]
+        self.root = Path(tempfile.mkdtemp(prefix="triai-delivery-"))
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        (self.root / "page.html").write_text("<h1>a delivered page</h1>", encoding="utf-8")
+        (self.root / "preview.png").write_bytes(bytes([0x89]) + b"PNG binary payload")
+        (self.root / "huge.html").write_text("<h1>large</h1>", encoding="utf-8")
+        (self.root / "empty.html").write_text("", encoding="utf-8")
+        (self.root / "notes.md").write_text("# notes", encoding="utf-8")
 
     def test_small_text_artifacts_are_selected_for_upload(self):
         picked = completion_report.deliverable_documents(
-            [{"path": "celestial.html", "size_bytes": 27408}], str(self.root),
+            [{"path": "page.html", "size_bytes": 27408}], str(self.root),
         )
-        self.assertEqual([item["path"] for item in picked], ["celestial.html"])
+        self.assertEqual([item["path"] for item in picked], ["page.html"])
         self.assertTrue(Path(picked[0]["absolute"]).is_relative_to(self.root))
 
-    def test_binary_and_oversize_artifacts_stay_links(self):
+    def test_a_binary_artifact_stays_a_link_although_the_file_is_present(self):
         picked = completion_report.deliverable_documents(
-            [
-                {"path": "preview.png", "size_bytes": 524493},
-                {"path": "huge.html", "size_bytes": completion_report.DOCUMENT_MAX_BYTES + 1},
-                {"path": "empty.html", "size_bytes": 0},
-            ],
+            [{"path": "preview.png", "size_bytes": 524493}], str(self.root),
+        )
+        self.assertEqual(picked, ())
+
+    def test_an_oversize_artifact_stays_a_link_although_the_file_is_present(self):
+        picked = completion_report.deliverable_documents(
+            [{"path": "huge.html", "size_bytes": completion_report.DOCUMENT_MAX_BYTES + 1}],
             str(self.root),
+        )
+        self.assertEqual(picked, ())
+
+    def test_a_zero_byte_record_is_refused_although_the_file_is_present(self):
+        picked = completion_report.deliverable_documents(
+            [{"path": "empty.html", "size_bytes": 0}], str(self.root),
+        )
+        self.assertEqual(picked, ())
+
+    def test_a_record_for_a_file_that_no_longer_exists_is_dropped(self):
+        """The row says it was there when the agent exited; verify may have removed it."""
+        picked = completion_report.deliverable_documents(
+            [{"path": "deleted.html", "size_bytes": 900}], str(self.root),
         )
         self.assertEqual(picked, ())
 
@@ -203,13 +244,10 @@ class DocumentDeliveryTests(unittest.TestCase):
             "outcome": "completed", "summary": "verify exit 0", "error": None,
             "started_at": 1, "ended_at": 2, "metadata": "{}",
             "workspace_path": str(self.root),
-            "artifacts": ({"path": "README.md", "size_bytes": 400},),
+            "artifacts": ({"path": "notes.md", "size_bytes": 400},),
         })
-        self.assertEqual([item["path"] for item in card.documents], ["README.md"])
+        self.assertEqual([item["path"] for item in card.documents], ["notes.md"])
 
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class IntakePreflightTests(unittest.TestCase):
@@ -380,3 +418,7 @@ class CallbackChatBindingTests(BoardTestCase):
                 ledger_path=self.tmp / "ledger.jsonl", runs_root=self.tmp / "runs",
             )
             self.assertIn("not delivered to this chat", response.text)
+
+
+if __name__ == "__main__":
+    unittest.main()
