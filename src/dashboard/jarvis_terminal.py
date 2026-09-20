@@ -27,6 +27,24 @@ from rich.text import Text
 
 
 DEFAULT_RUNTIME_ROOT = Path.home() / ".tri-ai"
+
+
+def runtime_paths(root: Path | str = DEFAULT_RUNTIME_ROOT) -> dict[str, Path]:
+    """Where the authoritative runtime state actually lives.
+
+    The layout was previously spelled out at each call site. That is fine until
+    a new reader is written from memory: the beacon guessed `board.sqlite3` and
+    a `daemons.json` at the root, so it raised DashboardSourceError before it
+    could post anything, and the node board it feeds was never reachable. One
+    definition, so a second reader cannot disagree with the first.
+    """
+    base = Path(root)
+    return {
+        "board_path": base / "board.db",
+        "ledger_path": base / "ledger.jsonl",
+        "daemon_state_path": base / "logs" / "daemons.json",
+        "runs_root": base / "runs",
+    }
 PidAlive = Callable[[int], bool]
 WINDOWS_STILL_ACTIVE = 259
 LOG_TAIL_LINES = 40

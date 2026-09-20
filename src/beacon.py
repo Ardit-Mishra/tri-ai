@@ -179,12 +179,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="print the payload, post nothing")
     args = parser.parse_args(argv)
 
-    root = Path(args.runtime_root)
+    paths = jarvis_terminal.runtime_paths(args.runtime_root)
     try:
         snapshot = jarvis_terminal.read_snapshot(
-            board_path=root / "board.sqlite3",
-            ledger_path=root / "ledger.jsonl",
-            daemon_state_path=root / "daemons.json",
+            board_path=paths["board_path"],
+            ledger_path=paths["ledger_path"],
+            daemon_state_path=paths["daemon_state_path"],
         )
     except jarvis_terminal.DashboardSourceError as exc:
         print(f"beacon: cannot read local state: {exc}", file=sys.stderr)

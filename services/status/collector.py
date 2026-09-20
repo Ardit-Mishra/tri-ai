@@ -27,6 +27,7 @@ import json
 import os
 import sqlite3
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -47,6 +48,26 @@ MAX_BODY_BYTES = 16 * 1024
 # second.
 MAX_CLOCK_SKEW_S = 300.0
 
+# One SQLite connection is shared by every request thread. `check_same_thread`
+# only silences the guard; it does not make each execute/commit its own
+# transaction, and eight concurrent writers produced 67 errors across 320
+# stores -- InterfaceError, and a SystemError with no exception set. Every
+# access is therefore serialized. SQLite writes are serial anyway, so the lock
+# costs nothing a correct implementation was not already paying.
+_DB_LOCK = threading.Lock()
+
+# An unauthenticated caller can declare a permitted Content-Length and then
+# never send the body. Without a deadline that holds a thread and a socket for
+# as long as it likes, so a handful of connections can exhaust a collector that
+# is otherwise well bounded. The body is small; the deadline can be short.
+REQUEST_TIMEOUT_S = 10.0
+
+# ThreadingHTTPServer spawns a thread per connection with no ceiling. The cap
+# turns saturation into a fast 503 for the caller rather than unbounded memory
+# for the host.
+MAX_CONCURRENT_REQUESTS = 32
+_REQUEST_SLOTS = threading.BoundedSemaphore(MAX_CONCURRENT_REQUESTS)
+
 
 def connect(path: Optional[str] = None) -> sqlite3.Connection:
     target = path or os.environ.get(DB_ENV) or str(HERE / "status.sqlite3")
@@ -65,6 +86,11 @@ def connect(path: Optional[str] = None) -> sqlite3.Connection:
 
 
 def store(conn: sqlite3.Connection, payload: dict[str, Any], *, now: float) -> None:
+    with _DB_LOCK:
+        _store_locked(conn, payload, now=now)
+
+
+def _store_locked(conn: sqlite3.Connection, payload: dict[str, Any], *, now: float) -> None:
     conn.execute(
         "INSERT INTO heartbeat (node, received_at, payload) VALUES (?, ?, ?) "
         "ON CONFLICT(node) DO UPDATE SET received_at = excluded.received_at, "
@@ -82,9 +108,11 @@ def status_document(
 ) -> dict[str, Any]:
     """Every node's latest heartbeat, with liveness derived from the clock."""
     nodes = []
-    for node, received_at, raw in conn.execute(
-        "SELECT node, received_at, payload FROM heartbeat ORDER BY node"
-    ):
+    with _DB_LOCK:
+        rows = conn.execute(
+            "SELECT node, received_at, payload FROM heartbeat ORDER BY node"
+        ).fetchall()
+    for node, received_at, raw in rows:
         try:
             payload = json.loads(raw)
         except json.JSONDecodeError:
@@ -120,6 +148,25 @@ def status_document(
 def handler_class(conn: sqlite3.Connection, secret: str, clock=time.time):
     class Handler(BaseHTTPRequestHandler):
         server_version = "TriAIStatus/1.0"
+        # socketserver applies this to the request socket, so a client that
+        # opens a connection and then goes quiet is dropped rather than held.
+        timeout = REQUEST_TIMEOUT_S
+
+        def handle_one_request(self):
+            if not _REQUEST_SLOTS.acquire(blocking=False):
+                try:
+                    self.send_error(503, "busy")
+                except OSError:
+                    pass
+                self.close_connection = True
+                return
+            try:
+                super().handle_one_request()
+            finally:
+                _REQUEST_SLOTS.release()
+
+        def handle_timeout(self):
+            self.close_connection = True
 
         def log_message(self, fmt, *args):  # quieter, and no request bodies in logs
             sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
@@ -156,7 +203,16 @@ def handler_class(conn: sqlite3.Connection, secret: str, clock=time.time):
             if length <= 0 or length > MAX_BODY_BYTES:
                 self._json(413, {"error": "bad body length"})
                 return
-            body = self.rfile.read(length)
+            try:
+                body = self.rfile.read(length)
+            except (TimeoutError, OSError):
+                # The caller declared a length and then stalled. Nothing is
+                # stored, and the thread is returned instead of being held.
+                self.close_connection = True
+                return
+            if len(body) != length:
+                self._json(400, {"error": "truncated body"})
+                return
 
             signature = self.headers.get(beacon.SIGNATURE_HEADER, "")
             if not secret or not beacon.verify(body, secret, signature):
