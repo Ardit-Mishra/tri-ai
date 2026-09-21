@@ -27,3 +27,7 @@ triai-ledger.jsonl
 /evidence/celestial-check.py
 /evidence/celestial-preview.png
 /sf-la-roadtrip.html
+
+# Activated capability links are local junctions into ~/.tri-ai/capabilities.
+# Their reproducible source mapping lives in config/capabilities.example.json.
+/.agents/
