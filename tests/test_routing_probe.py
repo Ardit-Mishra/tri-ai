@@ -24,11 +24,18 @@ def policy() -> routing_probe.RoutePolicy:
                     "endpoint": "http://127.0.0.1:20128/v1",
                     "model": "primary-model",
                 },
-                "fallback": {
-                    "name": "ollama",
-                    "endpoint": "http://127.0.0.1:11434/v1",
-                    "model": "fallback-model",
-                },
+                "fallbacks": [
+                    {
+                        "name": "freellmapi",
+                        "endpoint": "http://127.0.0.1:3001/v1",
+                        "model": "auto:code",
+                    },
+                    {
+                        "name": "ollama",
+                        "endpoint": "http://127.0.0.1:11434/v1",
+                        "model": "fallback-model",
+                    },
+                ],
             },
         },
     })
@@ -41,25 +48,26 @@ class RoutingProbeTests(unittest.TestCase):
             routing_probe.probe(policy(), "unknown", lambda route: calls.append(route) or 200)
         self.assertEqual(calls, [])
 
-    def test_rate_limit_timeout_and_connection_error_each_fall_back_once(self):
+    def test_rate_limit_timeout_and_connection_error_each_advance_through_the_declared_chain(self):
         for error in (429, TimeoutError(), OSError("offline")):
             with self.subTest(error=type(error).__name__):
                 calls = []
 
                 def transport(route):
                     calls.append(route.name)
-                    if len(calls) == 1:
+                    if len(calls) < 3:
                         if isinstance(error, BaseException):
                             raise error
                         return error
                     return 200
 
                 result = routing_probe.probe(policy(), "code", transport)
-                self.assertEqual(calls, ["omniroute", "ollama"])
-                self.assertEqual(len(result.attempts), 2)
+                self.assertEqual(calls, ["omniroute", "freellmapi", "ollama"])
+                self.assertEqual(len(result.attempts), 3)
                 self.assertIn(result.attempts[0].result, routing_probe.FALLBACK_REASONS)
                 self.assertEqual(result.attempts[1].fallback_reason, result.attempts[0].result)
-                self.assertEqual(result.attempts[1].result, "responded")
+                self.assertEqual(result.attempts[2].fallback_reason, result.attempts[1].result)
+                self.assertEqual(result.attempts[2].result, "responded")
 
     def test_non_environment_http_failure_does_not_invent_a_fallback(self):
         calls = []
@@ -113,6 +121,20 @@ class RoutingProbeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "differ"):
             routing_probe.policy_from_mapping(raw)
 
+    def test_policy_refuses_mixed_legacy_and_chain_fallback_shapes(self):
+        raw = {
+            "version": "test",
+            "routes": {
+                "code": {
+                    "primary": {"name": "primary", "endpoint": "http://127.0.0.1:20128/v1", "model": "one"},
+                    "fallback": {"name": "legacy", "endpoint": "http://127.0.0.1:3001/v1", "model": "two"},
+                    "fallbacks": [{"name": "chain", "endpoint": "http://127.0.0.1:11434/v1", "model": "three"}],
+                },
+            },
+        }
+        with self.assertRaisesRegex(ValueError, "cannot mix"):
+            routing_probe.policy_from_mapping(raw)
+
     def test_policy_version_and_both_attempts_are_durable_diagnostic_evidence(self):
         result = routing_probe.probe(policy(), "code", lambda route: 429 if route.name == "omniroute" else 200)
         with tempfile.TemporaryDirectory() as temp:
@@ -122,7 +144,7 @@ class RoutingProbeTests(unittest.TestCase):
         self.assertEqual(recorded["kind"], "routing_probe")
         self.assertFalse(recorded["accepted"])
         self.assertEqual(recorded["policy_version"], "test-policy-v1")
-        self.assertEqual([item["route"] for item in recorded["attempts"]], ["omniroute", "ollama"])
+        self.assertEqual([item["route"] for item in recorded["attempts"]], ["omniroute", "freellmapi"])
 
 
 class ProbeBoundaryTests(unittest.TestCase):

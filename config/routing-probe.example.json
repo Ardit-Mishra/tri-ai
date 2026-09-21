@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-11-local-probe-v1",
+  "version": "2026-09-21-local-probe-v2",
   "routes": {
     "code": {
       "primary": {
@@ -7,11 +7,18 @@
         "endpoint": "http://127.0.0.1:20128/v1",
         "model": "operator-configured-primary"
       },
-      "fallback": {
-        "name": "ollama",
-        "endpoint": "http://127.0.0.1:11434/v1",
-        "model": "operator-configured-fallback"
-      }
+      "fallbacks": [
+        {
+          "name": "freellmapi",
+          "endpoint": "http://127.0.0.1:3001/v1",
+          "model": "auto:code"
+        },
+        {
+          "name": "ollama",
+          "endpoint": "http://127.0.0.1:11434/v1",
+          "model": "operator-configured-fallback"
+        }
+      ]
     }
   }
 }

@@ -28,7 +28,7 @@ class Route:
 @dataclass(frozen=True)
 class RoutePolicy:
     version: str
-    routes: Mapping[str, tuple[Route, Route]]
+    routes: Mapping[str, tuple[Route, ...]]
 
 
 @dataclass(frozen=True)
@@ -97,19 +97,34 @@ def policy_from_mapping(raw: Mapping[str, Any]) -> RoutePolicy:
     if not isinstance(routes, Mapping) or not routes:
         raise ValueError("routing policy requires at least one task-kind route")
 
-    parsed: dict[str, tuple[Route, Route]] = {}
+    parsed: dict[str, tuple[Route, ...]] = {}
     for task_kind, spec in routes.items():
         if not isinstance(task_kind, str) or not task_kind.strip() or not isinstance(spec, Mapping):
             raise ValueError("routing policy has an invalid task-kind route")
         primary = spec.get("primary")
-        fallback = spec.get("fallback")
-        if not isinstance(primary, Mapping) or not isinstance(fallback, Mapping):
-            raise ValueError(f"{task_kind!r} requires primary and fallback routes")
-        primary_route = _route(primary, label="primary")
-        fallback_route = _route(fallback, label="fallback")
-        if primary_route.endpoint == fallback_route.endpoint:
-            raise ValueError(f"{task_kind!r} fallback endpoint must differ from primary")
-        parsed[task_kind.strip()] = (primary_route, fallback_route)
+        legacy_fallback = spec.get("fallback")
+        fallbacks = spec.get("fallbacks")
+        if not isinstance(primary, Mapping):
+            raise ValueError(f"{task_kind!r} requires a primary route")
+        if legacy_fallback is not None and fallbacks is not None:
+            raise ValueError(f"{task_kind!r} cannot mix fallback and fallbacks")
+        if legacy_fallback is not None:
+            if not isinstance(legacy_fallback, Mapping):
+                raise ValueError(f"{task_kind!r} fallback must be a route object")
+            fallback_specs: tuple[Mapping[str, Any], ...] = (legacy_fallback,)
+        elif isinstance(fallbacks, list) and fallbacks and all(isinstance(item, Mapping) for item in fallbacks):
+            fallback_specs = tuple(fallbacks)
+        else:
+            raise ValueError(f"{task_kind!r} requires one or more fallback routes")
+
+        ordered = (_route(primary, label="primary"),) + tuple(
+            _route(item, label=f"fallback {index}")
+            for index, item in enumerate(fallback_specs, start=1)
+        )
+        endpoints = [route.endpoint for route in ordered]
+        if len(set(endpoints)) != len(endpoints):
+            raise ValueError(f"{task_kind!r} fallback endpoints must differ from every earlier route")
+        parsed[task_kind.strip()] = ordered
     return RoutePolicy(version=version.strip(), routes=parsed)
 
 
@@ -140,14 +155,17 @@ def _attempt(route: Route, transport: Transport, *, fallback_reason: str | None 
 
 
 def probe(policy: RoutePolicy, task_kind: str, transport: Transport) -> ProbeResult:
-    """Probe a declared local route and, for known environment faults, one fallback."""
+    """Probe a declared local route chain until one responds or a non-route fault stops it."""
     if task_kind not in policy.routes:
         raise ValueError(f"unknown task kind: {task_kind}")
-    primary, fallback = policy.routes[task_kind]
-    first = _attempt(primary, transport)
-    attempts = [first]
-    if first.result in FALLBACK_REASONS:
-        attempts.append(_attempt(fallback, transport, fallback_reason=first.result))
+    attempts: list[ProbeAttempt] = []
+    previous: ProbeAttempt | None = None
+    for route in policy.routes[task_kind]:
+        attempt = _attempt(route, transport, fallback_reason=previous.result if previous else None)
+        attempts.append(attempt)
+        if attempt.result not in FALLBACK_REASONS:
+            break
+        previous = attempt
     return ProbeResult(policy.version, task_kind, tuple(attempts))
 
 
