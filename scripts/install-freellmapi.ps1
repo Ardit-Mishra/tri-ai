@@ -39,9 +39,17 @@ try {
         $bytes = New-Object byte[] 32
         [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
         $encryptionKey = -join ($bytes | ForEach-Object { "{0:x2}" -f $_ })
+        # HOST is the one that binds. HOST_BIND is Docker-only - it selects the
+        # host interface a *container's* port is published on and does nothing
+        # to a native node process. Setting only HOST_BIND left the server on
+        # its default of `::`, i.e. every interface, reachable across the
+        # tailnet and guarded by nothing but the unified API key. Both are
+        # written now: HOST for this install, HOST_BIND for a later dockerised
+        # one.
         @(
             "ENCRYPTION_KEY=$encryptionKey"
             "PORT=$Port"
+            "HOST=127.0.0.1"
             "HOST_BIND=127.0.0.1"
         ) | Set-Content -LiteralPath $envPath -Encoding utf8NoBOM
         Write-Host "Created a localhost-only FreeLLMAPI configuration at $envPath" -ForegroundColor Green

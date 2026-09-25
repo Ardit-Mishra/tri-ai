@@ -10,9 +10,17 @@
       "path": "~/.tri-ai/runtimes/browser-use",
       "availability": "executable",
       "adapter_status": "gated",
-      "permission_scopes": ["browser", "network", "process"],
+      "permission_scopes": [
+        "browser",
+        "network",
+        "process"
+      ],
       "risk_status": "reviewed-with-boundaries",
-      "tags": ["browser", "automation", "qa"]
+      "tags": [
+        "browser",
+        "automation",
+        "qa"
+      ]
     },
     {
       "id": "agentmemory",
@@ -22,9 +30,17 @@
       "path": "~/.tri-ai/capabilities/sources/agentmemory",
       "availability": "source-only",
       "adapter_status": "adapter-planned",
-      "permission_scopes": ["memory", "filesystem", "network"],
+      "permission_scopes": [
+        "memory",
+        "filesystem",
+        "network"
+      ],
       "risk_status": "retention-and-hook-review",
-      "tags": ["memory", "graph", "agents"]
+      "tags": [
+        "memory",
+        "graph",
+        "agents"
+      ]
     },
     {
       "id": "scientific-agent-skills",
@@ -35,9 +51,18 @@
       "availability": "active",
       "adapter_status": "instruction-ready",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem", "network"],
+      "permission_scopes": [
+        "filesystem",
+        "network"
+      ],
       "risk_status": "selected-skills-reviewed",
-      "tags": ["science", "bioinformatics", "drug", "rna", "protein"]
+      "tags": [
+        "science",
+        "bioinformatics",
+        "drug",
+        "rna",
+        "protein"
+      ]
     },
     {
       "id": "diagram-design",
@@ -48,9 +73,15 @@
       "availability": "active",
       "adapter_status": "instruction-ready",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem"],
+      "permission_scopes": [
+        "filesystem"
+      ],
       "risk_status": "reviewed",
-      "tags": ["diagram", "architecture", "visualization"]
+      "tags": [
+        "diagram",
+        "architecture",
+        "visualization"
+      ]
     },
     {
       "id": "anthropic-cybersecurity-skills",
@@ -61,9 +92,19 @@
       "availability": "active",
       "adapter_status": "instruction-ready",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem", "network", "cloud-read"],
+      "permission_scopes": [
+        "filesystem",
+        "network",
+        "cloud-read"
+      ],
       "risk_status": "defensive-only",
-      "tags": ["security", "sbom", "aws", "gcp", "terraform"]
+      "tags": [
+        "security",
+        "sbom",
+        "aws",
+        "gcp",
+        "terraform"
+      ]
     },
     {
       "id": "harness-engineering",
@@ -75,7 +116,11 @@
       "adapter_status": "radar-candidate",
       "permission_scopes": [],
       "risk_status": "license-review",
-      "tags": ["agents", "orchestration", "evaluation"]
+      "tags": [
+        "agents",
+        "orchestration",
+        "evaluation"
+      ]
     },
     {
       "id": "openviking",
@@ -87,7 +132,11 @@
       "adapter_status": "radar-candidate",
       "permission_scopes": [],
       "risk_status": "license-review",
-      "tags": ["memory", "context", "agents"]
+      "tags": [
+        "memory",
+        "context",
+        "agents"
+      ]
     },
     {
       "id": "agency-agents",
@@ -100,7 +149,12 @@
       "instruction_ready": true,
       "permission_scopes": [],
       "risk_status": "roles-do-not-grant-authority",
-      "tags": ["agents", "roles", "business", "design"]
+      "tags": [
+        "agents",
+        "roles",
+        "business",
+        "design"
+      ]
     },
     {
       "id": "voicebox",
@@ -110,9 +164,17 @@
       "kind": "candidate",
       "availability": "missing",
       "adapter_status": "radar-candidate",
-      "permission_scopes": ["microphone", "audio", "network"],
+      "permission_scopes": [
+        "microphone",
+        "audio",
+        "network"
+      ],
       "risk_status": "consent-and-retention-review",
-      "tags": ["voice", "audio", "mobile"]
+      "tags": [
+        "voice",
+        "audio",
+        "mobile"
+      ]
     },
     {
       "id": "graft",
@@ -122,9 +184,17 @@
       "path": "~/.tri-ai/capabilities/sources/graft",
       "availability": "source-only",
       "adapter_status": "adapter-planned",
-      "permission_scopes": ["filesystem", "mcp"],
+      "permission_scopes": [
+        "filesystem",
+        "mcp"
+      ],
       "risk_status": "boundary-review",
-      "tags": ["context", "codebase", "mcp", "agents"]
+      "tags": [
+        "context",
+        "codebase",
+        "mcp",
+        "agents"
+      ]
     },
     {
       "id": "openmontage",
@@ -134,9 +204,17 @@
       "kind": "candidate",
       "availability": "missing",
       "adapter_status": "radar-candidate",
-      "permission_scopes": ["filesystem", "media", "process"],
+      "permission_scopes": [
+        "filesystem",
+        "media",
+        "process"
+      ],
       "risk_status": "license-and-runtime-review",
-      "tags": ["video", "media", "montage"]
+      "tags": [
+        "video",
+        "media",
+        "montage"
+      ]
     },
     {
       "id": "codebase-memory-mcp",
@@ -147,9 +225,17 @@
       "path": "~/.tri-ai/tools/codebase-memory-mcp/codebase-memory-mcp.exe",
       "availability": "registered",
       "adapter_status": "registered",
-      "permission_scopes": ["filesystem", "mcp"],
+      "permission_scopes": [
+        "filesystem",
+        "mcp"
+      ],
       "risk_status": "reviewed-local-binary",
-      "tags": ["codebase", "memory", "graph", "mcp"]
+      "tags": [
+        "codebase",
+        "memory",
+        "graph",
+        "mcp"
+      ]
     },
     {
       "id": "taste-skill",
@@ -162,7 +248,12 @@
       "instruction_ready": true,
       "permission_scopes": [],
       "risk_status": "reviewed",
-      "tags": ["design", "taste", "frontend", "ui"]
+      "tags": [
+        "design",
+        "taste",
+        "frontend",
+        "ui"
+      ]
     },
     {
       "id": "ui-ux-pro-max",
@@ -173,9 +264,17 @@
       "availability": "active",
       "adapter_status": "instruction-with-tools",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem"],
+      "permission_scopes": [
+        "filesystem"
+      ],
       "risk_status": "reviewed",
-      "tags": ["design", "ui", "ux", "frontend", "accessibility"]
+      "tags": [
+        "design",
+        "ui",
+        "ux",
+        "frontend",
+        "accessibility"
+      ]
     },
     {
       "id": "awesome-claude-design",
@@ -186,9 +285,15 @@
       "availability": "active",
       "adapter_status": "alternate-instruction-ready",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem"],
+      "permission_scopes": [
+        "filesystem"
+      ],
       "risk_status": "reviewed-alternate",
-      "tags": ["design", "brand", "design-system"]
+      "tags": [
+        "design",
+        "brand",
+        "design-system"
+      ]
     },
     {
       "id": "design-motion-principles",
@@ -201,7 +306,12 @@
       "instruction_ready": true,
       "permission_scopes": [],
       "risk_status": "reviewed",
-      "tags": ["design", "motion", "animation", "frontend"]
+      "tags": [
+        "design",
+        "motion",
+        "animation",
+        "frontend"
+      ]
     },
     {
       "id": "agent-reach",
@@ -211,9 +321,17 @@
       "kind": "candidate",
       "availability": "missing",
       "adapter_status": "radar-candidate",
-      "permission_scopes": ["network", "browser"],
+      "permission_scopes": [
+        "network",
+        "browser"
+      ],
       "risk_status": "terms-and-rate-review",
-      "tags": ["research", "social", "business", "browser"]
+      "tags": [
+        "research",
+        "social",
+        "business",
+        "browser"
+      ]
     },
     {
       "id": "remotion",
@@ -224,9 +342,18 @@
       "availability": "active",
       "adapter_status": "alternate-instruction-ready",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem", "media", "process"],
+      "permission_scopes": [
+        "filesystem",
+        "media",
+        "process"
+      ],
       "risk_status": "project-dependencies-required",
-      "tags": ["video", "react", "motion", "media"]
+      "tags": [
+        "video",
+        "react",
+        "motion",
+        "media"
+      ]
     },
     {
       "id": "agent-canvas",
@@ -238,7 +365,11 @@
       "adapter_status": "radar-candidate",
       "permission_scopes": [],
       "risk_status": "archived-upstream",
-      "tags": ["agents", "canvas", "visualization"]
+      "tags": [
+        "agents",
+        "canvas",
+        "visualization"
+      ]
     },
     {
       "id": "archify",
@@ -249,9 +380,17 @@
       "availability": "active",
       "adapter_status": "instruction-with-tools",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem", "process"],
+      "permission_scopes": [
+        "filesystem",
+        "process"
+      ],
       "risk_status": "reviewed",
-      "tags": ["architecture", "diagram", "visualization", "cloud"]
+      "tags": [
+        "architecture",
+        "diagram",
+        "visualization",
+        "cloud"
+      ]
     },
     {
       "id": "openmaic",
@@ -263,7 +402,11 @@
       "adapter_status": "radar-candidate",
       "permission_scopes": [],
       "risk_status": "product-fit-review",
-      "tags": ["agents", "education", "interactive"]
+      "tags": [
+        "agents",
+        "education",
+        "interactive"
+      ]
     },
     {
       "id": "ponytail",
@@ -276,7 +419,11 @@
       "instruction_ready": true,
       "permission_scopes": [],
       "risk_status": "reviewed",
-      "tags": ["coding", "review", "yagni"]
+      "tags": [
+        "coding",
+        "review",
+        "yagni"
+      ]
     },
     {
       "id": "agent-skills",
@@ -287,9 +434,16 @@
       "availability": "active",
       "adapter_status": "instruction-ready",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem"],
+      "permission_scopes": [
+        "filesystem"
+      ],
       "risk_status": "selected-skills-reviewed",
-      "tags": ["agents", "engineering", "orchestration", "review"]
+      "tags": [
+        "agents",
+        "engineering",
+        "orchestration",
+        "review"
+      ]
     },
     {
       "id": "voicestudio",
@@ -299,9 +453,18 @@
       "kind": "candidate",
       "availability": "missing",
       "adapter_status": "radar-candidate",
-      "permission_scopes": ["audio", "microphone", "gpu", "filesystem"],
+      "permission_scopes": [
+        "audio",
+        "microphone",
+        "gpu",
+        "filesystem"
+      ],
       "risk_status": "license-consent-and-retention-review",
-      "tags": ["voice", "audio", "media"]
+      "tags": [
+        "voice",
+        "audio",
+        "media"
+      ]
     },
     {
       "id": "orca",
@@ -311,9 +474,17 @@
       "kind": "candidate",
       "availability": "missing",
       "adapter_status": "radar-candidate",
-      "permission_scopes": ["filesystem", "process", "git"],
+      "permission_scopes": [
+        "filesystem",
+        "process",
+        "git"
+      ],
       "risk_status": "orchestrator-conflict-review",
-      "tags": ["agents", "orchestration", "worktree"]
+      "tags": [
+        "agents",
+        "orchestration",
+        "worktree"
+      ]
     },
     {
       "id": "minimind",
@@ -323,9 +494,17 @@
       "kind": "candidate",
       "availability": "missing",
       "adapter_status": "radar-candidate",
-      "permission_scopes": ["filesystem", "gpu", "network"],
+      "permission_scopes": [
+        "filesystem",
+        "gpu",
+        "network"
+      ],
       "risk_status": "experimental-model-review",
-      "tags": ["model", "training", "local-ai"]
+      "tags": [
+        "model",
+        "training",
+        "local-ai"
+      ]
     },
     {
       "id": "openhands",
@@ -335,9 +514,18 @@
       "kind": "candidate",
       "availability": "missing",
       "adapter_status": "radar-candidate",
-      "permission_scopes": ["filesystem", "process", "network", "container"],
+      "permission_scopes": [
+        "filesystem",
+        "process",
+        "network",
+        "container"
+      ],
       "risk_status": "platform-and-sandbox-review",
-      "tags": ["agents", "coding", "sandbox"]
+      "tags": [
+        "agents",
+        "coding",
+        "sandbox"
+      ]
     },
     {
       "id": "marketing-skills",
@@ -348,9 +536,18 @@
       "availability": "active",
       "adapter_status": "instruction-ready",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem", "network"],
+      "permission_scopes": [
+        "filesystem",
+        "network"
+      ],
       "risk_status": "selected-skills-reviewed",
-      "tags": ["marketing", "business", "seo", "launch", "research"]
+      "tags": [
+        "marketing",
+        "business",
+        "seo",
+        "launch",
+        "research"
+      ]
     },
     {
       "id": "ecc-gsd",
@@ -362,22 +559,42 @@
       "availability": "executable",
       "adapter_status": "gated",
       "instruction_ready": true,
-      "permission_scopes": ["filesystem", "process", "git", "network"],
+      "permission_scopes": [
+        "filesystem",
+        "process",
+        "git",
+        "network"
+      ],
       "risk_status": "verify-gate-required",
-      "tags": ["planning", "agents", "orchestration", "research", "security", "review"]
+      "tags": [
+        "planning",
+        "agents",
+        "orchestration",
+        "research",
+        "security",
+        "review"
+      ]
     },
     {
       "id": "freellmapi",
       "name": "FreeLLMAPI",
-      "description": "Loopback model-routing service available as a provider lane when an operator configures credentials.",
+      "description": "Loopback model-routing service. 306 models catalogued, 31 available on the provider keys configured so far; 216 report no_key.",
       "kind": "service",
       "entrypoint": "http://127.0.0.1:3001",
       "path": "~/.tri-ai/freellmapi",
-      "availability": "gated",
-      "adapter_status": "service-running-provider-unconfigured",
-      "permission_scopes": ["network", "model-routing"],
-      "risk_status": "credentials-required",
-      "tags": ["llm", "routing", "models", "agents"]
+      "availability": "executable",
+      "adapter_status": "service-running-providers-partial",
+      "permission_scopes": [
+        "network",
+        "model-routing"
+      ],
+      "risk_status": "loopback-only-dependency-audit-pending",
+      "tags": [
+        "llm",
+        "routing",
+        "models",
+        "agents"
+      ]
     },
     {
       "id": "context7",
@@ -387,9 +604,40 @@
       "entrypoint": "npx",
       "availability": "registered",
       "adapter_status": "registered",
-      "permission_scopes": ["mcp", "network"],
+      "permission_scopes": [
+        "mcp",
+        "network"
+      ],
       "risk_status": "configured",
-      "tags": ["documentation", "research", "mcp"]
+      "tags": [
+        "documentation",
+        "research",
+        "mcp"
+      ]
+    },
+    {
+      "id": "omniroute",
+      "name": "OmniRoute",
+      "description": "Primary model router. 2,545 models behind 38 task-semantic aliases (auto/best-coding, auto/coding:free, auto/reasoning) across 8 live provider connections, plus the desktop's Ollama registered as a provider node.",
+      "kind": "service",
+      "entrypoint": "http://127.0.0.1:20128/v1",
+      "path": "~/.omniroute",
+      "availability": "executable",
+      "adapter_status": "registered",
+      "instruction_ready": true,
+      "permission_scopes": [
+        "network",
+        "model-routing",
+        "credentials"
+      ],
+      "risk_status": "reviewed-loopback-bound-operator-key",
+      "tags": [
+        "llm",
+        "routing",
+        "models",
+        "fallback",
+        "local"
+      ]
     }
   ]
 }
