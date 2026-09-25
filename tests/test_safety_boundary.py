@@ -61,6 +61,9 @@ CLOSURE_MODULES = (
     # stack_profile.py replaces a node's verify command with one matched to the
     # detected stack. Nothing decides more directly what the gate accepts.
     "stack_profile.py",
+    # lane_select.py decides which model runs each node, and benches a lane it
+    # has recorded as exhausted. It changes who does the work.
+    "lane_select.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole
