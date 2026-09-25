@@ -312,6 +312,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ap.add_argument("--workspace-path", required=True)
     ap.add_argument("--verify-command", default=None)
     ap.add_argument("--verify-timeout", type=int, default=DEFAULT_VERIFY_TIMEOUT)
+    ap.add_argument("--no-detect-stack", action="store_true",
+                    help="keep the stack-blind gate instead of detecting one")
     ap.add_argument("--out", default="-")
     args = ap.parse_args(argv)
 
@@ -324,6 +326,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except DecomposeError as exc:
         print(f"decompose failed: {exc}")
         return 1
+
+    # No explicit command means the nodes are on the stack-blind gate. Ask the
+    # workspace what it is rather than leaving them there.
+    if args.verify_command is None and not args.no_detect_stack:
+        import stack_profile
+        profile = stack_profile.apply(graph, args.workspace_path)
+        graph["verify_stack"] = profile.stack
+        graph["verify_stack_evidence"] = profile.evidence
+        print(f"stack: {profile.stack}"
+              + (f" (from {', '.join(profile.evidence)})" if profile.evidence else "")
+              + (" - generic gate" if profile.generic else ""))
 
     text = json.dumps(graph, indent=2)
     if args.out == "-":

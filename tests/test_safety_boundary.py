@@ -58,6 +58,9 @@ CLOSURE_MODULES = (
     # chooses every node's role, prompt and verify command, which is the whole
     # of what the agent is told and what the gate will accept.
     "decomposer.py",
+    # stack_profile.py replaces a node's verify command with one matched to the
+    # detected stack. Nothing decides more directly what the gate accepts.
+    "stack_profile.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole
