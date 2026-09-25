@@ -16,11 +16,13 @@ from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
 import board
+import capability_catalog
 import completion_report
 import intake_preflight
 import progress_card
 import proposals
 import telegram_read_surface
+from memory import brain
 
 
 PENDING_SECONDS = 15 * 60
@@ -174,12 +176,16 @@ class TelegramControl:
         *,
         pending_seconds: int = PENDING_SECONDS,
         dashboard_url: Optional[str] = None,
+        catalog_path: Path | str = capability_catalog.DEFAULT_CATALOG_PATH,
+        radar_path: Path | str = Path.home() / ".tri-ai" / "radar" / "latest.json",
     ) -> None:
         if pending_seconds <= 0:
             raise ValueError("pending action lifetime must be positive")
         self._policy = policy
         self._pending_seconds = pending_seconds
         self._dashboard_url = dashboard_url
+        self._catalog_path = Path(catalog_path)
+        self._radar_path = Path(radar_path)
 
     def _pending(
         self,
@@ -358,6 +364,10 @@ class TelegramControl:
             "/retry <task-id>",
             "/cancel <task-id>",
             "/confirm <request-id>",
+            "/remember <note>",
+            "/recall <query>",
+            "/capabilities",
+            "/radar",
         ]
         suffix = (
             " Plain text creates a confirmation-required draft in the default workspace."
@@ -368,6 +378,56 @@ class TelegramControl:
         elif self._policy.default_workspace is None:
             suffix = " Plain text needs default_workspace configured; use /workspaces."
         return "Commands: " + ", ".join(commands) + "." + suffix
+
+    def _capability_report(self) -> str:
+        try:
+            resources = capability_catalog.load_catalog(self._catalog_path)
+        except (OSError, ValueError, KeyError, json.JSONDecodeError):
+            return "Capability catalog is unavailable. Run the catalog refresh first."
+        adapters = [item for item in resources if item.resource_id.startswith("adapter:")]
+        ready_health = {
+            "instruction-ready", "entrypoint-present", "path-present",
+            "loopback-service-ready",
+        }
+        routable_availability = {"active", "executable", "registered"}
+        ready = sum(
+            item.availability in routable_availability and item.health_status in ready_health
+            for item in adapters
+        )
+        staged = sum(item.availability == "source-only" for item in adapters)
+        gated = sum(item.availability == "gated" for item in adapters)
+        missing = sum(item.availability == "missing" for item in adapters)
+        lines = [
+            f"Tri-AI capabilities: {len(adapters)} adapters; {ready} routable, "
+            f"{staged} source-only, {gated} gated, {missing} missing/radar candidates."
+        ]
+        for item in adapters:
+            lines.append(
+                f"- {item.name}: {item.availability} / {item.adapter_status} / {item.health_status}"
+            )
+        return "\n".join(lines)
+
+    def _radar_report(self) -> str:
+        try:
+            document = json.loads(self._radar_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return "Technology radar report is unavailable."
+        if document.get("schema") != "triai.technology-radar.v1":
+            return "Technology radar report has an unsupported schema."
+        candidates = document.get("candidates", [])
+        evaluations = document.get("evaluations", [])
+        errors = document.get("errors", [])
+        lines = [
+            f"Technology radar: {len(candidates)} candidates, {len(evaluations)} evaluated, "
+            f"{len(errors)} source errors. Generated {document.get('generated_at', 'unknown')}."
+        ]
+        for evaluation in evaluations[:10]:
+            candidate = evaluation.get("candidate", {}) if isinstance(evaluation, dict) else {}
+            lines.append(
+                f"- {candidate.get('name', 'unknown')}: "
+                f"{evaluation.get('disposition', 'unknown')}"
+            )
+        return "\n".join(lines)
 
     def dispatch(
         self,
@@ -425,10 +485,31 @@ class TelegramControl:
                 return self._files(conn)
             finally:
                 conn.close()
+        if command == "/capabilities":
+            return self._capability_report()
+        if command == "/radar":
+            return self._radar_report()
         if command in READ_COMMANDS:
             return telegram_read_surface.dispatch_command(
                 normalized, board_path=board_path, ledger_path=ledger_path, runs_root=runs_root
             )
+        if command in {"/remember", "/recall"}:
+            argument = normalized[len(parts[0]):].strip()
+            if not argument:
+                return f"Usage: {command} <{'note' if command == '/remember' else 'query'}>"
+            brain_path = Path(board_path).resolve().parent / "brain" / "brain.db"
+            memory = brain.connect(brain_path)
+            try:
+                if command == "/remember":
+                    item = brain.capture(memory, argument, source=f"telegram:{chat_id}")
+                    return (
+                        f"Saved to Brain inbox as {item.item_id}. "
+                        "Trust: UNREVIEWED until supported by verified evidence."
+                    )
+                pack = brain.context_pack(memory, argument, max_characters=3500)
+                return pack.text or "No Brain memory matched that query."
+            finally:
+                memory.close()
         conn = board.connect(Path(board_path))
         try:
             if command == "/run":

@@ -2,8 +2,8 @@
 
 Only this module speaks to Telegram or reads its token. The read surface remains
 a local renderer with no credential, network, subprocess, or board mutation
-capability. A transport failure deliberately stops the daemon; it is never
-retried invisibly.
+capability. Retryable transport failures back off and recover continuously;
+authentication and other permanent failures still stop the daemon visibly.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Protocol, Sequence
-from urllib import request
+from urllib import error, request
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -35,7 +35,11 @@ MAX_MESSAGE_CHARS = 4000
 
 
 class TelegramTransportError(RuntimeError):
-    """An HTTPS or Bot API failure that must stop the polling daemon."""
+    """A retryable HTTPS or Bot API transport failure."""
+
+
+class TelegramPermanentError(TelegramTransportError):
+    """A rejected request that retrying cannot repair."""
 
 
 class TelegramApi(Protocol):
@@ -201,11 +205,22 @@ class HttpsTelegramApi:
         try:
             with self._opener(req, timeout=timeout) as response:
                 decoded = json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            if 400 <= exc.code < 500:
+                raise TelegramPermanentError(
+                    f"Telegram Bot API rejected the request with HTTP {exc.code}"
+                ) from exc
+            raise TelegramTransportError(
+                f"Telegram HTTPS request failed: HTTP {exc.code}"
+            ) from exc
         except (OSError, ValueError) as exc:
             raise TelegramTransportError(
                 f"Telegram HTTPS request failed: {type(exc).__name__}"
             ) from exc
         if not isinstance(decoded, dict) or decoded.get("ok") is not True:
+            code = decoded.get("error_code") if isinstance(decoded, dict) else None
+            if isinstance(code, int) and 400 <= code < 500:
+                raise TelegramPermanentError(f"Telegram Bot API rejected the request ({code})")
             raise TelegramTransportError("Telegram Bot API rejected the request")
         return decoded.get("result")
 
@@ -748,12 +763,12 @@ class TelegramDaemon:
         self,
         *,
         poll_timeout: int,
-        max_transport_failures: int = 10,
+        max_transport_failures: Optional[int] = None,
         backoff_base_seconds: float = 2.0,
         backoff_max_seconds: float = 60.0,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        """Long-poll until an operator stop or a persistent transport failure.
+        """Long-poll until an operator stop or a permanent API failure.
 
         A single lost HTTPS request used to end this process. That is the wrong
         severity for a daemon on a home connection: a dropped packet is not a
@@ -761,24 +776,27 @@ class TelegramDaemon:
         with it, because the supervisor stopped the worker when any child
         exited. So a transport failure is now retried with exponential backoff.
 
-        A *persistent* failure is different in kind - a revoked token or a
-        rejected request fails identically forever - so the retry is bounded
-        and the daemon still exits non-zero once the budget is spent, leaving
-        the restart decision to the supervisor rather than spinning silently.
-        Any successful poll clears the streak.
+        Network failures retry continuously in the production daemon because a
+        home connection can remain unavailable for hours. Tests and one-shot
+        callers may provide a finite budget. Authentication and malformed API
+        requests raise ``TelegramPermanentError`` and fail immediately. Any
+        successful poll clears the network-failure streak.
         """
         offset: Optional[int] = None
         failures = 0
         while True:
             try:
                 offset = self.poll_once(offset=offset, timeout=poll_timeout)
+            except TelegramPermanentError:
+                raise
             except TelegramTransportError as exc:
                 failures += 1
-                if failures >= max_transport_failures:
+                if max_transport_failures is not None and failures >= max_transport_failures:
                     raise
                 delay = min(backoff_base_seconds * (2 ** (failures - 1)), backoff_max_seconds)
                 print(
-                    f"telegram transport failure {failures}/{max_transport_failures}: "
+                    f"telegram transport failure {failures}/"
+                    f"{max_transport_failures if max_transport_failures is not None else 'continuous'}: "
                     f"{type(exc).__name__}: {exc}; retrying in {delay:.0f}s",
                     file=sys.stderr,
                     flush=True,

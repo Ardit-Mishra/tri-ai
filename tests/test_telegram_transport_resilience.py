@@ -62,7 +62,7 @@ class TelegramTransportResilienceTests(unittest.TestCase):
 
         self.assertEqual(stub.slept, [2.0, 4.0], "backoff must double between attempts")
         text = stderr.getvalue()
-        self.assertIn("telegram transport failure 1/10", text)
+        self.assertIn("telegram transport failure 1/continuous", text)
         self.assertIn("URLError", text, "the failure class must survive into the log")
         self.assertNotIn("bot", text.lower().split("telegram transport")[0])
 
@@ -78,13 +78,35 @@ class TelegramTransportResilienceTests(unittest.TestCase):
         # Both delays are the first-attempt delay: the streak reset in between.
         self.assertEqual(stub.slept, [2.0, 2.0])
 
-    def test_a_persistent_transport_failure_still_exits_nonzero(self):
-        """A revoked token fails identically forever; it must not spin."""
-        stub = RunForeverStub([daemon.TelegramTransportError("rejected")] * 10)
+    def test_an_explicit_transport_budget_can_still_stop_a_test_or_one_shot_runner(self):
+        stub = RunForeverStub([daemon.TelegramTransportError("network down")] * 10)
         with redirect_stderr(io.StringIO()), self.assertRaises(daemon.TelegramTransportError):
             stub.run_forever(poll_timeout=30, max_transport_failures=4, sleep=stub.sleep)
         self.assertEqual(stub.calls, 4)
         self.assertEqual(stub.slept, [2.0, 4.0, 8.0])
+
+    def test_the_daemon_default_keeps_retrying_network_outages(self):
+        failures = [daemon.TelegramTransportError("network down")] * 12
+        stub = RunForeverStub([*failures, 9, StopIteration("done")])
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(StopIteration):
+            stub.run_forever(
+                poll_timeout=30,
+                backoff_base_seconds=0.01,
+                backoff_max_seconds=0.01,
+                sleep=stub.sleep,
+            )
+
+        self.assertEqual(stub.calls, 14)
+        self.assertEqual(len(stub.slept), 12)
+        self.assertIn("12/continuous", stderr.getvalue())
+
+    def test_a_permanent_api_failure_is_not_retried(self):
+        stub = RunForeverStub([daemon.TelegramPermanentError("unauthorized")])
+        with redirect_stderr(io.StringIO()), self.assertRaises(daemon.TelegramPermanentError):
+            stub.run_forever(poll_timeout=30, sleep=stub.sleep)
+        self.assertEqual(stub.calls, 1)
+        self.assertEqual(stub.slept, [])
 
     def test_backoff_is_capped(self):
         stub = RunForeverStub([daemon.TelegramTransportError("blip")] * 12)

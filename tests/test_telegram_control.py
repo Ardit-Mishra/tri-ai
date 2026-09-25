@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import board  # noqa: E402
+import capability_catalog  # noqa: E402
 import telegram_control  # noqa: E402
 from support import BoardTestCase  # noqa: E402
 
@@ -40,7 +41,9 @@ class ControlFixture(BoardTestCase):
             },
         }), encoding="utf-8")
         self.control = telegram_control.TelegramControl(
-            telegram_control.load_policy(self.policy_path)
+            telegram_control.load_policy(self.policy_path),
+            catalog_path=self.tmp / "catalog.json",
+            radar_path=self.tmp / "radar.json",
         )
         self.ledger = self.tmp / "ledger.jsonl"
         self.runs = self.tmp / "runs"
@@ -100,6 +103,52 @@ class ConfirmedIntake(ControlFixture):
         help_text = self.dispatch("/help")
         self.assertIn("/workspaces", help_text)
         self.assertIn("/run <workspace-alias> <prompt>", help_text)
+        self.assertIn("/remember <note>", help_text)
+        self.assertIn("/recall <query>", help_text)
+        self.assertIn("/capabilities", help_text)
+        self.assertIn("/radar", help_text)
+
+    def test_capability_and_radar_reports_are_read_only_operator_views(self):
+        capability_catalog.write_catalog(self.tmp / "catalog.json", [
+            capability_catalog.CapabilityResource(
+                "adapter:browser-use", "Browser Use", "command", "manifest",
+                "Browser automation", None, "executable", False,
+                adapter_status="gated", health_status="entrypoint-present",
+            ),
+            capability_catalog.CapabilityResource(
+                "adapter:graft", "Graft", "source_repository", "manifest",
+                "Context source", self.tmp / "graft", "source-only", False,
+                adapter_status="adapter-planned", health_status="source-present-not-adapted",
+            ),
+        ])
+        (self.tmp / "radar.json").write_text(json.dumps({
+            "schema": "triai.technology-radar.v1",
+            "generated_at": "2026-09-21T12:00:00+00:00",
+            "candidates": [{"name": "example/new-agent", "source": "github"}],
+            "evaluations": [{"candidate": {"name": "example/new-agent"},
+                              "disposition": "manual-security-review"}],
+            "errors": [],
+        }), encoding="utf-8")
+
+        capabilities = self.dispatch("/capabilities")
+        radar = self.dispatch("/radar")
+
+        self.assertIn("1 routable, 1 source-only, 0 gated", capabilities)
+        self.assertIn("Browser Use: executable", capabilities)
+        self.assertIn("Graft: source-only", capabilities)
+        self.assertIn("example/new-agent", radar)
+        self.assertIn("manual-security-review", radar)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 0)
+
+    def test_remember_and_recall_use_the_brain_without_creating_a_task(self):
+        response = self.dispatch("/remember Tri-AI and its dashboard are one system")
+        self.assertIn("Saved to Brain inbox", response)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 0)
+
+        recalled = self.dispatch("/recall dashboard system")
+        self.assertIn("Tri-AI and its dashboard are one system", recalled)
+        self.assertIn("UNREVIEWED", recalled)
+        self.assertIn("brain:", recalled)
 
     def test_unknown_or_unconfigured_intake_is_reported_without_creating_a_pending_action(self):
         self.assertIn("Unknown workspace alias", self.dispatch("/run missing smoke test task"))
