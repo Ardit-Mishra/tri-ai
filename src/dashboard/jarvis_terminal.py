@@ -44,6 +44,9 @@ def runtime_paths(root: Path | str = DEFAULT_RUNTIME_ROOT) -> dict[str, Path]:
         "ledger_path": base / "ledger.jsonl",
         "daemon_state_path": base / "logs" / "daemons.json",
         "runs_root": base / "runs",
+        "brain_path": base / "brain" / "brain.db",
+        "capability_catalog_path": base / "capabilities" / "catalog.json",
+        "radar_path": base / "radar" / "latest.json",
     }
 PidAlive = Callable[[int], bool]
 WINDOWS_STILL_ACTIVE = 259
@@ -153,6 +156,92 @@ class DaemonHealth:
 
 
 @dataclass(frozen=True)
+class BrainItemView:
+    item_id: str
+    title: str
+    kind: str
+    source: str
+    project: Optional[str]
+    trust: str
+    created_at: float
+
+
+@dataclass(frozen=True)
+class BrainEdgeView:
+    edge_id: str
+    source_id: str
+    target_id: str
+    relation: str
+    evidence_item_id: str
+
+
+@dataclass(frozen=True)
+class BrainView:
+    status: str = "uninitialized"
+    item_count: int = 0
+    inbox_count: int = 0
+    edge_count: int = 0
+    items: tuple[BrainItemView, ...] = ()
+    edges: tuple[BrainEdgeView, ...] = ()
+    diagnostic: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class CapabilityItemView:
+    resource_id: str
+    name: str
+    kind: str
+    availability: str
+    adapter_status: str
+    health_status: str
+    risk_status: str
+    tags: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CapabilityView:
+    status: str = "uninitialized"
+    total: int = 0
+    active: int = 0
+    archived: int = 0
+    routable: int = 0
+    gated: int = 0
+    candidates: int = 0
+    items: tuple[CapabilityItemView, ...] = ()
+    diagnostic: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class RadarCandidateView:
+    name: str
+    source: str
+    url: str
+    disposition: str
+    stars: int = 0
+    signals: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class RadarEvaluationView:
+    name: str
+    disposition: str
+    static_verdict: str
+    dynamic_status: str
+
+
+@dataclass(frozen=True)
+class RadarView:
+    status: str = "uninitialized"
+    generated_at: Optional[str] = None
+    candidate_count: int = 0
+    evaluated_count: int = 0
+    error_count: int = 0
+    candidates: tuple[RadarCandidateView, ...] = ()
+    evaluations: tuple[RadarEvaluationView, ...] = ()
+    diagnostic: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class DashboardSnapshot:
     tasks: tuple[TaskView, ...]
     edges: tuple[TaskEdge, ...]
@@ -163,6 +252,9 @@ class DashboardSnapshot:
     daemons: DaemonHealth
     rules: tuple[RuleView, ...] = ()
     memory_errors: tuple[str, ...] = ()
+    brain: BrainView = BrainView()
+    capabilities: CapabilityView = CapabilityView()
+    radar: RadarView = RadarView()
 
 
 def _readonly_board(board_path: Path | str) -> sqlite3.Connection:
@@ -677,6 +769,155 @@ def _read_daemon_health(
     return DaemonHealth(raw["status"], tuple(processes), None)
 
 
+def _read_brain(path: Path | str, *, limit: int = 24) -> BrainView:
+    source = Path(path).resolve()
+    if not source.is_file():
+        return BrainView(diagnostic=f"Brain database does not exist: {source}")
+    try:
+        conn = sqlite3.connect(source.as_uri() + "?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA query_only=ON")
+        counts = {
+            table: int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+            for table in ("brain_items", "brain_inbox", "brain_edges")
+        }
+        rows = conn.execute(
+            "SELECT item_id, title, kind, source, project, trust, created_at "
+            "FROM brain_items WHERE trust != 'rejected' "
+            "ORDER BY created_at DESC, item_id LIMIT ?",
+            (limit,),
+        ).fetchall()
+        item_ids = tuple(row["item_id"] for row in rows)
+        edge_rows: Sequence[sqlite3.Row] = ()
+        if item_ids:
+            placeholders = ",".join("?" for _ in item_ids)
+            edge_rows = conn.execute(
+                "SELECT edge_id, source_id, target_id, relation, evidence_item_id "
+                f"FROM brain_edges WHERE source_id IN ({placeholders}) "
+                f"AND target_id IN ({placeholders}) ORDER BY relation, edge_id",
+                (*item_ids, *item_ids),
+            ).fetchall()
+        return BrainView(
+            status="ready",
+            item_count=counts["brain_items"],
+            inbox_count=counts["brain_inbox"],
+            edge_count=counts["brain_edges"],
+            items=tuple(
+                BrainItemView(
+                    row["item_id"], row["title"], row["kind"], row["source"],
+                    row["project"], row["trust"], float(row["created_at"]),
+                )
+                for row in rows
+            ),
+            edges=tuple(
+                BrainEdgeView(
+                    row["edge_id"], row["source_id"], row["target_id"],
+                    row["relation"], row["evidence_item_id"],
+                )
+                for row in edge_rows
+            ),
+        )
+    except sqlite3.Error as exc:
+        return BrainView(status="error", diagnostic=f"Brain database is unreadable: {type(exc).__name__}")
+    finally:
+        if "conn" in locals():
+            conn.close()
+
+
+def _read_capabilities(path: Path | str, *, limit: int = 40) -> CapabilityView:
+    source = Path(path).resolve()
+    if not source.is_file():
+        return CapabilityView(diagnostic=f"Capability catalog does not exist: {source}")
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return CapabilityView(status="error", diagnostic=f"Capability catalog is unreadable: {type(exc).__name__}")
+    if document.get("schema") != "triai.capability-catalog.v1":
+        return CapabilityView(status="error", diagnostic="Capability catalog schema is unsupported")
+    raw_resources = document.get("resources")
+    if not isinstance(raw_resources, list):
+        return CapabilityView(status="error", diagnostic="Capability catalog has no resource list")
+    availability: dict[str, int] = {}
+    items: list[CapabilityItemView] = []
+    for raw in raw_resources:
+        if not isinstance(raw, Mapping):
+            continue
+        state = str(raw.get("availability") or "unknown")
+        availability[state] = availability.get(state, 0) + 1
+        # The showcase list is adapter-focused. The complete skill estate is
+        # represented by counts and remains searchable in the catalog itself.
+        if not str(raw.get("resource_id") or "").startswith("adapter:"):
+            continue
+        items.append(CapabilityItemView(
+            str(raw.get("resource_id") or "unknown"),
+            str(raw.get("name") or "Unnamed capability"),
+            str(raw.get("kind") or "unknown"),
+            state,
+            str(raw.get("adapter_status") or "unadapted"),
+            str(raw.get("health_status") or "not-checked"),
+            str(raw.get("risk_status") or "unreviewed"),
+            tuple(str(tag) for tag in raw.get("tags", []) if isinstance(tag, str)),
+        ))
+    items.sort(key=lambda item: (
+        {"executable": 0, "registered": 1, "active": 2, "gated": 3, "source-only": 4, "missing": 5}.get(item.availability, 9),
+        item.name.casefold(),
+    ))
+    routable = sum(availability.get(key, 0) for key in ("executable", "registered", "active"))
+    return CapabilityView(
+        status="ready",
+        total=len(raw_resources),
+        active=availability.get("active", 0),
+        archived=availability.get("archived-reference", 0),
+        routable=routable,
+        gated=availability.get("gated", 0) + availability.get("source-only", 0),
+        candidates=availability.get("missing", 0) + availability.get("candidate-only", 0),
+        items=tuple(items[:limit]),
+    )
+
+
+def _read_radar(path: Path | str, *, limit: int = 16) -> RadarView:
+    source = Path(path).resolve()
+    if not source.is_file():
+        return RadarView(diagnostic=f"Technology radar report does not exist: {source}")
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return RadarView(status="error", diagnostic=f"Technology radar report is unreadable: {type(exc).__name__}")
+    if document.get("schema") != "triai.technology-radar.v1":
+        return RadarView(status="error", diagnostic="Technology radar schema is unsupported")
+    candidates: list[RadarCandidateView] = []
+    for raw in document.get("candidates", []):
+        if not isinstance(raw, Mapping):
+            continue
+        candidates.append(RadarCandidateView(
+            str(raw.get("name") or "unknown"), str(raw.get("source") or "unknown"),
+            str(raw.get("url") or ""), str(raw.get("disposition") or "evaluate"),
+            int(raw.get("stars") or 0),
+            tuple(str(signal) for signal in raw.get("signals", []) if isinstance(signal, str)),
+        ))
+    evaluations: list[RadarEvaluationView] = []
+    for raw in document.get("evaluations", []):
+        if not isinstance(raw, Mapping):
+            continue
+        candidate = raw.get("candidate") if isinstance(raw.get("candidate"), Mapping) else {}
+        static = raw.get("static") if isinstance(raw.get("static"), Mapping) else {}
+        dynamic = raw.get("dynamic") if isinstance(raw.get("dynamic"), Mapping) else {}
+        evaluations.append(RadarEvaluationView(
+            str(candidate.get("name") or "unknown"),
+            str(raw.get("disposition") or "unknown"),
+            str(static.get("verdict") or "not-run"),
+            str(dynamic.get("status") or "not-run"),
+        ))
+    errors = document.get("errors", [])
+    return RadarView(
+        status="ready",
+        generated_at=str(document.get("generated_at")) if document.get("generated_at") else None,
+        candidate_count=len(candidates), evaluated_count=len(evaluations),
+        error_count=len(errors) if isinstance(errors, list) else 0,
+        candidates=tuple(candidates[:limit]), evaluations=tuple(evaluations[:limit]),
+    )
+
+
 def read_snapshot(
     *,
     board_path: Path | str,
@@ -685,6 +926,9 @@ def read_snapshot(
     ledger_limit: int = 12,
     pid_alive: PidAlive = _pid_alive,
     runs_root: Optional[Path | str] = None,
+    brain_path: Optional[Path | str] = None,
+    capability_catalog_path: Optional[Path | str] = None,
+    radar_path: Optional[Path | str] = None,
 ) -> DashboardSnapshot:
     """Read one immutable dashboard snapshot from the authoritative sources."""
     tasks, edges, activated_rule_count, rules, memory_errors = _read_board(
@@ -701,6 +945,17 @@ def read_snapshot(
         daemons=_read_daemon_health(daemon_state_path, pid_alive=pid_alive),
         rules=rules,
         memory_errors=memory_errors,
+        brain=_read_brain(
+            brain_path if brain_path is not None else Path(board_path).resolve().parent / "brain" / "brain.db"
+        ),
+        capabilities=_read_capabilities(
+            capability_catalog_path if capability_catalog_path is not None
+            else Path(board_path).resolve().parent / "capabilities" / "catalog.json"
+        ),
+        radar=_read_radar(
+            radar_path if radar_path is not None
+            else Path(board_path).resolve().parent / "radar" / "latest.json"
+        ),
     )
 
 

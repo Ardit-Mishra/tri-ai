@@ -128,6 +128,35 @@ class SemanticNodeTests(unittest.TestCase):
         self.assertIn("if(next!==hud.hover){hud.hover=next;", web.HTML)
         self.assertIn("hud.selected=node.id;hud.hover=node.id;", web.HTML)
 
+    def test_capability_and_radar_evidence_are_visible_and_inspectable(self):
+        self.assertIn('id="capabilityCount"', web.HTML)
+        self.assertIn('id="radarCount"', web.HTML)
+        self.assertIn('id="capabilityRegistry"', web.HTML)
+        self.assertIn('id="technologyRadar"', web.HTML)
+        self.assertIn("kind:'capability'", web.HTML)
+        self.assertIn("kind:'radar'", web.HTML)
+        self.assertIn("function renderCapabilities(data)", web.HTML)
+        self.assertIn("function renderRadar(data)", web.HTML)
+
+    def test_readiness_language_does_not_promote_unproven_tools(self):
+        self.assertIn("Dynamic probe not run", web.HTML)
+        self.assertIn("Source only", web.HTML)
+        self.assertIn("Gated", web.HTML)
+
+
+class MotionAccessibilityTests(unittest.TestCase):
+    def test_reduced_motion_disables_ambient_animation(self):
+        self.assertIn("@media (prefers-reduced-motion: reduce)", web.HTML)
+        self.assertIn("animation-duration:.01ms!important", web.HTML)
+
+    def test_spatial_view_uses_three_with_2d_fallback_and_motion_control(self):
+        source = Path(web.__file__).with_name("tri_space.js").read_text(encoding="utf-8")
+        self.assertIn('import * as THREE from "/assets/three.module.min.js"', source)
+        self.assertIn("new THREE.WebGLRenderer", source)
+        self.assertIn('setView(window.innerWidth > 767 ? "3d" : "2d")', source)
+        self.assertIn('id="motionToggle"', web.HTML)
+        self.assertIn('id="neuralGraph"', web.HTML)
+
     def test_the_micro_card_states_the_fields_an_operator_asks_for(self):
         for field in ("'TASK'", "'WORKSPACE'", "'BRANCH'", "'PHASE'", "'RUNTIME'"):
             self.assertIn(field, web.HTML)
@@ -348,7 +377,9 @@ class TouchAndPreviewTests(unittest.TestCase):
         self.assertEqual(web.HTML.count("if(hud.pointers.size<2)hud.pinch=null;"), 2)
 
     def test_the_micro_card_leads_with_intent_and_names_firing_duration(self):
-        self.assertIn("taskLabel(node.detail):node.detail.rule_id,44", web.HTML)
+        self.assertIn("node.kind==='task'?taskLabel(node.detail)", web.HTML)
+        self.assertIn("node.kind==='rule'?node.detail.rule_id:node.kind==='brain'?node.detail.title:node.detail.name", web.HTML)
+        self.assertIn(",44);", web.HTML)
         self.assertIn("`firing for ${runtime}`", web.HTML)
 
     def test_artifacts_preview_in_a_sandboxed_frame_that_stops_on_close(self):

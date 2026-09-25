@@ -107,7 +107,7 @@ HTML = r"""<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>TRI-AI // JARVIS CORE</title>
+  <title>TRI-AI // OPERATIONS CORE</title>
   <style>
     :root { color-scheme: dark; --bg:#09090b; --surface:#18181b; --line:#27272a; --muted:#a1a1aa; --text:#fafafa; --emerald:#34d399; --crimson:#fb7185; --amber:#fbbf24; --violet:#a78bfa; }
     * { box-sizing:border-box; }
@@ -121,7 +121,7 @@ HTML = r"""<!doctype html>
     .dot { background:var(--crimson); border-radius:50%; height:7px; width:7px; }
     .service.up .dot { animation:pulse 1.8s ease-in-out infinite; background:var(--emerald); box-shadow:0 0 10px rgba(52,211,153,.55); }
     @keyframes pulse { 50% { box-shadow:0 0 16px rgba(52,211,153,.85); opacity:.55; } }
-    .metrics { display:grid; gap:1px; grid-template-columns:repeat(4,minmax(0,1fr)); background:var(--line); border:1px solid var(--line); margin:18px 0; }
+    .metrics { display:grid; gap:1px; grid-template-columns:repeat(6,minmax(0,1fr)); background:var(--line); border:1px solid var(--line); margin:18px 0; }
     .metric { background:var(--surface); min-height:84px; padding:14px; }
     .metric label { color:var(--muted); display:block; font-size:10px; font-weight:650; text-transform:uppercase; }
     .metric strong { display:block; font-family:"JetBrains Mono","Fira Code",ui-monospace,monospace; font-size:25px; letter-spacing:0; margin-top:8px; }
@@ -153,8 +153,30 @@ HTML = r"""<!doctype html>
     .hud-grid { display:grid; gap:14px; grid-template-columns:minmax(0,1fr) minmax(300px,350px); margin-top:14px; } .hud-aside { display:grid; gap:14px; align-content:start; }
     .hud-panel { background:var(--surface); border:1px solid var(--line); box-shadow:0 12px 34px rgba(0,0,0,.22),inset 0 0 36px rgba(0,240,255,.025); min-width:0; padding:14px; position:relative; } .hud-panel::before,.hud-panel::after { content:""; height:15px; position:absolute; width:15px; } .hud-panel::before { border-left:2px solid var(--cyan); border-top:2px solid var(--cyan); left:-1px; top:-1px; } .hud-panel::after { border-bottom:2px solid var(--cyan); border-right:2px solid var(--cyan); bottom:-1px; right:-1px; }
     .panel-head { align-items:center; color:var(--muted); display:flex; font-size:10px; justify-content:space-between; margin-bottom:10px; text-transform:uppercase; } .panel-head strong { color:var(--cyan); font-weight:700; } .graph-panel { min-height:480px; } #neuralGraph { cursor:crosshair; display:block; height:420px; touch-action:none; width:100%; } .graph-legend { color:var(--muted); display:flex; flex-wrap:wrap; font-size:9px; gap:12px; margin-top:8px; text-transform:uppercase; } .legend-dot { border-radius:50%; display:inline-block; height:7px; margin-right:4px; width:7px; }
+    .graph-head-tools { align-items:center; display:flex; gap:8px; }
+    .view-switch { border:1px solid var(--line); display:flex; }
+    .view-switch button { background:transparent; border:0; color:var(--muted); cursor:pointer; font:inherit; min-height:28px; padding:4px 8px; text-transform:uppercase; }
+    .view-switch button+button { border-left:1px solid var(--line); }
+    .view-switch button.active { background:rgba(0,240,255,.12); color:var(--cyan); }
+    .view-switch button:disabled { cursor:not-allowed; opacity:.35; }
+    #spatialGraph { display:none; height:420px; min-width:0; overflow:hidden; position:relative; touch-action:none; width:100%; }
+    #spatialGraph canvas { display:block; height:100%; width:100%; }
+    .graph-panel.view-3d #spatialGraph { display:block; }
+    .graph-panel.view-3d #neuralGraph { display:none; }
+    .spatial-tooltip { background:rgba(3,6,10,.94); border:1px solid rgba(0,240,255,.45); color:var(--text); display:none; font-size:10px; max-width:240px; padding:7px 9px; pointer-events:none; position:absolute; z-index:3; }
+    .spatial-tooltip b { color:var(--cyan); display:block; margin-bottom:3px; }
     .inspector-empty,.memory-empty { color:var(--muted); font-size:11px; line-height:1.6; } .inspect-title { color:var(--cyan); font-size:14px; margin:0 0 10px; overflow-wrap:anywhere; } .inspect-grid { display:grid; gap:8px; } .inspect-row { border-top:1px solid rgba(0,240,255,.12); padding-top:8px; } .inspect-row label { color:var(--muted); display:block; font-size:9px; margin-bottom:4px; text-transform:uppercase; } .inspect-row div { color:var(--text); font-size:11px; overflow-wrap:anywhere; } .chip { border:1px solid rgba(255,183,3,.42); color:var(--amber); display:inline-block; font-size:9px; margin:0 4px 4px 0; padding:3px 5px; }
     .memory-list { display:grid; gap:9px; max-height:318px; overflow:auto; } .memory-rule { border-left:2px solid var(--amber); padding:8px 0 8px 9px; } .memory-rule h3 { color:var(--amber); font-size:11px; margin:0 0 5px; overflow-wrap:anywhere; } .memory-rule p { color:var(--muted); font-size:9px; line-height:1.5; margin:0; overflow-wrap:anywhere; }
+    .registry-list,.radar-list { display:grid; gap:7px; max-height:290px; overflow:auto; }
+    .registry-item,.radar-item { background:rgba(2,5,8,.36); border-left:2px solid rgba(0,240,255,.58); min-width:0; padding:8px 9px; }
+    .radar-item { border-left-color:rgba(244,114,182,.72); }
+    .registry-item h3,.radar-item h3 { color:var(--text); font-size:10px; margin:0 0 5px; overflow-wrap:anywhere; }
+    .registry-item p,.radar-item p { color:var(--muted); font-size:9px; line-height:1.45; margin:0; overflow-wrap:anywhere; }
+    .registry-item .state-token,.radar-item .state-token { border:1px solid rgba(148,163,184,.3); color:var(--muted); display:inline-block; font-size:8px; margin:5px 4px 0 0; padding:2px 4px; text-transform:uppercase; }
+    .state-token.ready { border-color:rgba(0,255,157,.38); color:var(--emerald); }
+    .state-token.gated { border-color:rgba(255,183,3,.42); color:var(--amber); }
+    .state-token.blocked { border-color:rgba(255,77,109,.42); color:var(--crimson); }
+    .registry-summary { color:var(--muted); font-size:9px; line-height:1.55; margin-bottom:9px; }
     .section-title { color:var(--cyan); font-family:"JetBrains Mono","Fira Code",ui-monospace,monospace; } .evidence { background:var(--surface); border-color:var(--line); } .event { border-color:rgba(0,240,255,.12); } .pass { color:var(--emerald); } .fail { color:var(--crimson); } .warn { color:var(--amber); } .state { color:var(--muted); }
     @media (max-width:1000px) { .hud-grid { grid-template-columns:1fr; } .hud-aside { grid-template-columns:repeat(2,minmax(0,1fr)); } } @media (max-width:650px) { .hud-aside { grid-template-columns:1fr; } .graph-panel { min-height:390px; } #neuralGraph { height:330px; } }
     .service { align-items:center; display:inline-flex; gap:6px; }
@@ -229,6 +251,9 @@ HTML = r"""<!doctype html>
       .event span:nth-child(4), .event span:nth-child(5) { display:none; }
       .event:first-child span:nth-child(4), .event:first-child span:nth-child(5) { display:none; }
     }
+    @media (prefers-reduced-motion: reduce) {
+      *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; scroll-behavior:auto!important; transition-duration:.01ms!important; }
+    }
     @media (max-width:767px) {
       .hud-grid { grid-template-columns:1fr; }
       .hud-aside { background:rgba(4,7,11,.97); border-top:1px solid var(--cyan); bottom:0; box-shadow:0 -14px 34px rgba(0,0,0,.55); gap:10px; grid-template-columns:1fr; left:0; max-height:78vh; overflow-y:auto; padding:0 12px 16px; position:fixed; right:0; transform:translateY(calc(100% - 44px)); transition:transform .26s ease; z-index:40; }
@@ -243,7 +268,7 @@ HTML = r"""<!doctype html>
 <body>
   <main class="shell">
     <header>
-      <div class="brand">TRI-AI // JARVIS CORE <span>READ ONLY</span></div>
+      <div class="brand">TRI-AI // OPERATIONS CORE <span>READ ONLY</span></div>
       <div class="header-right">
         <!-- Outside #services on purpose: render() clears that container on
              every snapshot, and the stream badge must survive a re-render. -->
@@ -264,18 +289,23 @@ HTML = r"""<!doctype html>
       <div class="metric"><label>Running now</label><strong id="active">-</strong></div>
       <div class="metric"><label>Finished runs</label><strong id="ledger">-</strong></div>
       <div class="metric"><label>Learned rules</label><strong id="rules">-</strong></div>
+      <div class="metric"><label>Indexed resources</label><strong id="capabilityCount">-</strong></div>
+      <div class="metric"><label>Radar candidates</label><strong id="radarCount">-</strong></div>
     </section>
     <section class="hud-grid" aria-label="Neural task and memory map">
       <section class="hud-panel graph-panel">
-        <div class="panel-head"><strong>Task map</strong><span id="graphSummary">Awaiting evidence</span></div>
-        <canvas id="neuralGraph" role="img" aria-label="Interactive task dependency and accepted-rule graph"></canvas>
+        <div class="panel-head"><strong>Execution topology</strong><span class="graph-head-tools"><span id="graphSummary">Awaiting evidence</span><span class="view-switch" aria-label="Topology view"><button id="graph3d" type="button" disabled>3D</button><button id="graph2d" type="button" class="active">2D</button><button id="motionToggle" type="button" aria-pressed="false">Pause</button></span></span></div>
+        <div id="spatialGraph" role="img" aria-label="Interactive three-dimensional Tri-AI execution and capability topology"><div class="spatial-tooltip" id="spatialTooltip"></div></div>
+        <canvas id="neuralGraph" role="img" aria-label="Interactive task, memory, capability, and technology-radar graph"></canvas>
         <div class="graph-hint">Drag canvas to pan // double-tap or wheel to zoom // tap a node to inspect</div>
-        <div class="graph-legend"><span><i class="legend-dot" style="background:#00f0ff"></i>ready</span><span><i class="legend-dot" style="background:#00ff9d"></i>done</span><span><i class="legend-dot" style="background:#ff4d6d"></i>failed/cancelled</span><span><i class="legend-dot" style="background:#ffb703"></i>accepted rule</span></div>
+        <div class="graph-legend"><span><i class="legend-dot" style="background:#00f0ff"></i>task</span><span><i class="legend-dot" style="background:#00ff9d"></i>done</span><span><i class="legend-dot" style="background:#ff4d6d"></i>failed/cancelled</span><span><i class="legend-dot" style="background:#ffb703"></i>accepted rule</span><span><i class="legend-dot" style="background:#a78bfa"></i>brain memory</span><span><i class="legend-dot" style="background:#38bdf8"></i>capability</span><span><i class="legend-dot" style="background:#f472b6"></i>radar</span></div>
       </section>
       <aside class="hud-aside" id="hudAside">
         <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Toggle inspector sheet"><span></span><em id="sheetLabel">Inspector</em></div>
         <section class="hud-panel"><div class="panel-head"><strong>Details</strong><span>read only</span></div><div id="inspector" class="inspector-empty">Select a task or accepted rule.</div></section>
-        <section class="hud-panel"><div class="panel-head"><strong>Learned rules</strong><span id="memoryCount">0 accepted</span></div><div id="memoryBank" class="memory-empty">No accepted procedural rules.</div></section>
+        <section class="hud-panel"><div class="panel-head"><strong>Brain inbox</strong><span id="memoryCount">0 memories</span></div><div id="memoryBank" class="memory-empty">Brain has no indexed memories.</div></section>
+        <section class="hud-panel"><div class="panel-head"><strong>Capability registry</strong><span id="capabilityStatus">uninitialized</span></div><div id="capabilityRegistry" class="memory-empty">Capability evidence is not available.</div></section>
+        <section class="hud-panel"><div class="panel-head"><strong>Technology radar</strong><span id="radarStatus">uninitialized</span></div><div id="technologyRadar" class="memory-empty">No discovery run has been recorded.</div></section>
       </aside>
     </section>
     <div class="section-title">Recent activity</div>
@@ -343,12 +373,22 @@ HTML = r"""<!doctype html>
       return `${Math.floor(span/3600)}h ${Math.floor((span%3600)/60)}m`;
     }
     function graphModel(data) {
-      const nodes=[...data.tasks.map(task=>({id:`task:${task.id}`,kind:'task',label:task.id,detail:task})),...data.rules.map(rule=>({id:`rule:${rule.proposal_id}`,kind:'rule',label:rule.rule_id,detail:rule}))];
+      const brain=data.brain||{items:[],edges:[]};
+      const capabilities=data.capabilities||{items:[]},radar=data.radar||{candidates:[],evaluations:[]};
+      const evaluationByName=new Map((radar.evaluations||[]).map(item=>[item.name,item]));
+      const nodes=[
+        ...data.tasks.map(task=>({id:`task:${task.id}`,kind:'task',label:task.id,detail:task})),
+        ...data.rules.map(rule=>({id:`rule:${rule.proposal_id}`,kind:'rule',label:rule.rule_id,detail:rule})),
+        ...brain.items.map(item=>({id:`brain:${item.id}`,kind:'brain',label:item.title,detail:item})),
+        ...(capabilities.items||[]).map(item=>({id:`capability:${item.id}`,kind:'capability',label:item.name,detail:item})),
+        ...(radar.candidates||[]).map(item=>({id:`radar:${item.source}:${item.name}`,kind:'radar',label:item.name,detail:{...item,evaluation:evaluationByName.get(item.name)||null}})),
+      ];
       const edges=[];
       data.edges.forEach(edge=>edges.push({source:`task:${edge.parent_id}`,target:`task:${edge.child_id}`,kind:'dependency'}));
       data.rule_task_links.forEach(link=>edges.push({source:`rule:${link.proposal_id}`,target:`task:${link.task_id}`,kind:'governs'}));
+      brain.edges.forEach(edge=>edges.push({source:`brain:${edge.source_id}`,target:`brain:${edge.target_id}`,kind:'memory'}));
       const childIds=new Set(data.edges.map(edge=>`task:${edge.child_id}`));
-      nodes.forEach(node=>{ node.tier=node.kind!=='task'?'rule':childIds.has(node.id)?'stage':'room'; });
+      nodes.forEach(node=>{ node.tier=node.kind!=='task'?node.kind:childIds.has(node.id)?'stage':'room'; });
       return {nodes,edges};
     }
     function workspaceGroups() {
@@ -372,13 +412,13 @@ HTML = r"""<!doctype html>
       if (!hud.selected || !hud.nodeById.has(hud.selected)) hud.selected=hud.nodes[0]?.id||null;
       const rooms=hud.nodes.filter(node=>node.tier==='room').length,stages=hud.nodes.filter(node=>node.tier==='stage').length;
       renderNow(data); setText(byId('graphSummary'),`${rooms + stages} task${rooms + stages === 1 ? '' : 's'}${hud.edges.length ? ` // ${hud.edges.length} linked` : ''}`);
-      renderInspector(); renderMemory();
+      renderInspector(); renderMemory(); renderCapabilities(data); renderRadar(data);
     }
     function resizeCanvas() { const rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1; const width=Math.max(1,Math.round(rect.width*ratio)),height=Math.max(1,Math.round(rect.height*ratio)); if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;} ctx.setTransform(ratio,0,0,ratio,0,0); return rect; }
     function screenPoint(event) { const rect=canvas.getBoundingClientRect(); return {x:event.clientX-rect.left,y:event.clientY-rect.top}; }
     function graphPoint(event) { const point=screenPoint(event); return {x:(point.x-hud.view.x)/hud.view.k,y:(point.y-hud.view.y)/hud.view.k}; }
     function visibleWorld(rect) { const k=hud.view.k; return {x0:(0-hud.view.x)/k,y0:(0-hud.view.y)/k,x1:(rect.width-hud.view.x)/k,y1:(rect.height-hud.view.y)/k}; }
-    function nodeRadius(node) { return node.kind==='rule'?11:node.tier==='room'?15:10; }
+    function nodeRadius(node) { return node.kind==='rule'||node.kind==='brain'?11:node.kind==='capability'?9:node.kind==='radar'?8:node.tier==='room'?15:10; }
     function hitNode(point) { return hud.nodes.slice().reverse().find(node=>Math.hypot(node.x-point.x,node.y-point.y)<nodeRadius(node)+6); }
     function zoomAt(px,py,next) {
       const k=Math.max(.5,Math.min(3,next)),wx=(px-hud.view.x)/hud.view.k,wy=(py-hud.view.y)/hud.view.k;
@@ -418,8 +458,9 @@ HTML = r"""<!doctype html>
     }
     function renderInspector() {
       const root=byId('inspector'); clear(root); const node=hud.nodeById.get(hud.selected);
-      if(!node){root.className='inspector-empty'; root.textContent='Select a task or accepted rule.'; return;} root.className='';
-      root.append(make('h2',node.kind==='task'?node.detail.title:node.detail.rule_id,'inspect-title'));
+      if(!node){root.className='inspector-empty'; root.textContent='Select a task, memory, rule, capability, or radar candidate.'; return;} root.className='';
+      const inspectTitle=node.kind==='task'?node.detail.title:node.kind==='rule'?node.detail.rule_id:node.kind==='brain'?node.detail.title:node.detail.name;
+      root.append(make('h2',inspectTitle,'inspect-title'));
       const grid=make('div','','inspect-grid'); const row=(label,value)=>{const item=make('div','','inspect-row');item.append(make('label',label),make('div',value));grid.append(item);};
       if(node.kind==='task'){
         const telemetry=telemetryOf(node)||{phases:[],logs:[]};
@@ -442,13 +483,32 @@ HTML = r"""<!doctype html>
         governing.forEach(rule=>{rules.append(make('div',`${rule.rule_id} // ${rule.checks.join(' · ')}`));});
         grid.append(rules);
         root.append(grid); root.append(renderRoomWindow(telemetry));
-      } else {
+      } else if(node.kind==='rule') {
         row('Accepted rule',node.detail.rule_id);row('Scope',`${node.detail.task_kind} @ ${node.detail.workspace_path}`);
         const checks=make('div','');node.detail.checks.forEach(check=>checks.append(make('span',check,'chip')));
         const item=make('div','','inspect-row');item.append(make('label','Constraints'),checks);grid.append(item);
         const citation=make('div','','inspect-row');citation.append(make('label','Provenance'));
         node.detail.citations.forEach(source=>citation.append(make('div',`${shortPath(source.source_path)}:${source.source_line} // ${source.line_digest.slice(0,12)}`)));
         grid.append(citation); root.append(grid);
+      } else if(node.kind==='brain') {
+        row('Brain ID',node.detail.id);row('Trust',node.detail.trust.toUpperCase());
+        row('Kind / project',`${node.detail.kind} // ${node.detail.project||'global'}`);
+        row('Source',node.detail.source);row('Captured',absoluteTime(node.detail.created_at));
+        root.append(grid);
+      } else if(node.kind==='capability') {
+        row('Resource ID',node.detail.id);row('Kind',node.detail.kind);
+        row('Availability',node.detail.availability);row('Adapter',node.detail.adapter_status);
+        row('Health evidence',node.detail.health_status);row('Risk review',node.detail.risk_status);
+        row('Routing tags',(node.detail.tags||[]).join(' · ')||'No tags recorded');
+        root.append(grid);
+      } else {
+        const evaluation=node.detail.evaluation;
+        row('Discovery source',node.detail.source);row('Disposition',node.detail.disposition);
+        row('Adoption signal',`${node.detail.stars||0} stars // popularity never auto-approves`);
+        row('Static review',evaluation?evaluation.static_verdict:'Not evaluated');
+        row('Dynamic probe',evaluation?evaluation.dynamic_status:'Dynamic probe not run');
+        row('Signals',(node.detail.signals||[]).join(' · ')||'No signals recorded');
+        root.append(grid);
       }
     }
     function renderNow(data) {
@@ -483,11 +543,13 @@ HTML = r"""<!doctype html>
         return;
       }
       const task=finished[0],tel=task.telemetry;
-      setText(byId('nowKicker'),'Nothing running — last finished');
-      setText(byId('nowWhat'),taskLabel(task));
+      const capability=data.capabilities||{active:0,archived:0};
+      setText(byId('nowKicker'),'System idle // last verified run retained');
+      setText(byId('nowWhat'),`${capability.active||0} active resources available to the planner. ${capability.archived||0} archived references remain searchable.`);
       const sub=byId('nowSub'); clear(sub);
       const verdict=task.status==='done'?'Finished':task.status==='cancelled'?'Cancelled':'Stopped';
       sub.append(make('b',verdict),make('span',` ${timeAgo(tel.ended_at)}`));
+      setText(say,`Last run // ${taskLabel(task)}`); say.hidden=false;
       (tel.phases||[]).forEach(p=>steps.append(make('span',PHASE_PLAIN[p.key]||p.key,`now-step ${p.state}`)));
       const made=(tel.artifacts||[]);
       if(made.length){
@@ -502,10 +564,45 @@ HTML = r"""<!doctype html>
       }
     }
     function renderMemory() {
-      const root=byId('memoryBank'),data=hud.data; clear(root); setText(byId('memoryCount'),`${data.rules.length} accepted`);
-      if(!data.rules.length){root.className='memory-empty';root.textContent='No accepted procedural rules.';return;} root.className='memory-list';
+      const root=byId('memoryBank'),data=hud.data,brain=data.brain||{items:[],item_count:0,inbox_count:0,edge_count:0}; clear(root); setText(byId('memoryCount'),`${brain.item_count} memories // ${data.rules.length} rules`);
+      if(!brain.items.length&&!data.rules.length){root.className='memory-empty';root.textContent=brain.diagnostic||'Brain has no indexed memories.';return;} root.className='memory-list';
+      brain.items.forEach(item=>{const card=make('article','','memory-rule');card.append(make('h3',item.title),make('p',`${item.kind} // ${(item.project||'global')} // ${item.trust}`),make('p',`${item.source} // ${timeAgo(item.created_at)}`));card.addEventListener('click',()=>{hud.selected=`brain:${item.id}`;renderInspector();if(isPhone())openSheet(true);});root.append(card);});
       data.rules.forEach(rule=>{const card=make('article','','memory-rule');card.append(make('h3',rule.rule_id),make('p',`${rule.task_kind} // ${rule.checks.join(' · ')}`),make('p',`${rule.citations.length} provenance link${rule.citations.length===1?'':'s'} // ${shortPath(rule.workspace_path)}`));card.addEventListener('click',()=>{hud.selected=`rule:${rule.proposal_id}`;renderInspector();if(isPhone())openSheet(true);});root.append(card);});
       if(data.memory_errors.length){const warning=make('p',data.memory_errors.join(' | '),'warn');root.append(warning);}
+      if(brain.diagnostic){root.append(make('p',brain.diagnostic,'warn'));}
+    }
+    function readinessLabel(item) {
+      if(item.adapter_status==='gated'||item.availability==='gated')return 'Gated';
+      if(item.availability==='source-only')return 'Source only';
+      if(['executable','registered','active'].includes(item.availability))return 'Ready';
+      return item.availability||'Unknown';
+    }
+    function renderCapabilities(data) {
+      const root=byId('capabilityRegistry'),view=data.capabilities||{status:'uninitialized',items:[]};clear(root);
+      setText(byId('capabilityStatus'),view.status||'unknown');
+      if(!view.items.length){root.className='memory-empty';root.textContent=view.diagnostic||'Capability evidence is not available.';return;}
+      root.className='registry-list';
+      root.append(make('p',`${view.active} active resources // ${view.archived} archived references preserved // ${view.routable} routable`,'registry-summary'));
+      view.items.forEach(item=>{
+        const label=readinessLabel(item),card=make('article','','registry-item');
+        const tokenClass=label==='Ready'?'ready':label==='Gated'?'gated':'';
+        card.append(make('h3',item.name),make('p',`${item.kind} // ${(item.tags||[]).join(' · ')||'untagged'}`),make('span',label,`state-token ${tokenClass}`),make('span',item.health_status||'health unknown','state-token'));
+        card.addEventListener('click',()=>{hud.selected=`capability:${item.id}`;renderInspector();if(isPhone())openSheet(true);});root.append(card);
+      });
+    }
+    function renderRadar(data) {
+      const root=byId('technologyRadar'),view=data.radar||{status:'uninitialized',candidates:[],evaluations:[]};clear(root);
+      setText(byId('radarStatus'),view.status||'unknown');
+      if(!view.candidates.length){root.className='memory-empty';root.textContent=view.diagnostic||'No discovery run has been recorded.';return;}
+      root.className='radar-list';const evaluations=new Map((view.evaluations||[]).map(item=>[item.name,item]));
+      view.candidates.forEach(item=>{
+        const evaluation=evaluations.get(item.name),card=make('article','','radar-item');
+        const staticLabel=evaluation?evaluation.static_verdict:'Static review pending';
+        const dynamicLabel=evaluation&&evaluation.dynamic_status!=='not_run'?evaluation.dynamic_status:'Dynamic probe not run';
+        card.append(make('h3',item.name),make('p',`${item.source} // ${item.stars||0} stars // ${item.disposition}`),make('span',staticLabel,'state-token'),make('span',dynamicLabel,`state-token ${dynamicLabel==='Dynamic probe not run'?'gated':''}`));
+        card.addEventListener('click',()=>{hud.selected=`radar:${item.source}:${item.name}`;renderInspector();if(isPhone())openSheet(true);});root.append(card);
+      });
+      if(view.error_count)root.append(make('p',`${view.error_count} source error${view.error_count===1?'':'s'} recorded; inspect the retained radar report.`,'warn'));
     }
     function anchoredLayout() { return !hud.edges.some(edge=>edge.kind==='dependency'); }
     function coreGeometry(rect) { return {cx:rect.width*.5,cy:rect.height*.5,orbit:Math.min(rect.width,rect.height)*.307}; }
@@ -781,11 +878,14 @@ HTML = r"""<!doctype html>
       drawBackdrop(rect);drawCore(rect);drawHulls(bounds);ctx.lineWidth=1;
       hud.edges.forEach(edge=>drawAxon(edge));
       hud.nodes.forEach(node=>{
-        const selected=node.id===hud.selected,status=node.kind==='rule'?'rule':node.detail.status;
-        const color=node.kind==='rule'?'#ffb703':statusColor(status),radius=nodeRadius(node);
+        const selected=node.id===hud.selected,status=node.kind==='rule'?'rule':node.kind==='brain'?'brain':node.kind==='capability'?'capability':node.kind==='radar'?'radar':node.detail.status;
+        const color=node.kind==='rule'?'#ffb703':node.kind==='brain'?'#a78bfa':node.kind==='capability'?'#38bdf8':node.kind==='radar'?'#f472b6':statusColor(status),radius=nodeRadius(node);
         ctx.save();ctx.shadowColor=color;ctx.shadowBlur=selected?22:(status==='done'||status==='running'?16:7);
         ctx.strokeStyle=color;ctx.fillStyle='#05070a';ctx.lineWidth=selected?2.5:1.5;
         if(node.kind==='rule'){ctx.beginPath();ctx.rect(node.x-radius,node.y-radius,radius*2,radius*2);ctx.fill();ctx.stroke();}
+        else if(node.kind==='brain'){ctx.beginPath();for(let i=0;i<6;i++){const angle=-Math.PI/2+i*Math.PI/3,px=node.x+Math.cos(angle)*radius,py=node.y+Math.sin(angle)*radius;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.closePath();ctx.fill();ctx.stroke();}
+        else if(node.kind==='capability'){ctx.beginPath();ctx.moveTo(node.x,node.y-radius);ctx.lineTo(node.x+radius,node.y+radius);ctx.lineTo(node.x-radius,node.y+radius);ctx.closePath();ctx.fill();ctx.stroke();}
+        else if(node.kind==='radar'){ctx.beginPath();for(let i=0;i<4;i++){const angle=Math.PI/4+i*Math.PI/2,px=node.x+Math.cos(angle)*radius,py=node.y+Math.sin(angle)*radius;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.closePath();ctx.fill();ctx.stroke();}
         else{
           ctx.beginPath();ctx.arc(node.x,node.y,radius,0,Math.PI*2);ctx.fill();ctx.stroke();
           if(status==='failed'||status==='cancelled'){
@@ -830,7 +930,10 @@ HTML = r"""<!doctype html>
     // hover or a tap is actually asking. Every line is recorded evidence; a
     // field with nothing behind it says so rather than rendering blank.
     function microCardLines(node) {
-      if(node.kind!=='task')return [['RULE',node.detail.rule_id],['SCOPE',shortPath(node.detail.workspace_path||'')]];
+      if(node.kind==='rule')return [['RULE',node.detail.rule_id],['SCOPE',shortPath(node.detail.workspace_path||'')]];
+      if(node.kind==='brain')return [['MEMORY',node.detail.id],['TRUST',node.detail.trust],['SOURCE',node.detail.source]];
+      if(node.kind==='capability')return [['KIND',node.detail.kind],['STATE',readinessLabel(node.detail)],['HEALTH',node.detail.health_status||'unknown']];
+      if(node.kind==='radar')return [['SOURCE',node.detail.source],['DECISION',node.detail.disposition],['PROBE',node.detail.evaluation?node.detail.evaluation.dynamic_status:'not run']];
       const telemetry=telemetryOf(node)||{phases:[],logs:[]};
       const active=(telemetry.phases||[]).find(phase=>phase.state==='active');
       const runtime=elapsed(telemetry.started_at,telemetry.ended_at);
@@ -844,7 +947,7 @@ HTML = r"""<!doctype html>
     }
     function drawMicroCard(bounds) {
       const node=hud.nodeById.get(hud.hover); if(!node)return;
-      const title=truncate(node.kind==='task'?taskLabel(node.detail):node.detail.rule_id,44);
+      const title=truncate(node.kind==='task'?taskLabel(node.detail):node.kind==='rule'?node.detail.rule_id:node.kind==='brain'?node.detail.title:node.detail.name,44);
       const lines=microCardLines(node);
       ctx.save(); ctx.shadowBlur=0; ctx.textBaseline='middle';
       ctx.font='700 11px "JetBrains Mono", monospace';
@@ -934,12 +1037,14 @@ HTML = r"""<!doctype html>
     byId('sheetHandle').addEventListener('click',()=>openSheet(!byId('hudAside').classList.contains('open')));
     window.addEventListener('resize',drawGraph); requestAnimationFrame(advanceGraph);
     function render(data) {
-      hud.data=data; setText(byId('total'),data.metrics.total_tasks);setText(byId('active'),data.metrics.active_runs);setText(byId('ledger'),data.metrics.ledger_entries);setText(byId('rules'),data.metrics.accepted_rules);
+      hud.data=data; setText(byId('total'),data.metrics.total_tasks);setText(byId('active'),data.metrics.active_runs);setText(byId('ledger'),data.metrics.ledger_entries);setText(byId('rules'),data.metrics.accepted_rules);setText(byId('capabilityCount'),data.capabilities?.total??0);setText(byId('radarCount'),data.radar?.candidate_count??0);
       const services=byId('services');clear(services);for(const [name,alive] of Object.entries(data.daemons.processes)){const item=make('div','',`service ${alive?'up':'down'}`);item.append(make('i','','dot'),make('span',`${name} ${alive?'up':'down'}`));services.append(item);} syncGraph(data);
       const events=byId('events');clear(events);const heading=make('div','','event');['Time','Task','Outcome','Verify','Duration'].forEach(label=>heading.append(make('span',label)));events.append(heading);data.ledger_events.forEach(event=>{const row=make('div','','event'),exit=event.verify_exit===0?'0':event.verify_exit===null?'-':String(event.verify_exit);row.append(timeCell(event.timestamp),make('span',event.task_id),make('span',event.outcome,`outcome-badge ${event.outcome==='passed'?'pass':event.outcome==='skipped'?'warn':'fail'}`),make('span',exit,event.verify_exit===0?'pass':event.verify_exit===null?'warn':'fail'),make('span',duration(event.seconds)));events.append(row);}); if(data.ledger_errors.length){const issue=make('div',data.ledger_errors.join(' | '),'event warn');issue.style.gridTemplateColumns='1fr';events.append(issue);}
       hud.lastSnapshotAt=Date.now()/1000;
       setText(byId('connection'),`Supervisor state: ${data.daemons.status} // snapshot ${timeAgo(hud.lastSnapshotAt)}`);
+      window.dispatchEvent(new CustomEvent('tri-ai:snapshot',{detail:data}));
     }
+    window.addEventListener('tri-ai:select',event=>{const id=event.detail&&event.detail.id;if(!id||!hud.nodeById.has(id))return;hud.selected=id;hud.hover=id;renderInspector();if(isPhone())openSheet(true);});
     function openPreview(url,label) {
       const shell=byId('preview'),frame=byId('previewFrame');
       setText(byId('previewTitle'),label||url);
@@ -998,6 +1103,7 @@ HTML = r"""<!doctype html>
     setInterval(()=>{ if(hud.lastSnapshotAt&&!streamState.source){ setText(byId('connection'),`Evidence stream lost - last snapshot ${timeAgo(hud.lastSnapshotAt)}`);} },5000);
     openStream();
   </script>
+  <script type="module" src="/assets/tri-space.js"></script>
 </body>
 </html>"""
 
@@ -1051,6 +1157,73 @@ def snapshot_payload(snapshot: jarvis_terminal.DashboardSnapshot) -> dict[str, o
         ],
         "rule_task_links": _rule_task_links(snapshot),
         "memory_errors": list(snapshot.memory_errors),
+        "brain": {
+            "status": snapshot.brain.status,
+            "item_count": snapshot.brain.item_count,
+            "inbox_count": snapshot.brain.inbox_count,
+            "edge_count": snapshot.brain.edge_count,
+            "diagnostic": snapshot.brain.diagnostic,
+            "items": [
+                {
+                    "id": item.item_id, "title": item.title, "kind": item.kind,
+                    "source": item.source, "project": item.project,
+                    "trust": item.trust, "created_at": item.created_at,
+                }
+                for item in snapshot.brain.items
+            ],
+            "edges": [
+                {
+                    "id": edge.edge_id, "source_id": edge.source_id,
+                    "target_id": edge.target_id, "relation": edge.relation,
+                    "evidence_item_id": edge.evidence_item_id,
+                }
+                for edge in snapshot.brain.edges
+            ],
+        },
+        "capabilities": {
+            "status": snapshot.capabilities.status,
+            "total": snapshot.capabilities.total,
+            "active": snapshot.capabilities.active,
+            "archived": snapshot.capabilities.archived,
+            "routable": snapshot.capabilities.routable,
+            "gated": snapshot.capabilities.gated,
+            "candidates": snapshot.capabilities.candidates,
+            "diagnostic": snapshot.capabilities.diagnostic,
+            "items": [
+                {
+                    "id": item.resource_id, "name": item.name, "kind": item.kind,
+                    "availability": item.availability,
+                    "adapter_status": item.adapter_status,
+                    "health_status": item.health_status,
+                    "risk_status": item.risk_status, "tags": list(item.tags),
+                }
+                for item in snapshot.capabilities.items
+            ],
+        },
+        "radar": {
+            "status": snapshot.radar.status,
+            "generated_at": snapshot.radar.generated_at,
+            "candidate_count": snapshot.radar.candidate_count,
+            "evaluated_count": snapshot.radar.evaluated_count,
+            "error_count": snapshot.radar.error_count,
+            "diagnostic": snapshot.radar.diagnostic,
+            "candidates": [
+                {
+                    "name": item.name, "source": item.source, "url": item.url,
+                    "disposition": item.disposition, "stars": item.stars,
+                    "signals": list(item.signals),
+                }
+                for item in snapshot.radar.candidates
+            ],
+            "evaluations": [
+                {
+                    "name": item.name, "disposition": item.disposition,
+                    "static_verdict": item.static_verdict,
+                    "dynamic_status": item.dynamic_status,
+                }
+                for item in snapshot.radar.evaluations
+            ],
+        },
         "daemons": {
             "status": snapshot.daemons.status,
             "processes": dict(snapshot.daemons.processes),
@@ -1061,6 +1234,17 @@ def snapshot_payload(snapshot: jarvis_terminal.DashboardSnapshot) -> dict[str, o
 
 ARTIFACT_ROUTE = re.compile(r"^/artifact/([A-Za-z0-9_.-]{1,64})/(\d{1,4})$")
 ARTIFACT_MAX_BYTES = 25 * 1024 * 1024
+STATIC_ASSETS = {
+    "/assets/tri-space.js": (Path(__file__).with_name("tri_space.js"), "text/javascript; charset=utf-8"),
+    "/assets/three.module.min.js": (
+        Path(__file__).with_name("vendor") / "three.module.min.js",
+        "text/javascript; charset=utf-8",
+    ),
+    "/assets/three.core.min.js": (
+        Path(__file__).with_name("vendor") / "three.core.min.js",
+        "text/javascript; charset=utf-8",
+    ),
+}
 ARTIFACT_TYPES = {
     ".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -1089,6 +1273,20 @@ def _handler(snapshot_fn: SnapshotReader, event_interval: float, artifact_fn=Non
 
         def _snapshot(self) -> dict[str, object]:
             return snapshot_payload(snapshot_fn())
+
+        def _serve_static(self, source: Path, content_type: str) -> None:
+            try:
+                body = source.read_bytes()
+            except OSError:
+                self.send_error(404, "not found")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(body)
 
         def _serve_artifact(self, task_id: str, index: int) -> None:
             """Serve one recorded artifact. The URL selects; it never supplies a path."""
@@ -1140,6 +1338,9 @@ def _handler(snapshot_fn: SnapshotReader, event_interval: float, artifact_fn=Non
                 return
             if self.path == "/api/snapshot":
                 self._json(self._snapshot())
+                return
+            if self.path in STATIC_ASSETS:
+                self._serve_static(*STATIC_ASSETS[self.path])
                 return
             match = ARTIFACT_ROUTE.match(self.path)
             if match is not None:
@@ -1203,6 +1404,9 @@ def create_server(
             ledger_path=runtime / "ledger.jsonl",
             daemon_state_path=runtime / "logs" / "daemons.json",
             runs_root=runtime / "runs",
+            brain_path=runtime / "brain" / "brain.db",
+            capability_catalog_path=runtime / "capabilities" / "catalog.json",
+            radar_path=runtime / "radar" / "latest.json",
         )
         if artifact_fn is None:
             artifact_fn = lambda task_id: jarvis_terminal.read_task_artifacts(

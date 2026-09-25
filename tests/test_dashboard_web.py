@@ -51,6 +51,35 @@ def fixture_snapshot() -> terminal.DashboardSnapshot:
             ("confirm_workspace_clean",),
             (terminal.RuleCitationView("C:/evidence/ledger.jsonl", 7, "a" * 64),),
         ),),
+        brain=terminal.BrainView(
+            status="ready", item_count=1, inbox_count=2, edge_count=1,
+            items=(terminal.BrainItemView(
+                "m_memory", "Dashboard is Tri-AI's control surface", "context",
+                "operator", "tri-ai", "unreviewed", 11.0,
+            ),),
+            edges=(terminal.BrainEdgeView(
+                "e_memory", "m_memory", "m_memory", "documents", "m_memory",
+            ),),
+        ),
+        capabilities=terminal.CapabilityView(
+            status="ready", total=10219, active=837, archived=9343,
+            routable=841, gated=16, candidates=11,
+            items=(terminal.CapabilityItemView(
+                "adapter:browser-use", "Browser Use", "command", "executable",
+                "gated", "entrypoint-present", "reviewed", ("browser", "qa"),
+            ),),
+        ),
+        radar=terminal.RadarView(
+            status="ready", generated_at="2026-09-21T00:00:00Z",
+            candidate_count=7, evaluated_count=1, error_count=0,
+            candidates=(terminal.RadarCandidateView(
+                "example/new-agent", "github", "https://github.com/example/new-agent",
+                "evaluate", 3, ("recency",),
+            ),),
+            evaluations=(terminal.RadarEvaluationView(
+                "example/new-agent", "probe-incomplete", "static_clear", "not_run",
+            ),),
+        ),
     )
 
 
@@ -66,6 +95,13 @@ class WebSerializationTests(unittest.TestCase):
         self.assertEqual(payload["rules"][0]["rule_id"], "fixture-clean-workspace")
         self.assertEqual(payload["rules"][0]["citations"][0]["source_line"], 7)
         self.assertEqual(len(payload["rule_task_links"]), 3)
+        self.assertEqual(payload["brain"]["item_count"], 1)
+        self.assertEqual(payload["brain"]["items"][0]["id"], "m_memory")
+        self.assertEqual(payload["brain"]["edges"][0]["relation"], "documents")
+        self.assertEqual(payload["capabilities"]["total"], 10219)
+        self.assertEqual(payload["capabilities"]["items"][0]["name"], "Browser Use")
+        self.assertEqual(payload["radar"]["candidate_count"], 7)
+        self.assertEqual(payload["radar"]["evaluations"][0]["static_verdict"], "static_clear")
 
     def test_server_is_loopback_only_and_serves_html_json_and_sse(self):
         # Non-loopback is refused unless the operator asks for it by name: a
@@ -82,13 +118,17 @@ class WebSerializationTests(unittest.TestCase):
 
         with request.urlopen(base + "/", timeout=2) as response:
             page = response.read().decode("utf-8")
-        self.assertIn("TRI-AI // JARVIS CORE", page)
+        self.assertIn("TRI-AI // OPERATIONS CORE", page)
         self.assertIn("EventSource", page)
         self.assertIn("#09090b", page)
         self.assertIn("#05070a", page)
         self.assertIn("neuralGraph", page)
         self.assertIn("advanceGraph", page)
         self.assertIn("Learned rules", page)
+        self.assertIn("Brain inbox", page)
+        self.assertIn("Capability registry", page)
+        self.assertIn("Technology radar", page)
+        self.assertIn('src="/assets/tri-space.js"', page)
         # The page must answer "what is happening" without a tap.
         self.assertIn('id="nowWhat"', page)
         self.assertIn("function renderNow(data)", page)
@@ -96,6 +136,10 @@ class WebSerializationTests(unittest.TestCase):
         with request.urlopen(base + "/api/snapshot", timeout=2) as response:
             api_payload = json.loads(response.read().decode("utf-8"))
         self.assertEqual(api_payload["metrics"]["ledger_entries"], 12)
+
+        with request.urlopen(base + "/assets/tri-space.js", timeout=2) as response:
+            spatial_module = response.read().decode("utf-8")
+        self.assertIn('from "/assets/three.module.min.js"', spatial_module)
 
         with request.urlopen(base + "/events", timeout=2) as response:
             first_line = response.readline().decode("utf-8").strip()
@@ -195,7 +239,7 @@ class SiteInspectionPresentationTests(unittest.TestCase):
     """Hierarchy, progress rings, deep inspection, and mobile ergonomics."""
 
     def test_nodes_are_tiered_into_rooms_and_stages(self):
-        self.assertIn("node.tier=node.kind!=='task'?'rule':childIds.has(node.id)?'stage':'room'", web.HTML)
+        self.assertIn("node.tier=node.kind!=='task'?node.kind:childIds.has(node.id)?'stage':'room'", web.HTML)
         self.assertIn("function nodeRadius(node)", web.HTML)
         self.assertIn("function drawRoomFrame(node,radius)", web.HTML)
 

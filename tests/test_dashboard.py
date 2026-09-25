@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import board  # noqa: E402
 from dashboard import jarvis_terminal as jarvis  # noqa: E402
+from memory import brain  # noqa: E402
 from support import BoardTestCase  # noqa: E402
 
 
@@ -63,8 +64,71 @@ class DashboardFixture(BoardTestCase):
             pid_alive=lambda pid: pid in {100, 101},
         )
 
+    def test_snapshot_reads_brain_metadata_without_mutating_it(self):
+        brain_path = self.tmp / "brain" / "brain.db"
+        memory = brain.connect(brain_path)
+        first = brain.capture(memory, "Tri-AI and the dashboard are one system.", source="operator")
+        second = brain.capture(memory, "Telegram is the primary mobile intake.", source="operator")
+        brain.link(
+            memory, first.item_id, second.item_id,
+            relation="receives_commands_from", evidence_item_id=second.item_id,
+        )
+        memory.close()
+        before = brain_path.read_bytes()
+
+        snapshot = jarvis.read_snapshot(
+            board_path=self.db_path,
+            ledger_path=self.ledger_path,
+            daemon_state_path=self.state_path,
+            brain_path=brain_path,
+            pid_alive=lambda pid: False,
+        )
+
+        self.assertEqual(snapshot.brain.item_count, 2)
+        self.assertEqual(snapshot.brain.inbox_count, 2)
+        self.assertEqual(snapshot.brain.edge_count, 1)
+        self.assertEqual(snapshot.brain.items[0].item_id, second.item_id)
+        self.assertEqual(snapshot.brain.edges[0].relation, "receives_commands_from")
+        self.assertEqual(brain_path.read_bytes(), before)
+
 
 class DashboardSnapshotTests(DashboardFixture):
+    def test_snapshot_reads_capability_and_radar_evidence_without_mutation(self):
+        catalog_path = self.tmp / "capabilities" / "catalog.json"
+        catalog_path.parent.mkdir(parents=True)
+        catalog_path.write_text(json.dumps({
+            "schema": "triai.capability-catalog.v1",
+            "resources": [
+                {"resource_id": "skill:one", "name": "One", "kind": "skill", "availability": "active"},
+                {"resource_id": "skill:old", "name": "Old", "kind": "skill", "availability": "archived-reference"},
+                {"resource_id": "adapter:browser-use", "name": "Browser Use", "kind": "command", "availability": "executable", "adapter_status": "gated", "health_status": "entrypoint-present", "risk_status": "reviewed", "tags": ["browser"]},
+            ],
+        }), encoding="utf-8")
+        radar_path = self.tmp / "radar" / "latest.json"
+        radar_path.parent.mkdir(parents=True)
+        radar_path.write_text(json.dumps({
+            "schema": "triai.technology-radar.v1", "generated_at": "2026-09-21T00:00:00Z",
+            "candidates": [{"name": "example/new-tool", "source": "github", "url": "https://github.com/example/new-tool", "disposition": "evaluate", "stars": 2, "signals": ["recency"]}],
+            "evaluations": [{"candidate": {"name": "example/new-tool"}, "disposition": "probe-incomplete", "static": {"verdict": "static_clear"}, "dynamic": {"status": "not_run"}}],
+            "errors": [],
+        }), encoding="utf-8")
+        before_catalog, before_radar = catalog_path.read_bytes(), radar_path.read_bytes()
+
+        snapshot = jarvis.read_snapshot(
+            board_path=self.db_path, ledger_path=self.ledger_path,
+            daemon_state_path=self.state_path, capability_catalog_path=catalog_path,
+            radar_path=radar_path, pid_alive=lambda pid: False,
+        )
+
+        self.assertEqual(snapshot.capabilities.total, 3)
+        self.assertEqual(snapshot.capabilities.active, 1)
+        self.assertEqual(snapshot.capabilities.archived, 1)
+        self.assertEqual(snapshot.capabilities.items[0].name, "Browser Use")
+        self.assertEqual(snapshot.radar.candidate_count, 1)
+        self.assertEqual(snapshot.radar.evaluations[0].static_verdict, "static_clear")
+        self.assertEqual(catalog_path.read_bytes(), before_catalog)
+        self.assertEqual(radar_path.read_bytes(), before_radar)
+
     def test_default_liveness_probe_recognizes_the_current_process(self):
         self.assertTrue(jarvis._pid_alive(os.getpid()))
 
