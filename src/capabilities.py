@@ -190,16 +190,57 @@ def recommend_capabilities(prompt: str, role: str = "builder") -> tuple[str, ...
     add("cloud_infrastructure", "aws", "gcp", "azure", "cloud", "docker", "kubernetes", "terraform")
     add("media_generation", "video", "audio", "voice", "image", "remotion", "montage")
 
-    allowed = ROLES.get(role, ROLES["builder"]).allowed
+    roles = all_roles()
+    allowed = roles.get(role, roles["builder"]).allowed
     return tuple(dict.fromkeys(name for name in candidates if name in allowed))
+
+
+_MERGED: Optional[tuple[dict[str, "RoleSpec"], dict[str, CapabilitySpec]]] = None
+
+
+def _merged() -> tuple[dict[str, "RoleSpec"], dict[str, CapabilitySpec]]:
+    """The seven core roles plus the product-lifecycle roles, resolved once.
+
+    ``roles_lifecycle`` imports ``RoleSpec`` and ``CapabilitySpec`` from this
+    module, so importing it at module scope would be circular. Importing it
+    here instead means this module is fully loaded by the time it runs, and
+    the result is cached so the cost is paid once.
+
+    A missing ``roles_lifecycle`` is not an error: the original seven roles
+    keep working exactly as before, which is what every existing task relies
+    on.
+    """
+    global _MERGED
+    if _MERGED is None:
+        roles: dict[str, RoleSpec] = dict(ROLES)
+        caps: dict[str, CapabilitySpec] = dict(CAPABILITIES)
+        try:
+            import roles_lifecycle
+            roles = roles_lifecycle.merged_roles(ROLES)
+            caps = roles_lifecycle.merged_capabilities(CAPABILITIES)
+        except ImportError:
+            pass
+        _MERGED = (roles, caps)
+    return _MERGED
+
+
+def all_roles() -> dict[str, "RoleSpec"]:
+    """Every role a graph node may name."""
+    return _merged()[0]
+
+
+def all_capabilities() -> dict[str, CapabilitySpec]:
+    """Every capability a role may be granted."""
+    return _merged()[1]
 
 
 def resolve_contract(
     role: Optional[str], requested: Optional[Iterable[str]]
 ) -> CapabilityContract:
     """Validate and normalize an agent contract, defaulting legacy tasks safely."""
+    roles, capabilities_ = _merged()
     normalized_role = (role or "builder").strip()
-    if normalized_role not in ROLES:
+    if normalized_role not in roles:
         raise CapabilityError(f"unknown agent role: {normalized_role!r}")
 
     values = tuple(str(item).strip() for item in (requested or ()))
@@ -207,10 +248,10 @@ def resolve_contract(
         raise CapabilityError("capability names must be non-blank")
     if len(values) != len(set(values)):
         raise CapabilityError("capabilities must not contain duplicates")
-    unknown = [item for item in values if item not in CAPABILITIES]
+    unknown = [item for item in values if item not in capabilities_]
     if unknown:
         raise CapabilityError(f"unknown capability: {unknown[0]!r}")
-    forbidden = [item for item in values if item not in ROLES[normalized_role].allowed]
+    forbidden = [item for item in values if item not in roles[normalized_role].allowed]
     if forbidden:
         raise CapabilityError(
             f"capability {forbidden[0]!r} is not allowed for role {normalized_role!r}"
@@ -227,7 +268,7 @@ def brief_block(
     catalog_resources: Optional[Sequence[capability_catalog.CapabilityResource]] = None,
 ) -> str:
     """Render the governed specialist brief appended to the original request."""
-    role = ROLES[contract.role]
+    role = all_roles()[contract.role]
     root = skill_root or (Path.home() / ".codex" / "skills")
     lines = [
         "\n\n--- TRI-AI SPECIALIST CONTRACT ---",

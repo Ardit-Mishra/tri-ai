@@ -50,6 +50,14 @@ CLOSURE_MODULES = (
     # repair, which decides whether the agent is sent to research first. It was
     # already used by the Telegram intake; the worker now depends on it too.
     "intake_preflight.py",
+    # roles_lifecycle.py decides which roles exist and which capabilities each
+    # may hold. capabilities.py merges it before resolving any contract, so it
+    # changes what the specialist is told and which grants are refused.
+    "roles_lifecycle.py",
+    # decomposer.py turns a request into the graph the planner persists. It
+    # chooses every node's role, prompt and verify command, which is the whole
+    # of what the agent is told and what the gate will accept.
+    "decomposer.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole
