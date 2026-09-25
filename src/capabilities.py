@@ -104,7 +104,7 @@ CAPABILITIES: dict[str, CapabilitySpec] = {
     ),
     "media_generation": CapabilitySpec(
         "Create or evaluate media only when it serves the task's communication goal, preserving source, consent, and licensing provenance.",
-        ("remocn",),
+        ("remotion-video-creation",),
     ),
 }
 
