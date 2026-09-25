@@ -64,6 +64,10 @@ CLOSURE_MODULES = (
     # lane_select.py decides which model runs each node, and benches a lane it
     # has recorded as exhausted. It changes who does the work.
     "lane_select.py",
+    # cartographer.py is a pure projection and changes nothing, but it reads
+    # the same graph the worker executes, so an import it grows should be
+    # visible here rather than discovered later.
+    "cartographer.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole
