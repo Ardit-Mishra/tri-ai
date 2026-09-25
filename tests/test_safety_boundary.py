@@ -40,7 +40,7 @@ import worker  # noqa: E402
 # The audited closure: every module on the execution path.
 CLOSURE_MODULES = (
     "executor.py", "board.py", "worktrees.py", "worker.py", "failure_class.py", "ledger.py", "assign.py", "chores.py",
-    "planner.py", "dispatcher.py",
+    "planner.py", "dispatcher.py", "capabilities.py", "capability_catalog.py",
     "worker_daemon.py",
     # taste.py shapes the prompt the worker hands the agent, and its CLI is
     # invoked by verify commands. Anything that can change what the agent is

@@ -97,6 +97,7 @@ from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
 import board  # noqa: F401  (closure module; all kernel access via board.kanban())
+import capabilities
 import executor
 import failure_class
 import intake_preflight
@@ -322,7 +323,29 @@ def execute_task(
     # supposed to apply. Codex caught it; the fix is to never ask a question of
     # the text this module wrote itself.
     request = oracle.get("prompt") or ""
+    try:
+        contract = capabilities.resolve_contract(
+            oracle.get("agent_role"), oracle.get("capabilities")
+        )
+    except capabilities.CapabilityError as exc:
+        _write_log(agent_log, f"worker: agent never invoked — {exc}\n")
+        _write_log(verify_log, "worker: verify never invoked — capability contract invalid\n")
+        return _fail(
+            conn, claimed, run_id, repo, branch,
+            outcome="failed", verify_outcome=None, verify_exit=None,
+            agent=None,
+            reason=f"invalid capability contract: {exc}",
+            ledger_path=lp, agent_log=agent_log, verify_log=verify_log,
+            seconds=time.time() - started,
+        )
     task_prompt = request
+    if contract.role != "builder" or contract.capabilities:
+        task_prompt += capabilities.brief_block(contract, task_prompt=request)
+        _write_log(
+            agent_log,
+            "worker: specialist contract "
+            f"role={contract.role} capabilities={','.join(contract.capabilities) or 'none'}\n",
+        )
     standard = taste.load()
     if standard.config_error:
         _write_log(agent_log, f"worker: {standard.config_error} — taste defaults used\n")

@@ -142,6 +142,48 @@ class TaskRowRecordsTheWholeSpec(BoardTestCase):
         raw = self.task_row(tid)["expected_artifacts"]
         self.assertEqual(json.loads(raw), ["audit.json", "audit.txt"])
 
+    def test_agent_role_and_capabilities_round_trip_as_governed_metadata(self):
+        tid = board.create_task(
+            self.conn,
+            title="research the market",
+            prompt="find the strongest current patterns",
+            verify_command="python -c \"raise SystemExit(0)\"",
+            agent_role="researcher",
+            capabilities=["web_research", "scientific_research"],
+        )
+
+        spec = board.verify_spec(self.conn, tid)
+        self.assertEqual(spec["agent_role"], "researcher")
+        self.assertEqual(
+            spec["capabilities"], ["web_research", "scientific_research"]
+        )
+
+    def test_missing_capability_list_is_inferred_from_the_task_prompt(self):
+        tid = board.create_task(
+            self.conn,
+            title="ship the dashboard",
+            prompt="Research, design, browser-test, and deploy a polished 3D dashboard",
+            verify_command="python -c \"raise SystemExit(0)\"",
+        )
+
+        spec = board.verify_spec(self.conn, tid)
+        self.assertIn("web_research", spec["capabilities"])
+        self.assertIn("taste", spec["capabilities"])
+        self.assertIn("motion_design", spec["capabilities"])
+        self.assertIn("browser_qa", spec["capabilities"])
+        self.assertIn("deployment_prepare", spec["capabilities"])
+
+    def test_explicit_empty_capability_list_disables_inference(self):
+        tid = board.create_task(
+            self.conn,
+            title="plain task",
+            prompt="build a website",
+            verify_command="python -c \"raise SystemExit(0)\"",
+            capabilities=[],
+        )
+
+        self.assertEqual(board.verify_spec(self.conn, tid)["capabilities"], [])
+
 
 class UnverifiableTasksAreRefusedAtWriteTime(BoardTestCase):
     def test_missing_verify_command_raises_before_any_row_is_written(self):

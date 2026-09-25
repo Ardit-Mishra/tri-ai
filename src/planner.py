@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
 import board
+import capabilities
 import executor
 
 
@@ -29,6 +30,8 @@ class PlannedNode:
     key: str
     title: str
     prompt: str
+    agent_role: str
+    capabilities: tuple[str, ...]
     workspace_kind: str
     workspace_path: Path
     branch_name: Optional[str]
@@ -114,6 +117,17 @@ def validate_graph(document: Mapping[str, Any]) -> list[PlannedNode]:
             raise GraphValidationError(f"duplicate node_key: {key!r}")
         title = _required_text(raw.get("title"), "title", key)
         prompt = _required_text(raw.get("prompt"), "prompt", key)
+        requested_capabilities = raw.get("capabilities")
+        if "capabilities" not in raw:
+            requested_capabilities = capabilities.recommend_capabilities(
+                prompt, str(raw.get("agent_role") or "builder")
+            )
+        try:
+            contract = capabilities.resolve_contract(
+                raw.get("agent_role"), requested_capabilities
+            )
+        except capabilities.CapabilityError as exc:
+            raise GraphValidationError(f"node {key!r}: {exc}") from exc
         verify_command = _required_text(raw.get("verify_command"), "verify_command", key)
         kind, workspace_path, branch = _validate_workspace(raw.get("workspace"), key)
 
@@ -155,6 +169,8 @@ def validate_graph(document: Mapping[str, Any]) -> list[PlannedNode]:
             key=key,
             title=title,
             prompt=prompt,
+            agent_role=contract.role,
+            capabilities=contract.capabilities,
             workspace_kind=kind,
             workspace_path=workspace_path,
             branch_name=branch,
@@ -187,6 +203,8 @@ def write_graph(conn, document: Mapping[str, Any]) -> dict[str, str]:
                 verify_command=node.verify_command,
                 verify_timeout=node.verify_timeout,
                 expected_artifacts=node.expected_artifacts,
+                agent_role=node.agent_role,
+                capabilities=node.capabilities,
                 parents=[task_ids[parent] for parent in node.parents],
                 workspace_kind=node.workspace_kind,
                 workspace_path=node.workspace_path,

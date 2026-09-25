@@ -165,6 +165,89 @@ class WorkerVerifyGate(BoardTestCase):
         self.assertEqual(seen["prompt"], "make a changelog")
         self.assertEqual(seen["timeout"], worker.DEFAULT_AGENT_TIMEOUT)
 
+    def test_the_agent_gets_its_governed_specialist_contract(self):
+        repo = self._make_repo()
+        tid = board.create_task(
+            self.conn,
+            title="research the product",
+            prompt="find the unmet need",
+            verify_command="python verify.py",
+            verify_timeout=60,
+            repo=repo,
+            agent_role="researcher",
+            capabilities=["web_research", "competitor_research"],
+        )
+        claimed = self._claim(tid)
+        seen = {}
+
+        with mock.patch.object(
+            executor,
+            "run_agent",
+            side_effect=lambda repo_arg, prompt, timeout, usage_path=None,
+            on_activity=None: (
+                seen.update(prompt=prompt),
+                self._agent(0),
+            )[1],
+        ), mock.patch.object(
+            executor,
+            "run_verify",
+            return_value=executor.VerifyResult("passed", 0, "ok\n", 0.3),
+        ):
+            worker.execute_task(
+                self.conn, claimed, ledger_path=self.ledger, runs_root=self.runs,
+            )
+
+        self.assertTrue(seen["prompt"].startswith("find the unmet need"))
+        self.assertIn("Specialist role: Researcher", seen["prompt"])
+        self.assertIn("Do not invent citations", seen["prompt"])
+        self.assertIn("marketing-competitor-profiling", seen["prompt"])
+
+    def test_specialist_contract_includes_dynamically_matched_installed_resources(self):
+        repo = self._make_repo()
+        tid = board.create_task(
+            self.conn,
+            title="design the interface",
+            prompt="build a polished dashboard interface",
+            verify_command="python verify.py",
+            verify_timeout=60,
+            repo=repo,
+            capabilities=["taste", "frontend_engineering"],
+        )
+        claimed = self._claim(tid)
+        seen = {}
+        resource = worker.capabilities.capability_catalog.CapabilityResource(
+            resource_id="skill:ui-ux-pro-max",
+            name="ui-ux-pro-max",
+            kind="skill",
+            origin="installed",
+            description="Polished dashboard frontend interface design.",
+            path=Path("C:/skills/ui-ux-pro-max/SKILL.md"),
+            availability="active",
+            instruction_ready=True,
+        )
+
+        with mock.patch.object(
+            worker.capabilities.capability_catalog, "load_catalog", return_value=[resource]
+        ), mock.patch.object(
+            executor,
+            "run_agent",
+            side_effect=lambda repo_arg, prompt, timeout, usage_path=None,
+            on_activity=None: (
+                seen.update(prompt=prompt),
+                self._agent(0),
+            )[1],
+        ), mock.patch.object(
+            executor,
+            "run_verify",
+            return_value=executor.VerifyResult("passed", 0, "ok\n", 0.3),
+        ):
+            worker.execute_task(
+                self.conn, claimed, ledger_path=self.ledger, runs_root=self.runs,
+            )
+
+        self.assertIn("Automatically matched resources", seen["prompt"])
+        self.assertIn("skill:ui-ux-pro-max", seen["prompt"])
+
     # -- verify fail / timeout / spawn-error -----------------------------
 
     def test_verify_exit_nonzero_reverts_and_returns_to_ready(self):

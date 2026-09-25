@@ -29,6 +29,8 @@ class PlannerGraphWriter(BoardTestCase):
                     "node_key": "lint",
                     "title": "lint",
                     "prompt": "run lint",
+                    "agent_role": "reviewer",
+                    "capabilities": ["codebase_memory", "security_review"],
                     "workspace": workspace,
                     "verify_command": "python -c \"raise SystemExit(0)\"",
                     "verify_timeout": 30,
@@ -75,6 +77,11 @@ class PlannerGraphWriter(BoardTestCase):
             self.task_row(ids["package"])["verify_command"],
             "python -c \"raise SystemExit(0)\"",
         )
+        lint_spec = planner.board.verify_spec(self.conn, ids["lint"])
+        self.assertEqual(lint_spec["agent_role"], "reviewer")
+        self.assertEqual(
+            lint_spec["capabilities"], ["codebase_memory", "security_review"]
+        )
         self.kb.complete_task(self.conn, ids["lint"], result="lint passed")
         self.assertEqual(
             self.task_row(ids["package"])["status"],
@@ -83,6 +90,17 @@ class PlannerGraphWriter(BoardTestCase):
         )
         self.kb.complete_task(self.conn, ids["test"], result="tests passed")
         self.assertEqual(self.task_row(ids["package"])["status"], "ready")
+
+    def test_graph_nodes_without_manual_capabilities_are_inferred(self):
+        graph = self.graph()
+        graph["nodes"][1]["prompt"] = "Design and browser-test a polished dashboard"
+
+        ids = planner.write_graph(self.conn, graph)
+
+        spec = planner.board.verify_spec(self.conn, ids["test"])
+        self.assertIn("taste", spec["capabilities"])
+        self.assertIn("frontend_engineering", spec["capabilities"])
+        self.assertIn("browser_qa", spec["capabilities"])
 
     def test_missing_oracle_rejects_the_whole_graph_before_any_write(self):
         graph = self.graph()
@@ -142,6 +160,13 @@ class PlannerGraphWriter(BoardTestCase):
         blank_artifact = self.graph()
         blank_artifact["nodes"][0]["expected_artifacts"] = [" "]
         cases.append(blank_artifact)
+        unknown_capability = self.graph()
+        unknown_capability["nodes"][0]["capabilities"] = ["unlimited_shell"]
+        cases.append(unknown_capability)
+        forbidden_for_role = self.graph()
+        forbidden_for_role["nodes"][0]["agent_role"] = "researcher"
+        forbidden_for_role["nodes"][0]["capabilities"] = ["deployment_prepare"]
+        cases.append(forbidden_for_role)
 
         for graph in cases:
             with self.subTest(graph=graph):

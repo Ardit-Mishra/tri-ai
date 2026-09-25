@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
 from memory import episodic, procedural
+import capabilities as capability_policy
 
 DEFAULT_HERMES_HOME = (
     Path.home() / "AppData" / "Local" / "hermes" / "hermes-agent"
@@ -49,6 +50,8 @@ VERIFY_COLUMNS: tuple[tuple[str, str], ...] = (
     ("verify_command", "verify_command TEXT"),
     ("verify_timeout", "verify_timeout INTEGER"),
     ("expected_artifacts", "expected_artifacts TEXT"),
+    ("agent_role", "agent_role TEXT"),
+    ("agent_capabilities", "agent_capabilities TEXT"),
 )
 
 _kanban_module = None
@@ -194,6 +197,8 @@ def create_task(
     repo: Optional[Path | str] = None,
     verify_timeout: Optional[int] = None,
     expected_artifacts: Iterable[str] = (),
+    agent_role: Optional[str] = None,
+    capabilities: Optional[Iterable[str]] = None,
     parents: Iterable[str] = (),
     workspace_kind: Optional[str] = None,
     workspace_path: Optional[Path | str] = None,
@@ -221,6 +226,12 @@ def create_task(
         raise ValueError("verify_timeout must be a positive number of seconds")
 
     artifacts = [str(a) for a in expected_artifacts]
+    requested_capabilities = capabilities
+    if requested_capabilities is None:
+        requested_capabilities = capability_policy.recommend_capabilities(
+            prompt, agent_role or "builder"
+        )
+    contract = capability_policy.resolve_contract(agent_role, requested_capabilities)
     if repo is not None and (
         workspace_kind is not None or workspace_path is not None or branch_name is not None
     ):
@@ -284,11 +295,14 @@ def create_task(
         if not already_present:
             conn.execute(
                 "UPDATE tasks SET verify_command = ?, verify_timeout = ?, "
-                "expected_artifacts = ? WHERE id = ?",
+                "expected_artifacts = ?, agent_role = ?, agent_capabilities = ? "
+                "WHERE id = ?",
                 (
                     verify_command,
                     int(verify_timeout) if verify_timeout is not None else None,
                     json.dumps(artifacts),
+                    contract.role,
+                    json.dumps(list(contract.capabilities)),
                     task_id,
                 ),
             )
@@ -299,6 +313,7 @@ def verify_spec(conn: sqlite3.Connection, task_id: str) -> Optional[dict[str, An
     """Return the recorded oracle for ``task_id``, or ``None`` if unknown."""
     row = conn.execute(
         "SELECT verify_command, verify_timeout, expected_artifacts, "
+        "       agent_role, agent_capabilities, "
         "       workspace_path, body "
         "FROM tasks WHERE id = ?",
         (task_id,),
@@ -306,12 +321,15 @@ def verify_spec(conn: sqlite3.Connection, task_id: str) -> Optional[dict[str, An
     if row is None:
         return None
     raw = row["expected_artifacts"]
+    raw_capabilities = row["agent_capabilities"]
     return {
         "verify_command": row["verify_command"],
         "verify_timeout": row["verify_timeout"],
         "expected_artifacts": json.loads(raw) if raw else [],
         "repo": row["workspace_path"],
         "prompt": row["body"],
+        "agent_role": row["agent_role"] or "builder",
+        "capabilities": json.loads(raw_capabilities) if raw_capabilities else [],
     }
 
 
