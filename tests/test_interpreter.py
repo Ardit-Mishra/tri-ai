@@ -348,6 +348,68 @@ class ClassifierTest(unittest.TestCase):
         self.assertEqual(interpreter.interpret("hey").source, "rules")
 
 
+class LayaAdapterTest(unittest.TestCase):
+    """Shaping the Laya call, tested without one.
+
+    The transport is one `urlopen`; what is worth testing is the payload and
+    the reply handling, because both were got wrong by hand first. The
+    criteria here are the exact wording measured at 9/10 - rewriting the terse
+    version into full sentences is what fixed "stop", which the terse one lost
+    to "build" - so they are pinned rather than paraphrased.
+    """
+
+    def test_the_question_uses_a_type_laya_actually_defines(self):
+        """`boolean` appears in Laya's README:628 and raises ValueError."""
+        for question in interpreter.LAYA_QUESTIONS.values():
+            self.assertIn(question["type"], {"choice", "noul", "score"})
+
+    def test_every_routable_intent_is_offered_as_an_option(self):
+        criteria = interpreter.LAYA_QUESTIONS["intent"]["criteria"]
+        self.assertEqual(set(criteria), set(interpreter.INTENTS) - {"unclear"})
+
+    def test_the_criteria_are_sentences_not_keywords(self):
+        """Terse criteria measured 7/9; these sentences measured 9/10."""
+        for text in interpreter.LAYA_QUESTIONS["intent"]["criteria"].values():
+            self.assertGreater(len(text.split()), 8, text)
+
+    def test_a_label_is_read_out_of_the_reply_laya_actually_sends(self):
+        payload = {"answers": {"intent": {
+            "type": "choice", "choice": "build",
+            "probabilities": {"build": 0.38, "chat": 0.2},
+        }}}
+        self.assertEqual(interpreter.label_from_laya(payload), "build")
+
+    def test_a_label_outside_the_roster_is_refused(self):
+        payload = {"answers": {"intent": {"choice": "sideways"}}}
+        self.assertIsNone(interpreter.label_from_laya(payload))
+
+    def test_a_malformed_reply_is_none_rather_than_an_exception(self):
+        for payload in ({}, {"answers": {}}, {"answers": {"intent": {}}},
+                        {"answers": None}, []):
+            self.assertIsNone(interpreter.label_from_laya(payload))
+
+    def test_the_probability_is_not_read_at_all(self):
+        """Measured 0.31 mean top-probability against 0.20 for a coin toss, on
+        two machines. The label is usable; the number is not."""
+        source = (Path(__file__).resolve().parents[1] / "src" / "interpreter.py"
+                  ).read_text(encoding="utf-8")
+        body = source.split("def label_from_laya")[1].split("\ndef ")[0]
+        # The docstring says why, so match the access rather than the word.
+        self.assertNotIn('["probabilities"]', body)
+        self.assertNotIn('["confidence"]', body)
+        self.assertNotIn('.get("probabilities"', body)
+        self.assertNotIn('.get("confidence"', body)
+
+    def test_the_adapter_defaults_to_loopback(self):
+        """Laya's own server defaults to LAYA_HOST=0.0.0.0. An 0.0.0.0 default
+        on this side too is how a reader ends up answering the whole LAN -
+        the same exposure already closed on FreeLLMAPI this month."""
+        import inspect
+        default = inspect.signature(
+            interpreter.laya_classifier).parameters["endpoint"].default
+        self.assertIn("127.0.0.1", default)
+
+
 class PurityTest(unittest.TestCase):
     def test_the_module_opens_no_board_and_spawns_nothing(self):
         source = (Path(__file__).resolve().parents[1] / "src" / "interpreter.py"

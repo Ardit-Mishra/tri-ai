@@ -44,7 +44,7 @@ import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import Callable, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 Completer = Callable[[str], str]
 # Returns one label from INTENTS, or None when it has nothing to say.
@@ -414,6 +414,82 @@ def interpret(
         if reading is not None:
             return reading
     return read_without_model(text, history=history)
+
+
+# The exact criteria measured at 9/10 on ten real dictated messages, on both a
+# CPU laptop and the desktop 3060. An earlier terse version scored 7/9 and lost
+# "stop" to "build", so the wording is load-bearing and is pinned by a test
+# rather than left to be tidied later. `unclear` is deliberately absent: it is
+# this module's own outcome for "nothing usable", not something to ask a
+# classifier to predict.
+LAYA_QUESTIONS = {
+    "intent": {
+        "type": "choice",
+        "instructions": "Classify what the person sending this message wants "
+                        "to happen next.",
+        "criteria": {
+            "build": "They are asking for something new to be produced: a "
+                     "page, a document, a script, a design. The message names "
+                     "a thing to make.",
+            "refine": "They are asking for a change to something that already "
+                      "exists, such as a colour, a position, or wording.",
+            "ask": "They are asking a question and want an answer or a status "
+                   "report. Nothing is to be produced.",
+            "chat": "Social pleasantry only: a greeting, thanks, or "
+                    "acknowledgement. There is no task and no question.",
+            "stop": "They want current or pending work halted, cancelled or "
+                    "abandoned.",
+        },
+    },
+}
+
+
+def label_from_laya(payload: Any) -> Optional[str]:
+    """The intent label out of a Laya reply, or None if it is not usable.
+
+    Only the label is read. The probabilities are deliberately untouched:
+    measured across two machines the winning option averaged 0.31 against 0.20
+    for a coin toss over five options, so the number cannot carry a threshold
+    even though the label is right nine times in ten.
+    """
+    try:
+        node = payload["answers"]["intent"]
+        label = str(node["choice"]).strip().casefold()
+    except (TypeError, KeyError, IndexError, AttributeError):
+        return None
+    return label if label in INTENTS else None
+
+
+def laya_classifier(
+    endpoint: str = "http://127.0.0.1:8127/v1/systemone",
+    timeout: float = 5.0,
+    token: Optional[str] = None,
+) -> Classifier:
+    """A classifier backed by a local Laya server.
+
+    Loopback by default on purpose. Laya's own server takes `LAYA_HOST` and
+    defaults it to `0.0.0.0`, which is how a decision service ends up
+    answering the whole network - the same exposure already found and closed
+    on FreeLLMAPI. Reaching one across the tailnet is a deliberate act, so it
+    has to be typed out.
+
+    Returned rather than called, so importing this module opens nothing and a
+    machine with no Laya running simply never builds one.
+    """
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    def classify(text: str) -> Optional[str]:
+        body = json.dumps({
+            "state": text[:MAX_TEXT_CHARS],
+            "questions": LAYA_QUESTIONS,
+        }).encode("utf-8")
+        request = urllib.request.Request(endpoint, data=body, headers=headers)
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return label_from_laya(json.loads(response.read().decode("utf-8")))
+
+    return classify
 
 
 def local_completer(
