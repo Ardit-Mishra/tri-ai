@@ -216,6 +216,28 @@ def thin_reason(text: str) -> str:
     return ""
 
 
+def is_obvious(text: str) -> bool:
+    """True when the whole message is an exact greeting or stop word.
+
+    Not a confidence shortcut - a recognition that these are not a
+    classification problem at all. Measured end to end: "hey" cost 5.3 s and
+    came back asking what to build, because Laya called it `refine` (its one
+    miss in ten) and qwen then called it `unclear`. A set membership test has
+    known the answer since the first commit.
+
+    Deliberately narrow. A greeting with work attached - "hello can you build
+    me a shop" - is not obvious and still reaches a model.
+    """
+    cleaned = _clean(text)
+    if not cleaned:
+        return False
+    flat = _PUNCT.sub("", cleaned).casefold().strip()
+    words = _tokens(cleaned)
+    if flat in STOPS or flat in GREETINGS:
+        return True
+    return bool(words) and words[0] in GREETING_OPENERS and len(words) <= 4
+
+
 def read_without_model(text: str, *, history: Sequence[str] = ()) -> Reading:
     """Classify on word lists alone. The floor, and the default."""
     cleaned = _clean(text)
@@ -385,7 +407,16 @@ def interpret(
     9/10 but its probabilities at barely above a coin toss, so it is trusted
     for routing and nothing else.
     """
-    if classify is not None:
+    # Neither model is asked about a bare greeting or stop word; both were
+    # measured to get them wrong where the word list does not.
+    if is_obvious(text):
+        return read_without_model(text, history=history)
+    # An external request never takes the shortcut. Laya labelled "email the
+    # invoice to the client please" as `chat`, and answering that with small
+    # talk is safe but wrong: the operator asked for something and would get
+    # "I'm here" back. The deterministic detector outranks the classifier.
+    external = _is_external(text)
+    if classify is not None and not external:
         try:
             label = classify(text)
         except Exception:
@@ -422,6 +453,13 @@ def interpret(
 # rather than left to be tidied later. `unclear` is deliberately absent: it is
 # this module's own outcome for "nothing usable", not something to ask a
 # classifier to predict.
+# Naming the checkpoint is not optional. The server takes `model` from the
+# request body and quietly resolves a default when it is absent, so omitting it
+# serves a *different* model than the one these criteria were measured on:
+# end to end, every message came back `stop`, reproducing the `english`
+# checkpoint's exact failures rather than typed-decisions' 9/10.
+LAYA_CHECKPOINT = "typed-decisions"
+
 LAYA_QUESTIONS = {
     "intent": {
         "type": "choice",
@@ -444,6 +482,15 @@ LAYA_QUESTIONS = {
 }
 
 
+def laya_payload(text: str, model: str = LAYA_CHECKPOINT) -> dict[str, Any]:
+    """The request body for POST /v1/systemone."""
+    return {
+        "model": model,
+        "state": text[:MAX_TEXT_CHARS],
+        "questions": LAYA_QUESTIONS,
+    }
+
+
 def label_from_laya(payload: Any) -> Optional[str]:
     """The intent label out of a Laya reply, or None if it is not usable.
 
@@ -464,6 +511,7 @@ def laya_classifier(
     endpoint: str = "http://127.0.0.1:8127/v1/systemone",
     timeout: float = 5.0,
     token: Optional[str] = None,
+    model: str = LAYA_CHECKPOINT,
 ) -> Classifier:
     """A classifier backed by a local Laya server.
 
@@ -481,10 +529,7 @@ def laya_classifier(
         headers["Authorization"] = f"Bearer {token}"
 
     def classify(text: str) -> Optional[str]:
-        body = json.dumps({
-            "state": text[:MAX_TEXT_CHARS],
-            "questions": LAYA_QUESTIONS,
-        }).encode("utf-8")
+        body = json.dumps(laya_payload(text, model)).encode("utf-8")
         request = urllib.request.Request(endpoint, data=body, headers=headers)
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return label_from_laya(json.loads(response.read().decode("utf-8")))

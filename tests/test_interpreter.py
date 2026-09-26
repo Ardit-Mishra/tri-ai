@@ -333,6 +333,25 @@ class ClassifierTest(unittest.TestCase):
             "build me a shop", complete=self.completer(), classify=boom)
         self.assertEqual(reading.source, "model")
 
+    def test_an_external_request_is_never_short_circuited_as_small_talk(self):
+        """Laya labelled "email the invoice to the client please" as `chat`.
+
+        Routing that to the chat reply is safe - nothing is sent - but the
+        operator asked for something and would get "I'm here" back, which is
+        the not-understood complaint returning by another route. Anything the
+        deterministic detector calls external goes the long way round to the
+        gate, whatever the classifier thinks.
+        """
+        seen = []
+        reading = interpreter.interpret(
+            "email the invoice to the client please",
+            complete=lambda p: seen.append(p) or json.dumps(_build_payload()),
+            classify=lambda _t: "chat",
+        )
+        self.assertEqual(len(seen), 1, "the model should have been consulted")
+        self.assertNotEqual(reading.intent, "chat")
+        self.assertTrue(reading.external)
+
     def test_the_external_gate_is_not_delegated_to_the_classifier(self):
         """Measured at 0.5879 on 'email the invoice' - a coin toss on the one
         judgement that guards spending. The regex keeps it."""
@@ -341,11 +360,59 @@ class ClassifierTest(unittest.TestCase):
         self.assertTrue(reading.external)
 
     def test_a_routed_reading_says_where_its_label_came_from(self):
-        reading = interpreter.interpret("hey", classify=lambda _t: "chat")
+        """Not a bare greeting: those short-circuit to the word list before
+        any classifier runs, so they would report `rules`."""
+        reading = interpreter.interpret(
+            "so how is that build coming along", classify=lambda _t: "ask")
         self.assertEqual(reading.source, "classifier")
 
     def test_no_classifier_leaves_every_existing_path_untouched(self):
         self.assertEqual(interpreter.interpret("hey").source, "rules")
+
+
+class ObviousMessageTest(unittest.TestCase):
+    """Some messages are not a classification problem.
+
+    Measured end to end: "hey" took 5.3 s and came back asking what to build.
+    Laya called it `refine` (its one miss in ten) and qwen then called it
+    `unclear`. The word list has known the answer since the first commit and
+    answers in microseconds. When an exact greeting or stop word is the whole
+    message, neither model is consulted - there is nothing to infer.
+    """
+
+    def test_an_exact_greeting_never_reaches_either_model(self):
+        calls = []
+        for text in ("hey", "hi", "thanks", "ok cool"):
+            interpreter.interpret(
+                text,
+                complete=lambda p: calls.append(p) or "{}",
+                classify=lambda t: calls.append(t) or "build",
+            )
+        self.assertEqual(calls, [])
+
+    def test_an_exact_stop_word_never_reaches_either_model(self):
+        calls = []
+        reading = interpreter.interpret(
+            "cancel that",
+            complete=lambda p: calls.append(p) or "{}",
+            classify=lambda t: calls.append(t) or "build",
+        )
+        self.assertEqual(reading.intent, "stop")
+        self.assertEqual(calls, [])
+
+    def test_a_greeting_with_real_work_attached_still_reaches_a_model(self):
+        """'hello can you build me a shop' is not a greeting."""
+        seen = []
+        interpreter.interpret(
+            "hello can you build me a shop for my bakery",
+            complete=lambda p: seen.append(p) or json.dumps(_build_payload()),
+        )
+        self.assertEqual(len(seen), 1)
+
+    def test_the_shortcut_still_reports_where_the_answer_came_from(self):
+        self.assertEqual(
+            interpreter.interpret("hey", classify=lambda _t: "build").source,
+            "rules")
 
 
 class LayaAdapterTest(unittest.TestCase):
@@ -371,6 +438,26 @@ class LayaAdapterTest(unittest.TestCase):
         """Terse criteria measured 7/9; these sentences measured 9/10."""
         for text in interpreter.LAYA_QUESTIONS["intent"]["criteria"].values():
             self.assertGreater(len(text.split()), 8, text)
+
+    def test_the_payload_names_the_checkpoint_it_was_measured_on(self):
+        """Omitting `model` does not fail - it silently serves a different
+        checkpoint. Measured end to end: without it every message came back
+        `stop`, matching the `english` checkpoint's exact failures (hey,
+        thanks mate, whats going on, build a website) rather than the
+        `typed-decisions` result of 9/10 the unit tests were written against.
+        """
+        payload = interpreter.laya_payload("build me a page")
+        self.assertEqual(payload["model"], interpreter.LAYA_CHECKPOINT)
+        self.assertEqual(payload["model"], "typed-decisions")
+
+    def test_the_payload_carries_the_message_as_state(self):
+        payload = interpreter.laya_payload("build me a page")
+        self.assertEqual(payload["state"], "build me a page")
+        self.assertIn("intent", payload["questions"])
+
+    def test_an_overlong_message_is_clipped_before_it_is_sent(self):
+        payload = interpreter.laya_payload("x" * 99_000)
+        self.assertLessEqual(len(payload["state"]), interpreter.MAX_TEXT_CHARS)
 
     def test_a_label_is_read_out_of_the_reply_laya_actually_sends(self):
         payload = {"answers": {"intent": {
