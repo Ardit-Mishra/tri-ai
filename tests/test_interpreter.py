@@ -276,6 +276,78 @@ class ExternalTest(unittest.TestCase):
         self.assertTrue(reading.external)
 
 
+class ClassifierTest(unittest.TestCase):
+    """A fast classifier as a router, deliberately not as an oracle.
+
+    Laya reads intent on this machine in ~576 ms against qwen's 1.0-1.6 s, but
+    measurement said to take its label and not its probability: 9/10 correct
+    while the winning option averaged 0.31 against a 0.20 coin toss, and the
+    send/spend check scored 0.5879 on "email the invoice to the client".
+
+    So it is given exactly one job - deciding whether this message needs a
+    generative model at all. Most phone traffic is greetings, questions and
+    stops, none of which need a brief written. Answering those without an LLM
+    call is the whole saving, and it avoids adjudicating between two
+    classifiers when the slower one is about to run anyway.
+    """
+
+    def setUp(self):
+        self.calls = []
+
+    def completer(self, payload=None):
+        def complete(prompt):
+            self.calls.append(prompt)
+            return json.dumps(payload or _build_payload())
+        return complete
+
+    def test_a_greeting_is_answered_without_spending_a_model_call(self):
+        reading = interpreter.interpret(
+            "hey", complete=self.completer(), classify=lambda _t: "chat")
+        self.assertEqual(reading.intent, "chat")
+        self.assertEqual(self.calls, [], "the completer should not have run")
+
+    def test_a_stop_and_an_ask_also_skip_the_model(self):
+        for label in ("stop", "ask"):
+            self.calls.clear()
+            interpreter.interpret("whatever", complete=self.completer(),
+                                  classify=lambda _t, l=label: l)
+            self.assertEqual(self.calls, [], label)
+
+    def test_work_still_reaches_the_model_because_a_brief_must_be_written(self):
+        reading = interpreter.interpret(
+            "build me a recipe card for chai", complete=self.completer(),
+            classify=lambda _t: "build")
+        self.assertEqual(len(self.calls), 1)
+        self.assertTrue(reading.brief.strip())
+
+    def test_a_label_the_module_does_not_declare_is_ignored(self):
+        """A junk label must not route, and must not suppress the model."""
+        interpreter.interpret("build me a shop", complete=self.completer(),
+                              classify=lambda _t: "sideways")
+        self.assertEqual(len(self.calls), 1)
+
+    def test_a_classifier_that_raises_does_not_take_the_reading_down(self):
+        def boom(_text):
+            raise ConnectionError("laya service is down")
+        reading = interpreter.interpret(
+            "build me a shop", complete=self.completer(), classify=boom)
+        self.assertEqual(reading.source, "model")
+
+    def test_the_external_gate_is_not_delegated_to_the_classifier(self):
+        """Measured at 0.5879 on 'email the invoice' - a coin toss on the one
+        judgement that guards spending. The regex keeps it."""
+        reading = interpreter.interpret(
+            "email the invoice to the client", classify=lambda _t: "chat")
+        self.assertTrue(reading.external)
+
+    def test_a_routed_reading_says_where_its_label_came_from(self):
+        reading = interpreter.interpret("hey", classify=lambda _t: "chat")
+        self.assertEqual(reading.source, "classifier")
+
+    def test_no_classifier_leaves_every_existing_path_untouched(self):
+        self.assertEqual(interpreter.interpret("hey").source, "rules")
+
+
 class PurityTest(unittest.TestCase):
     def test_the_module_opens_no_board_and_spawns_nothing(self):
         source = (Path(__file__).resolve().parents[1] / "src" / "interpreter.py"

@@ -362,6 +362,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--dashboard-url",
         help="Read-only dashboard base URL; completion notices link artifacts through it",
     )
+    parser.add_argument(
+        "--reader-endpoint",
+        help=(
+            "OpenAI-compatible chat endpoint the Telegram daemon uses to read "
+            "what a message means before dispatching it. Omitted, reading "
+            "falls back to word lists rather than failing."
+        ),
+    )
+    parser.add_argument("--reader-model", default="qwen2.5-coder:7b")
     args = parser.parse_args(argv)
     intake_policy = resolve_intake_policy(args.intake_policy)
 
@@ -434,6 +443,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 runs_root=args.runs_dir.resolve(),
                 intake_policy=intake_policy.resolve() if intake_policy else None,
                 dashboard_url=args.dashboard_url,
+                reader_endpoint=args.reader_endpoint,
+                reader_model=args.reader_model,
             ),
             log_dir=log_dir, run_id=run_id, stop_path=stop_path,
             on_started=children_started, on_change=children_changed,

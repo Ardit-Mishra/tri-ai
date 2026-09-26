@@ -1838,3 +1838,32 @@ answers it deterministically.
 This is the shape the architecture already anticipated: `interpret()` takes an
 injected reader, so Laya arrives as another adapter beside `local_completer`
 and the word lists stay underneath both.
+
+#### Desktop GPU measurement — 2026-09-25
+
+Same ten messages, same `typed-decisions` checkpoint, RTX 3060 (torch
+2.14.0+cu132, `D:\tri-ai-runtimes\laya`):
+
+| machine | p50 | correct | mean top-probability |
+|---|---|---|---|
+| laptop, CPU | 576 ms | 9/10 | 0.31 |
+| **desktop, 3060** | **39 ms** | 9/10 | 0.31 |
+
+Two things follow, and the second matters more than the first.
+
+**39 ms makes the routing decision effectively free** — 15x the laptop and
+26-41x qwen2.5-coder:7b's measured 1.0-1.6 s. Deciding "does this message need
+a brief written" for the price of a network hop is worth having, and most phone
+traffic is greetings, questions and stops that then cost no generative call at
+all.
+
+**The flat probabilities are intrinsic, not a hardware artefact.** Identical
+accuracy and an identical 0.31 mean top-probability on both machines, against
+0.20 for a coin toss over five options. So the verdict stands on evidence from
+two independent runs: take the label, refuse the probability. `_is_external`
+and the category-only check stay deterministic.
+
+`src/interpreter.py` now takes `classify=` beside `complete=`. It is a router,
+not an oracle: it answers only whether a generative model is needed, never the
+external gate, and never overrules a model that did run. A label the module
+does not declare is ignored, and a classifier that raises is the offline case.

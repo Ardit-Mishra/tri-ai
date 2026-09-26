@@ -47,6 +47,13 @@ from dataclasses import dataclass
 from typing import Callable, Optional, Sequence
 
 Completer = Callable[[str], str]
+# Returns one label from INTENTS, or None when it has nothing to say.
+Classifier = Callable[[str], Optional[str]]
+
+# Intents that need no text written, so they need no generative model. This is
+# the entire reason a fast classifier earns its place: most phone traffic is
+# greetings, questions and stops.
+NO_BRIEF_NEEDED = frozenset({"chat", "stop", "ask"})
 
 # `unclear` is a real outcome, not a failure. Asking beats guessing.
 INTENTS = ("build", "refine", "ask", "chat", "stop", "unclear")
@@ -367,8 +374,36 @@ def interpret(
     *,
     history: Sequence[str] = (),
     complete: Optional[Completer] = None,
+    classify: Optional[Classifier] = None,
 ) -> Reading:
-    """Read one message. Falls back to rules whenever the model cannot help."""
+    """Read one message. Falls back to rules whenever the model cannot help.
+
+    `classify` is a router, not an oracle. It answers one question - does this
+    message need a brief written? - and when the answer is no, the reading is
+    finished without spending a generative call. It never decides the external
+    gate and never overrules a model that did run; measurement put its label at
+    9/10 but its probabilities at barely above a coin toss, so it is trusted
+    for routing and nothing else.
+    """
+    if classify is not None:
+        try:
+            label = classify(text)
+        except Exception:
+            label = None
+        if label in NO_BRIEF_NEEDED:
+            rules = read_without_model(text, history=history)
+            return Reading(
+                intent=str(label),
+                understood=rules.understood,
+                brief="",
+                question=rules.question if label != "chat" else "",
+                confidence=RULES_CONFIDENCE,
+                # Never delegated. Measured at 0.5879 on "email the invoice to
+                # the client", which is a coin toss on the judgement guarding
+                # money leaving the machine.
+                external=_is_external(text),
+                source="classifier",
+            )
     if complete is not None:
         try:
             raw = complete(build_prompt(text, history=history))

@@ -7,6 +7,8 @@ param(
     [string]$LogDir = (Join-Path $HOME ".tri-ai\logs"),
     [string]$IntakePolicy,
     [string]$DashboardUrl,
+    [string]$ReaderEndpoint,
+    [string]$ReaderModel = "qwen2.5-coder:7b",
     [int]$RouterPort = 20129,
     [int]$RouterWaitSeconds = 180,
     [switch]$WhatIf
@@ -34,6 +36,9 @@ $Arguments = @(
 )
 if ($IntakePolicy) { $Arguments += @("--intake-policy", $IntakePolicy) }
 if ($DashboardUrl) { $Arguments += @("--dashboard-url", $DashboardUrl) }
+# Reading a message before dispatching it. Without this the daemon classifies
+# on word lists, which misread a dictated request the model read correctly.
+if ($ReaderEndpoint) { $Arguments += @("--reader-endpoint", $ReaderEndpoint, "--reader-model", $ReaderModel) }
 
 if ($WhatIf) {
     Write-Output ("Would run: {0} {1}" -f $Python, ($Arguments -join " "))
