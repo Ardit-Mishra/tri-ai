@@ -2117,3 +2117,114 @@ have the necessary tools" exactly. **Not proven.**
    natural retry.
 3. Then the HIGH finding from the audit: a degraded fan-out must say so on
    the card.
+
+---
+
+## Fixes 1 and 3 landed — `ba462e5`, deployed and live
+
+972 tests (947 before), exit 0 on both machines. Desktop at `ba462e5`,
+supervisor 14960, telegram 20496, `reader_flag_present=True`.
+
+### Hermes had already written the edges. This module threw them away.
+
+The `decomposer.py` docstring asserted "every child comes back with no
+parents". That was never checked, and it is **false**.
+
+  * `hermes_cli/kanban_decompose.py:73-84` — the decomposer prompt asks the
+    model for `"parents": [<int>, ...]`, "expressing actual data
+    dependencies. Tasks with no parents run in PARALLEL."
+  * `hermes_cli/kanban_db.py:7440-7455` — `decompose_triage_task` writes them
+    into `task_links` in the *same* write transaction that creates the
+    children.
+  * They are absent from `decompose --json`, which returns only `child_ids`,
+    and from `list --json`. **`show --json` is the published reader**
+    (`kanban.py:1702-1716`), and this module never called it.
+
+Read back out of the live spike board
+(`~/AppData/Local/hermes/kanban/boards/triai-spike/kanban.db`), the
+seven-child portfolio decomposition already had six correct edges:
+
+```
+Build the WebGL hero section     <- Design the 3D interactive WebGL hero section
+Build the three project sections <- Design the three project sections
+Build the contact block          <- Design the contact block
+Integrate the sections           <- the three builders above
+```
+
+Those eight rows are now a fixture in `tests/test_decomposer.py` (`REAL`).
+
+### Both halves of the phase-mesh justification were false
+
+The discarded docstring claimed phase order "over-constrains rather than
+under-constrains" and therefore "costs wall-clock, never correctness".
+
+  * **It over-constrains across a phase, fatally.** Eleven nodes, 28 edges,
+    three of four designers blocked, all seven builders stranded in `todo`
+    permanently.
+  * **It under-constrains inside a phase.** "Integrate the sections" is a
+    `frontend_builder` — the same phase as the builders it integrates — so
+    the mesh makes it their *sibling*. Measured again on a fresh six-node
+    decomposition run through the real CLI today:
+
+    | | edges | integrator's parents |
+    |---|---|---|
+    | semantic | 8 | the four builders |
+    | phase order | 5 | the designer |
+
+    The mesh has *fewer* edges here and the four it is missing are the ones
+    that decide correctness. It would dispatch the integrator alongside the
+    builders, to integrate files that do not exist.
+
+### What changed
+
+* `decomposer.read_links()` — one `show --json` per child, **before** the
+  archive. All-or-nothing: any unreadable child empties the whole mapping.
+  A half-read set loses an edge silently, and a lost edge runs a task before
+  its input exists, which is the one failure the mesh could not produce.
+* `decomposer.semantic_edges()` runs first; `phase_edges` survives as the
+  fallback for a decomposition Hermes left flat. Not per node — once the
+  model has said what depends on what, a parentless child is one it judged
+  independent, and filling that in from the phase rank rebuilds the mesh for
+  exactly the nodes the model said could start at once.
+* Parents outside the decomposition are dropped. Hermes links the root as a
+  child of *every* child, so a naive read hands `validate_graph` a node that
+  does not exist and it refuses the whole document.
+* `graph["edges_derived_from"]` is now `"hermes dependencies"` or
+  `"phase order"`, and it reaches the operator.
+
+### Fix 3 (the HIGH audit finding) went in with it
+
+Every outcome of `_fanout` that was not a persisted graph returned `None`, so
+Hermes falling over built the same card as a request too small to split.
+Three runs this session had to be diagnosed from the board because of it.
+`_fanout` now returns a `Fanout(reply, note)`; the single-task card prints the
+note, and a graph ordered by the phase rank says on its own card that the
+running order is a guess.
+
+### Verification
+
+```
+python tests/run.py                       -> Ran 972 tests, OK (laptop)
+ssh triai-desktop "cd tri-ai; python tests/run.py"
+                                          -> Ran 972 tests, OK (skipped=1)
+python src/decomposer.py "<six-part goal>" --board triai-edgecheck ...
+                                          -> edges_derived_from: hermes dependencies
+                                             8 semantic edges vs 5 from phase order
+```
+
+The last one is against the real Hermes CLI, not the stub, and the scratch
+board was empty afterwards — the archive pass still runs after the links are
+read (`test_the_links_are_read_before_the_cards_are_archived` pins the order).
+
+### Remaining, unchanged in priority
+
+1. **Classify a model refusal as its own outcome.** Still open, and still the
+   most valuable thing left: it is invisible today and probably accounts for
+   a real share of the 22 "produced nothing" failures.
+2. Retries are 4-for-4 worse than first attempts. Instrument before
+   theorising; the `tool_search` 5%-threshold candidate is unproven.
+3. Audit MEDIUMs: archive-failure counting (`decomposer.py`), the `_MERGED`
+   process-lifetime cache (`capabilities.py:198`), `warrants_attempt` gating
+   on the brief rather than the operator's words.
+4. Cartographer wired to real runs; Step 5 evolution loop; PWA + offline
+   artifacts.
