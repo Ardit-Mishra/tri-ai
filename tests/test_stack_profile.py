@@ -125,9 +125,18 @@ class SkillReferenceTest(_Workspace):
         self.assertIn("django-verification", stack_profile.detect(self.root).skills)
 
     def test_named_skills_exist_on_this_machine(self):
-        """A dangling skill reference resolves to nothing and teaches nobody."""
-        installed = {p.name for p in (Path.home() / ".claude" / "skills").iterdir()
-                     if p.is_dir()}
+        """A dangling skill reference resolves to nothing and teaches nobody.
+
+        This asserts a fact about *this machine's* skill estate, not about the
+        code, so it skips where there is no estate to check. An earlier version
+        called `.iterdir()` unconditionally and failed on the desktop, which has
+        no `~/.claude/skills` at all - a test that fails for having nothing to
+        test is reporting the wrong thing.
+        """
+        root = Path.home() / ".claude" / "skills"
+        if not root.is_dir():
+            self.skipTest(f"no skill estate at {root}")
+        installed = {p.name for p in root.iterdir() if p.is_dir()}
         missing = [
             (name, skill)
             for name, spec in stack_profile.STACKS.items()
