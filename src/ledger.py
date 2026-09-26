@@ -66,6 +66,17 @@ the field names below are stable; the integration tests assert on them:
                               logic failure, otherwise None
     agent_log     str or None absolute path to the full agent output
     verify_log    str or None absolute path to the full verify output
+    api_calls     int or None how many model calls the turn took, from the
+                              run's ``--usage-file``
+    answered_without_tools
+                  bool or None ``api_calls <= 1``: the model produced a final
+                              answer without ever receiving a tool result, so
+                              nothing it described reached the filesystem.
+                              None when the runtime recorded no count - a
+                              missing field is not an accusation. Measured
+                              over the first 82 entries: 19 of 52 failures
+                              against 1 of 21 passes, and `devstral:24b` in 10
+                              of its 11 runs.
 
 Outcome vocabulary (worker.py decides, ledger.py only records):
 

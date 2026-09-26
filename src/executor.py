@@ -603,6 +603,63 @@ class AgentResult:
     # usage file. None when no usage file was requested or it carried no such
     # field — absence of a record is not a record of success.
     runtime_failed: Optional[bool] = None
+    # How many times the runtime called the model. One means it answered and
+    # stopped: no tool result ever came back, so nothing was written to disk.
+    # None when the runtime recorded no count.
+    api_calls: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class Usage:
+    """The three facts worth reading back out of ``usage.json``.
+
+    Written by the runtime (``hermes_cli/oneshot.py`` ``_write_usage_file``),
+    never asserted by the agent about its own work.
+    """
+
+    model: Optional[str] = None
+    provider: Optional[str] = None
+    failed: Optional[bool] = None
+    api_calls: Optional[int] = None
+
+
+def read_usage(path: Optional[Path]) -> Usage:
+    """Read a usage file, or return an empty record. Never raises.
+
+    A missing, unreadable or corrupt file is indistinguishable from one that
+    was never requested, and none of them is evidence about the run.
+    """
+    if path is None:
+        return Usage()
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, ValueError):
+        return Usage()
+    if not isinstance(raw, dict):
+        return Usage()
+    calls = raw.get("api_calls")
+    return Usage(
+        model=raw.get("model"),
+        provider=raw.get("provider"),
+        failed=bool(raw["failed"]) if "failed" in raw else None,
+        api_calls=int(calls) if isinstance(calls, (int, float)) else None,
+    )
+
+
+def answered_without_tools(api_calls: Optional[int]) -> Optional[bool]:
+    """Whether the runtime made exactly one model call and then stopped.
+
+    One call means the model produced a final answer without ever receiving a
+    tool result, so nothing it "did" reached the filesystem. Measured over the
+    desktop's 82-entry ledger: 19 of 52 failures, against 1 of 21 passes.
+    `devstral:24b` did it in 10 of its 11 runs.
+
+    None in, None out. A runtime that records no count is not accused of
+    silence — that would turn a missing field into an indictment.
+    """
+    if api_calls is None:
+        return None
+    return int(api_calls) <= 1
 
 
 def run_agent(
@@ -704,30 +761,18 @@ def run_agent(
     out = "".join(captured)
     elapsed = round(time.time() - started, 2)
 
-    model = provider = None
-    source = "unavailable"
-    runtime_failed: Optional[bool] = None
-    if usage_path is not None and usage_path.exists():
-        try:
-            usage = json.loads(usage_path.read_text(encoding="utf-8"))
-            model = usage.get("model")
-            provider = usage.get("provider")
-            if model:
-                source = "usage_file"
-            # `failed` is written by the runtime itself (hermes_cli/oneshot.py
-            # `_write_usage_file`), not asserted by the agent about its work.
-            # It is the only signal that separates "the turn did not happen"
-            # from "the turn happened", because a provider error printed as the
-            # final response still exits 0.
-            if "failed" in usage:
-                runtime_failed = bool(usage.get("failed"))
-        except (json.JSONDecodeError, OSError):
-            pass
+    # `failed` is written by the runtime itself, not asserted by the agent
+    # about its work. It is the only signal that separates "the turn did not
+    # happen" from "the turn happened", because a provider error printed as
+    # the final response still exits 0. `api_calls` separates a turn that
+    # used tools from one that only talked.
+    usage = read_usage(usage_path)
+    source = "usage_file" if usage.model else "unavailable"
 
     return AgentResult(
-        code, out, elapsed, model, provider, source,
+        code, out, elapsed, usage.model, usage.provider, source,
         tree_survived=tree_survived, survivors=survivors,
-        runtime_failed=runtime_failed,
+        runtime_failed=usage.failed, api_calls=usage.api_calls,
     )
 
 

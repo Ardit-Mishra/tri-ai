@@ -313,6 +313,16 @@ def render(
             documents = _preserved_documents(kept)
         else:
             lines.extend(["", "produced no files in the workspace"])
+            # True and useless on its own: the same sentence covers an agent
+            # that worked for twenty minutes and got it wrong, and one that
+            # answered in a single sentence and never touched the disk. The
+            # second was 19 of the first 52 failures - `devstral:24b` in 10 of
+            # its 11 runs - and nothing on the card told them apart, which is
+            # why it went unnoticed for 82 runs.
+            if meta.get("answered_without_tools") is True:
+                lines.append(
+                    "the model answered once and never used a tool - "
+                    "it wrote the work into its reply instead of onto disk")
             documents = ()
         return CompletionCard(
             task_id=task_id, run_id=run_id, text="\n".join(lines),

@@ -563,7 +563,7 @@ def execute_task(
             outcome="passed", verify_exit=0, verify_outcome="passed",
             agent_exit=agent.exit_code,
             model=agent.model, provider=agent.provider,
-            model_source=agent.model_source,
+            model_source=agent.model_source, api_calls=agent.api_calls,
             seconds=seconds,
             agent_log=agent_log, verify_log=verify_log,
         )
@@ -1038,6 +1038,8 @@ def _fail(
             conn, claimed, run_id, agent_log=str(agent_log),
             verify_outcome=verify_outcome, verify_exit=verify_exit,
             reason=reason,
+            api_calls=agent.api_calls if agent is not None else None,
+            model=agent.model if agent is not None else None,
         )
     else:
         owned = False
@@ -1055,6 +1057,7 @@ def _fail(
         outcome=outcome, verify_exit=verify_exit, verify_outcome=verify_outcome,
         agent_exit=agent.exit_code if agent is not None else None,
         model=model, provider=provider, model_source=model_source,
+        api_calls=agent.api_calls if agent is not None else None,
         seconds=seconds, reason=reason, failure_class="logic",
         agent_log=agent_log, verify_log=verify_log,
     )
@@ -1157,6 +1160,7 @@ def _environment_backoff(
         model=agent.model if agent is not None else None,
         provider=agent.provider if agent is not None else None,
         model_source=agent.model_source if agent is not None else "unavailable",
+        api_calls=agent.api_calls if agent is not None else None,
         seconds=seconds, reason=reason, agent_log=agent_log, verify_log=verify_log,
         failure_class="environment",
     )
@@ -1169,6 +1173,7 @@ def _environment_backoff(
 def _board_failure(
     conn, claimed, run_id, *,
     agent_log, verify_outcome, verify_exit, reason,
+    api_calls=None, model=None,
 ) -> bool:
     """The kernel-sanctioned bookkeeping for a non-success attempt.
 
@@ -1242,7 +1247,20 @@ def _board_failure(
                 conn, task_id,
                 outcome=run_outcome, status=run_outcome,
                 error=error[:500],
-                metadata={"verify_outcome": verify_outcome, "worker": ledger.worker_id()},
+                metadata={
+                    "verify_outcome": verify_outcome,
+                    "worker": ledger.worker_id(),
+                    "verify_exit": verify_exit,
+                    "model": model,
+                    # So the completion card can say *why* nothing was
+                    # produced. Without it "produced no files in the
+                    # workspace" is the only thing the operator sees, and it
+                    # reads the same for an agent that tried and one that
+                    # never called a tool.
+                    "api_calls": api_calls,
+                    "answered_without_tools":
+                        executor.answered_without_tools(api_calls),
+                },
             )
             kb._append_event(
                 conn, task_id, event_kind,
@@ -1389,6 +1407,7 @@ def _entry(
     verify_exit=None, verify_outcome=None, agent_exit=None,
     model=None, provider=None, model_source="unavailable",
     seconds=0.0, reason=None, agent_log=None, verify_log=None, failure_class=None,
+    api_calls=None,
 ) -> dict[str, Any]:
     """One ledger line. Field names are documented in ledger.py's schema."""
     return {
@@ -1411,6 +1430,14 @@ def _entry(
         "failure_class": failure_class,
         "agent_log": str(agent_log) if agent_log is not None else None,
         "verify_log": str(verify_log) if verify_log is not None else None,
+        # How many model calls the turn took, and the one thing worth deriving
+        # from it: whether the agent ever got a tool result back. Nineteen of
+        # fifty-two failures in the first 82 runs were a model that answered
+        # once in prose and never called the terminal - written as
+        # `outcome: failed` and nothing else, so the single most common
+        # failure in this system was uncountable.
+        "api_calls": api_calls,
+        "answered_without_tools": executor.answered_without_tools(api_calls),
     }
 
 
