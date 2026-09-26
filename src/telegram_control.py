@@ -62,6 +62,21 @@ class IntakePolicy:
 
 
 @dataclass(frozen=True)
+class Fanout:
+    """What a fan-out attempt produced, including when it produced nothing.
+
+    Two outcomes used to be one `None`: a request too small to be worth
+    splitting, and a split that failed. The first is a decision and the second
+    is a degradation, and the operator can only tell them apart if the card
+    says which. `note` is the sentence that says it, empty when there is
+    nothing to disclose.
+    """
+
+    reply: Optional[str] = None
+    note: str = ""
+
+
+@dataclass(frozen=True)
 class CallbackResponse:
     text: str
     remove_buttons: bool
@@ -599,9 +614,13 @@ class TelegramControl:
     def _start_now(
         self, conn, *, chat_id: str, workspace: WorkspacePolicy,
         reading: "interpreter.Reading", prompt: str,
-        parent_task_id: Optional[str] = None,
+        parent_task_id: Optional[str] = None, note: str = "",
     ) -> str:
         """Create the request and confirm it in the same breath.
+
+        `note` is how a fan-out that degraded reaches the card. One agent
+        because the request was small reads identically to one agent because
+        Hermes was down, and only the second is worth telling the operator.
 
         It still goes through `create_pending_action` and
         `confirm_pending_action` rather than reaching into the task table, so
@@ -641,6 +660,8 @@ class TelegramControl:
         )
         if flagged:
             lines.append(flagged)
+        if note:
+            lines.append(note)
         lines.append('Say "stop" to cancel, or just tell me what to change.')
         return "\n".join(lines)
 
@@ -668,20 +689,30 @@ class TelegramControl:
     def _fanout(
         self, conn, *, chat_id: str, workspace: WorkspacePolicy,
         reading: "interpreter.Reading", prompt: str,
-    ) -> Optional[str]:
-        """Split the request across specialists, or return None to stay single.
+    ) -> "Fanout":
+        """Split the request across specialists, or stay on one agent.
 
-        Returns None for every outcome that is not a persisted graph, so the
-        caller's ordinary single-task path is the fallback for all of them.
+        `Fanout.reply` is None for every outcome that is not a persisted
+        graph, so the caller's ordinary single-task path is the fallback for
+        all of them. `Fanout.note` is *why*, and the caller puts it on the
+        card.
+
+        Flagged HIGH by `agent-architecture-audit`: a fan-out that fell over
+        returned `None` exactly like a request too small to split, the
+        ordinary single-task card was then built as though one agent had been
+        the plan, and three of this session's runs had to be diagnosed from
+        the board because the card said nothing.
         """
         goal = reading.brief or prompt
         if not decomposer.warrants_attempt(goal):
-            return None
+            # Not a degradation. A small request was never going to split.
+            return Fanout()
         try:
             decomposition = decomposer.run_hermes_decompose(
                 goal, board=self.FANOUT_BOARD, timeout=self._fanout_timeout)
             if not decomposition.fanout or len(decomposition.children) < 2:
-                return None
+                # Hermes looked and said one agent. A judgement, not a fault.
+                return Fanout()
             graph = decomposer.build_graph(
                 decomposition,
                 workspace_kind="dir",
@@ -699,9 +730,9 @@ class TelegramControl:
             # planning tool would be worse than not planning.
             print(f"telegram: fan-out declined ({type(exc).__name__}: {exc}); "
                   "starting a single task", file=sys.stderr, flush=True)
-            return None
+            return Fanout(note=f"could not split this up ({exc}) - one agent instead")
         if not created:
-            return None
+            return Fanout(note="the split produced no tasks - one agent instead")
 
         phases = []
         for node in graph["nodes"]:
@@ -714,10 +745,16 @@ class TelegramControl:
             f"{len(created)} agents across {len(phases)} phase(s) in {workspace.alias}",
             "  " + ", ".join(roles),
         ]
+        if graph.get("edges_derived_from") != "hermes dependencies":
+            # The order came from the phase rank, not from what depends on
+            # what: it over-constrains across a phase boundary and
+            # under-constrains inside one. Say so rather than presenting a
+            # guessed order as a plan.
+            lines.append("running order is a guess - nothing said what needs what")
         if reading.source == "rules":
             lines.append("read without a model - correct me if that is wrong")
         lines.append('Say "stop" to cancel, or just tell me what to change.')
-        return "\n".join(lines)
+        return Fanout(reply="\n".join(lines))
 
     def _converse(
         self, conn, text: str, *, chat_id: str, board_path: Path | str,
@@ -787,16 +824,17 @@ class TelegramControl:
                 prompt=reading.brief or text, parent_task_id=parent,
             )
         # A follow-up refines one existing artifact, so it stays one agent.
+        fanned = Fanout()
         if parent is None:
             fanned = self._fanout(
                 conn, chat_id=chat_id, workspace=workspace,
                 reading=reading, prompt=text,
             )
-            if fanned is not None:
-                return fanned
+            if fanned.reply is not None:
+                return fanned.reply
         return self._start_now(
             conn, chat_id=chat_id, workspace=workspace, reading=reading,
-            prompt=text, parent_task_id=parent,
+            prompt=text, parent_task_id=parent, note=fanned.note,
         )
 
     def _stop(self, conn, *, chat_id: str) -> str:

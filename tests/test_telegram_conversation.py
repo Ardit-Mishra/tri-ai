@@ -303,3 +303,66 @@ class FanoutTest(ConversationFixture):
                      "grid, a cart page and a checkout page")
         stub.assert_not_called()
         self.assertEqual(len(self.tasks()), 0)
+
+
+class DegradedFanoutIsVisibleTest(FanoutTest):
+    """A fan-out that quietly degraded must not read as a clean one.
+
+    Flagged HIGH by `agent-architecture-audit`: every outcome of `_fanout`
+    that is not a persisted graph returns `None`, the ordinary single-task
+    card is then built as though one agent were the plan, and the operator
+    cannot tell a considered choice from Hermes falling over. Three fan-out
+    runs were diagnosed from the board and the run directories this session
+    because the card said nothing.
+    """
+
+    def _linked_stub(self, children, links):
+        """Children plus `parents`, the way Hermes actually returns them."""
+        def fake(goal, **kwargs):
+            return decomposer.Decomposition(
+                goal=goal, root_task_id="h_root", fanout=True,
+                children=tuple(
+                    decomposer.Child(task_id=f"h_{i}", title=title, body="",
+                                     assignee=role, parents=links.get(i, ()))
+                    for i, (role, title) in enumerate(children)
+                ),
+            )
+        return mock.patch.object(
+            decomposer, "run_hermes_decompose", side_effect=fake)
+
+    def test_a_failed_split_says_so_on_the_single_task_card(self):
+        with self.stub_decompose(
+                [], raises=decomposer.DecomposeError("hermes is down")):
+            reply = self.say(self.HEAVY)
+        self.assertEqual(len(self.tasks()), 1)
+        self.assertIn("split", reply.casefold())
+
+    def test_the_failure_reason_reaches_the_operator(self):
+        with self.stub_decompose(
+                [], raises=decomposer.DecomposeError("hermes is down")):
+            reply = self.say(self.HEAVY)
+        self.assertIn("hermes is down", reply)
+
+    def test_a_guessed_ordering_says_it_was_guessed(self):
+        """Phase order is the fallback. It over-constrains across a phase and
+        under-constrains inside one, so the operator should know it is in use.
+        """
+        with self._linked_stub(
+                [("designer", "Design the grid"),
+                 ("frontend_builder", "Build the grid")], links={}):
+            reply = self.say(self.HEAVY)
+        self.assertIn("order", reply.casefold())
+        self.assertIn("guess", reply.casefold())
+
+    def test_real_dependencies_are_not_announced_as_a_guess(self):
+        with self._linked_stub(
+                [("designer", "Design the grid"),
+                 ("frontend_builder", "Build the grid")], links={1: ("h_0",)}):
+            reply = self.say(self.HEAVY)
+        self.assertNotIn("guess", reply.casefold())
+
+    def test_a_clean_single_task_card_is_left_alone(self):
+        """A request too small to split was never a degraded fan-out."""
+        reply = self.say("build me a recipe card page for a masala chai")
+        self.assertEqual(len(self.tasks()), 1)
+        self.assertNotIn("split", reply.casefold())

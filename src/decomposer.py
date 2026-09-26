@@ -11,23 +11,34 @@ with one profile per Tri-AI role it produced designer, backend_builder,
 frontend_builder, payments_engineer and accessibility_auditor, correctly
 sending "paid subscription tier" to the monetisation role.
 
-What Hermes does *not* produce is a graph. Every child comes back with no
-parents, so "integrate all the components" does not depend on the components.
+**Hermes produces a graph too, and this module used to throw it away.** The
+first version of this docstring claimed "every child comes back with no
+parents"; that was never checked, and it is false. Hermes' decomposer prompt
+asks the model for `"parents": [<int>, ...]` "expressing actual data
+dependencies", and `kanban_db.decompose_triage_task` writes them into
+`task_links` in the same transaction that creates the children. They simply do
+not appear in `decompose --json`, which returns only `child_ids`.
 
-Edges are therefore derived from **phase order, not semantics**. A node depends
-on every node in the nearest earlier phase the graph actually contains. That is
-deliberately conservative:
+Read back off a real seven-child portfolio decomposition, Hermes had recorded
+six edges: each builder waiting on *its own* designer, and the integrator
+waiting on the three builders. This module derived twenty-eight from the phase
+rank instead, and the discarded claim that phase order "over-constrains rather
+than under-constrains" and so "costs wall-clock, never correctness" was false
+in both halves:
 
-  * it cannot produce a cycle, because edges only point backwards through a
-    fixed phase sequence;
-  * it is deterministic, so a wrong edge is a wrong phase mapping rather than a
-    model's opinion;
-  * it over-constrains rather than under-constrains. Build work that could have
-    started before design finished will wait. That costs wall-clock, never
-    correctness, and the dispatcher still runs a whole phase concurrently.
+  * it over-constrains across a phase boundary. Three of four designers
+    blocked in an eleven-node run, and because every builder waited on every
+    designer, **all seven builders were stranded in `todo` permanently**.
+  * it *under*-constrains within one. "Integrate the sections" is a
+    `frontend_builder`, the same phase as the three builders it integrates, so
+    the mesh makes it their sibling and the dispatcher may run it against
+    files that do not exist yet.
 
-Semantic edges would be tighter, need a second model call, and fail in the
-expensive direction: a missed edge runs a task before its input exists.
+So edges now come from `semantic_edges`, and `phase_edges` survives only as the
+fallback for a decomposition Hermes left flat. The fallback is all-or-nothing:
+a half-read set of links would lose an edge silently, and a lost edge runs a
+task before its input exists, which is the one failure the mesh could not
+produce.
 
 This module writes nothing to the board. It emits a document;
 `planner.validate_graph` decides whether that document is fit to persist.
@@ -93,6 +104,10 @@ class Child:
     title: str
     body: str
     assignee: str
+    # Hermes task ids of this child's siblings that must finish first, read
+    # back from `task_links`. Empty means "starts immediately" once the
+    # decomposition supplied structure at all - see `semantic_edges`.
+    parents: tuple[str, ...] = ()
 
 
 @dataclass
@@ -189,8 +204,16 @@ def _role_for(assignee: str) -> str:
 def phase_edges(nodes: list[dict[str, Any]]) -> None:
     """Fill in `parents` from phase order. Mutates nodes in place.
 
-    Each occupied phase depends on the previous *occupied* phase, so an empty
-    phase is skipped rather than breaking the chain.
+    The fallback, not the default - `semantic_edges` runs first and this only
+    sees a decomposition Hermes left flat. Each occupied phase depends on the
+    previous *occupied* phase, so an empty phase is skipped rather than
+    breaking the chain.
+
+    Kept rather than deleted because it is the only edge source that needs no
+    model opinion at all: deterministic, acyclic by construction, and correct
+    enough to run a flat list in a sensible order. It is a bad *default* - see
+    the module docstring for the two ways the mesh fails - and a reasonable
+    floor.
     """
     rank = {name: i for i, name in enumerate(_phases())}
     default_rank = rank.get("build", 0)
@@ -208,6 +231,34 @@ def phase_edges(nodes: list[dict[str, Any]]) -> None:
             if rank_of(node) == r:
                 node["parents"] = list(previous)
         previous = occupied[r]
+
+
+def semantic_edges(nodes: list[dict[str, Any]]) -> bool:
+    """Fill in `parents` from what Hermes actually linked. Mutates in place.
+
+    Returns whether any edge was set, which is the caller's signal to keep
+    these edges instead of falling back to `phase_edges`.
+
+    Parents outside this decomposition are dropped. Hermes links the root as
+    a child of every child so the root waits for the whole graph; read a
+    child's parents naively and the root comes back as one, and
+    `validate_graph` would then refuse the entire document for naming a node
+    that does not exist.
+    """
+    by_task_id = {
+        node["_hermes_task_id"]: node["node_key"]
+        for node in nodes if node.get("_hermes_task_id")
+    }
+    linked = False
+    for node in nodes:
+        parents = [
+            by_task_id[task_id]
+            for task_id in node.pop("_hermes_parents", ())
+            if task_id in by_task_id and by_task_id[task_id] != node["node_key"]
+        ]
+        node["parents"] = list(dict.fromkeys(parents))
+        linked = linked or bool(parents)
+    return linked
 
 
 def build_graph(
@@ -246,15 +297,26 @@ def build_graph(
             "_phase": phase_of(role),
             "_hermes_task_id": child.task_id,
             "_hermes_assignee": child.assignee,
+            "_hermes_parents": tuple(child.parents),
             "verify_generic": generic,
         })
 
-    phase_edges(nodes)
+    # Semantic first, phase order only when Hermes supplied no structure at
+    # all. Not per node: once the model has said what depends on what, a
+    # child it left parentless is one it judged independent, and filling that
+    # in from the phase rank would rebuild the mesh for exactly the nodes the
+    # model said could start at once.
+    if semantic_edges(nodes):
+        derived = "hermes dependencies"
+    else:
+        phase_edges(nodes)
+        derived = "phase order"
+
     return {
         "goal": decomposition.goal,
         "source": "hermes kanban decompose",
         "root_task_id": decomposition.root_task_id,
-        "edges_derived_from": "phase order",
+        "edges_derived_from": derived,
         "nodes": nodes,
     }
 
@@ -353,6 +415,45 @@ def ensure_board(board: str, *, timeout: int = 60) -> None:
             raise
 
 
+def read_links(
+    child_ids: Sequence[str], *, board: str, timeout: int = 60
+) -> dict[str, tuple[str, ...]]:
+    """Read each child's sibling parents off the board, or give up entirely.
+
+    Hermes' decomposer prompt asks the model for `"parents": [<int>, ...]`
+    "expressing actual data dependencies", and `decompose_triage_task` writes
+    them into `task_links` in the same transaction that creates the children.
+    None of that appears in `decompose --json`, which returns only
+    `child_ids`, nor in `list --json`. `show --json` is the published reader.
+
+    One call per child, which is the cost of using the CLI rather than
+    reaching into another board's SQLite file. Measured against seven
+    children it is worth it: the links Hermes had already written were the
+    difference between six correct edges and a twenty-eight-edge mesh.
+
+    All or nothing. A child whose links cannot be read would come back
+    looking independent, and an edge lost that way runs a task before its
+    input exists - the one failure the phase mesh could not produce. So any
+    refusal empties the whole mapping and the caller falls back to phase
+    order, which over-constrains instead.
+    """
+    links: dict[str, tuple[str, ...]] = {}
+    known = set(child_ids)
+    for child_id in child_ids:
+        try:
+            shown = _last_json_object(_hermes(
+                ["kanban", "--board", board, "show", child_id, "--json"], timeout))
+        except DecomposeError:
+            return {}
+        parents = shown.get("parents")
+        if not isinstance(parents, list):
+            return {}
+        links[child_id] = tuple(
+            p for p in parents if isinstance(p, str) and p in known and p != child_id
+        )
+    return links
+
+
 def run_hermes_decompose(
     goal: str, *, board: str, body: str = "", timeout: int = 600
 ) -> Decomposition:
@@ -375,17 +476,21 @@ def run_hermes_decompose(
     tasks = listing if isinstance(listing, list) else listing.get("tasks", [])
     by_id = {t["id"]: t for t in tasks}
 
+    ordered_ids = [cid for cid in (result.get("child_ids") or []) if cid in by_id]
+    if not ordered_ids:
+        raise DecomposeError("decompose reported children but none were readable")
+
+    links = read_links(ordered_ids, board=board)
     children = [
         Child(
             task_id=cid,
             title=(by_id[cid].get("title") or "").strip(),
             body=(by_id[cid].get("body") or "").strip(),
             assignee=(by_id[cid].get("assignee") or "builder").strip(),
+            parents=links.get(cid, ()),
         )
-        for cid in (result.get("child_ids") or []) if cid in by_id
+        for cid in ordered_ids
     ]
-    if not children:
-        raise DecomposeError("decompose reported children but none were readable")
 
     # The cards have been read; they are a planning artifact and must not be
     # left where something can run them. `hermes kanban` is an execution

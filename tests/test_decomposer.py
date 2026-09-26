@@ -1,9 +1,10 @@
 """The decomposer turns a Hermes decomposition into a planner-shaped DAG.
 
-`hermes kanban decompose` returns children with no parents. A flat list defeats
-a topological planner, so the decomposer supplies the edges. These tests pin
-the two things that can be quietly wrong: which role a child maps to, and
-whether the derived edges form a graph the planner will actually accept.
+`hermes kanban decompose --json` returns children with no parents *in its
+payload* - the edges the model chose are written to `task_links` and have to
+be read back with `show --json`. These tests pin the three things that can be
+quietly wrong: which role a child maps to, whether the links reach the graph
+at all, and whether the resulting edges form a graph the planner will accept.
 
 Nothing here shells out to Hermes. The projection is a pure function over a
 Decomposition, which is the reason it is worth having as a separate function.
@@ -564,3 +565,255 @@ class GenericVerifyTest(unittest.TestCase):
 
             code = subprocess.run(decomposer.GENERIC_VERIFY, cwd=root, shell=True).returncode
             self.assertEqual(code, 1, "a run that produced nothing must fail")
+
+
+# --- semantic edges ---------------------------------------------------------
+
+# The eight rows below are a real decomposition, read back out of
+# `~/AppData/Local/hermes/kanban/boards/triai-spike/kanban.db` after the
+# portfolio fan-out. Hermes' own decomposer prompt asks the model for
+# `"parents": [<int>, ...]` "expressing actual data dependencies", and
+# `kanban_db.decompose_triage_task` writes them into `task_links`. It did:
+# seven children, six edges, each builder waiting on *its own* designer and
+# the integrator waiting on the three builders.
+#
+# Tri-AI read `child_ids` and discarded the rest.
+REAL = (
+    ("t_59b4e84d", "Design the 3D interactive WebGL hero section", "designer", ()),
+    ("t_e3c403e7", "Design the three project sections", "designer", ()),
+    ("t_1629f33c", "Design the contact block", "designer", ()),
+    ("t_9c134c8c", "Build the WebGL hero section", "frontend_builder",
+     ("t_59b4e84d",)),
+    ("t_19aef098", "Build the three project sections", "frontend_builder",
+     ("t_e3c403e7",)),
+    ("t_e68ecfb9", "Build the contact block", "frontend_builder",
+     ("t_1629f33c",)),
+    ("t_9fa69823", "Integrate the sections into a single landing page",
+     "frontend_builder", ("t_9c134c8c", "t_19aef098", "t_e68ecfb9")),
+)
+
+
+def _linked(rows=REAL, goal="Build a 3D interactive portfolio landing page"):
+    return decomposer.Decomposition(
+        goal=goal,
+        root_task_id="t_a24d67ab",
+        children=[
+            decomposer.Child(task_id=tid, title=title, body="",
+                             assignee=who, parents=tuple(parents))
+            for tid, title, who, parents in rows
+        ],
+    )
+
+
+def _parents_by_title(graph):
+    key_to_title = {n["node_key"]: n["title"] for n in graph["nodes"]}
+    return {
+        n["title"]: {key_to_title[p] for p in n["parents"]}
+        for n in graph["nodes"]
+    }
+
+
+class SemanticEdgeTest(unittest.TestCase):
+    """What Hermes said, not what the phase rank guessed."""
+
+    def test_a_builder_waits_on_its_own_designer_and_no_other(self):
+        graph = decomposer.build_graph(
+            _linked(), workspace_kind="dir", workspace_path=WORKSPACE)
+        self.assertEqual(
+            _parents_by_title(graph)["Build the contact block"],
+            {"Design the contact block"},
+        )
+
+    def test_the_integrator_waits_on_the_builders_it_integrates(self):
+        """The phase mesh got this backwards, and not only slowly.
+
+        `Integrate the sections` is a `frontend_builder`, so phase rank puts
+        it in the *same* phase as the three builders - siblings, not a child.
+        It would therefore be dispatched alongside them and integrate files
+        that do not exist yet. The docstring's claim that phase order
+        "over-constrains rather than under-constrains" and "costs wall-clock,
+        never correctness" is false, and this is the counterexample.
+        """
+        parents = _parents_by_title(graph := decomposer.build_graph(
+            _linked(), workspace_kind="dir", workspace_path=WORKSPACE))
+        self.assertEqual(
+            parents["Integrate the sections into a single landing page"],
+            {"Build the WebGL hero section",
+             "Build the three project sections",
+             "Build the contact block"},
+        )
+        self.assertEqual(graph["edges_derived_from"], "hermes dependencies")
+
+    def test_one_blocked_designer_strands_only_its_own_builder(self):
+        """The whole reason for the change.
+
+        Eleven nodes, twenty-eight phase edges, three blocked designers, all
+        seven builders stranded in `todo` for ever. Under semantic edges a
+        blocked node takes its own subtree down and nothing else.
+        """
+        graph = decomposer.build_graph(
+            _linked(), workspace_kind="dir", workspace_path=WORKSPACE)
+        parents = _parents_by_title(graph)
+        stranded = {
+            title for title, ps in parents.items()
+            if "Design the contact block" in ps
+        }
+        self.assertEqual(stranded, {"Build the contact block"})
+
+    def test_the_edge_count_is_what_hermes_said(self):
+        graph = decomposer.build_graph(
+            _linked(), workspace_kind="dir", workspace_path=WORKSPACE)
+        self.assertEqual(sum(len(n["parents"]) for n in graph["nodes"]), 6)
+
+    def test_the_graph_is_accepted_by_the_planner_unmodified(self):
+        graph = decomposer.build_graph(
+            _linked(), workspace_kind="dir", workspace_path=WORKSPACE)
+        ordered = planner.validate_graph(graph)
+        self.assertEqual(len(ordered), 7)
+        seen: set[str] = set()
+        for node in ordered:
+            for parent in node.parents:
+                self.assertIn(parent, seen)
+            seen.add(node.key)
+
+    def test_a_parent_outside_the_decomposition_is_dropped(self):
+        """Hermes links the root as a child of every child.
+
+        Read a child's parents naively and the root comes back as one. It is
+        not in the graph, so `validate_graph` would refuse the whole document.
+        """
+        rows = (
+            ("t_a", "Design", "designer", ()),
+            ("t_b", "Build", "builder", ("t_a", "t_root_not_in_graph")),
+        )
+        graph = decomposer.build_graph(
+            _linked(rows), workspace_kind="dir", workspace_path=WORKSPACE)
+        self.assertEqual(len(graph["nodes"][1]["parents"]), 1)
+        planner.validate_graph(graph)
+
+    def test_a_decomposition_with_no_links_still_gets_phase_order(self):
+        """Structure or nothing. A flat list is still better than no graph."""
+        graph = decomposer.build_graph(
+            _decomp(("Design the flow", "designer"),
+                    ("Build the API", "backend_builder")),
+            workspace_kind="dir", workspace_path=WORKSPACE)
+        self.assertEqual(graph["edges_derived_from"], "phase order")
+        self.assertEqual(len(graph["nodes"][1]["parents"]), 1)
+
+    def test_a_child_with_no_parents_of_its_own_is_left_a_root(self):
+        """Semantic edges are all-or-nothing per decomposition.
+
+        Once Hermes has supplied structure, a parentless child means "this
+        starts immediately", not "fill this one in from the phase rank".
+        Mixing the two would reintroduce the mesh for exactly the nodes the
+        model said were independent.
+        """
+        graph = decomposer.build_graph(
+            _linked(), workspace_kind="dir", workspace_path=WORKSPACE)
+        designers = [n for n in graph["nodes"] if n["agent_role"] == "designer"]
+        self.assertEqual(len(designers), 3)
+        for node in designers:
+            self.assertEqual(node["parents"], [])
+
+
+class ReadingTheLinksBackTest(unittest.TestCase):
+    """`decompose --json` returns only `child_ids`; the edges are in the board.
+
+    `kanban_db.decompose_triage_task` writes the model's `parents` indices
+    into `task_links` inside the same write transaction that creates the
+    children, and `kanban show --json` is the published way to read them out.
+    Nothing in `decompose --json` or `list --json` carries them, so without
+    this pass the structure exists on the board and never reaches the graph.
+    """
+
+    CHILDREN = ["h_design", "h_build"]
+
+    def _run(self, show, calls=None):
+        """`show` maps a child id to its `kanban show --json` output."""
+        calls = calls if calls is not None else []
+
+        def fake(args, timeout):
+            calls.append(list(args))
+            joined = " ".join(args)
+            if "boards create" in joined:
+                return "ok"
+            if " show " in f" {joined} ":
+                for child in self.CHILDREN:
+                    if child in args:
+                        value = show[child]
+                        if isinstance(value, Exception):
+                            raise value
+                        return value
+            if "create " in joined:
+                return '{"id": "h_root"}'
+            if "decompose" in joined:
+                return ('{"ok": true, "fanout": true, "child_ids": '
+                        '["h_design", "h_build"]}')
+            if " list" in f" {joined}":
+                return ('[{"id": "h_design", "title": "Design", "body": "",'
+                        '  "assignee": "designer"},'
+                        ' {"id": "h_build", "title": "Build", "body": "",'
+                        '  "assignee": "frontend_builder"}]')
+            return "{}"
+
+        with mock.patch.object(decomposer, "_hermes", side_effect=fake):
+            return decomposer.run_hermes_decompose("goal", board="triai-intake")
+
+    def test_the_links_reach_the_children(self):
+        result = self._run({
+            "h_design": '{"task": {"id": "h_design"}, "parents": []}',
+            "h_build": '{"task": {"id": "h_build"}, "parents": ["h_design"]}',
+        })
+        by_id = {c.task_id: c for c in result.children}
+        self.assertEqual(by_id["h_build"].parents, ("h_design",))
+        self.assertEqual(by_id["h_design"].parents, ())
+
+    def test_the_links_are_read_before_the_cards_are_archived(self):
+        """Archive first and the links are gone with the cards."""
+        calls: list[list[str]] = []
+        self._run({
+            "h_design": '{"parents": []}',
+            "h_build": '{"parents": ["h_design"]}',
+        }, calls)
+        joined = [" ".join(c) for c in calls]
+        last_show = max(i for i, c in enumerate(joined) if " show " in f" {c} ")
+        archive = next(i for i, c in enumerate(joined) if "archive" in c)
+        self.assertGreater(archive, last_show)
+
+    def test_one_unreadable_child_drops_every_semantic_edge(self):
+        """Partial structure fails in the expensive direction.
+
+        A missed edge runs a task before its input exists, which is the one
+        failure the phase mesh could not produce. So a decomposition whose
+        links cannot all be read is treated as having none, and falls back to
+        the over-constraining phase order rather than to a graph with a hole
+        in it.
+        """
+        result = self._run({
+            "h_design": '{"parents": []}',
+            "h_build": decomposer.DecomposeError("show failed"),
+        })
+        self.assertEqual([c.parents for c in result.children], [(), ()])
+        graph = decomposer.build_graph(
+            result, workspace_kind="dir", workspace_path=WORKSPACE)
+        self.assertEqual(graph["edges_derived_from"], "phase order")
+
+    def test_a_decomposition_hermes_left_flat_is_not_an_error(self):
+        result = self._run({
+            "h_design": '{"parents": []}',
+            "h_build": '{"parents": []}',
+        })
+        self.assertEqual(len(result.children), 2)
+        self.assertEqual([c.parents for c in result.children], [(), ()])
+
+    def test_the_end_to_end_graph_carries_the_edge(self):
+        result = self._run({
+            "h_design": '{"parents": []}',
+            "h_build": '{"parents": ["h_design"]}',
+        })
+        graph = decomposer.build_graph(
+            result, workspace_kind="dir", workspace_path=WORKSPACE)
+        self.assertEqual(graph["edges_derived_from"], "hermes dependencies")
+        ordered = planner.validate_graph(graph)
+        self.assertEqual([n.title for n in ordered], ["Design", "Build"])
+        self.assertEqual(len(ordered[1].parents), 1)
