@@ -1533,3 +1533,62 @@ next thing to try is not another rule — it is whether `min_must_appear` should
 scale with how many promises were made, rather than being a flat floor that a
 five-promise brief must clear perfectly while a twelve-promise brief may miss
 seven.
+
+---
+
+## 2026-09-25 — the Telegram daemon's real defect, found and fixed
+
+**Root cause: every 4xx was classified permanent.** `HTTP 409` means *another
+`getUpdates` is already polling this bot*. It is not a rejection — it is two
+pollers contending, and it clears the moment one stops. The client raised
+`TelegramPermanentError`, the daemon exited, and the supervisor restarted it.
+Observed live on the desktop: **eight restarts in a row**, most of the budget.
+
+Two machines polling one token — a laptop and a desktop, which is this
+operator's actual setup — is therefore sufficient to produce an endless
+die-and-restart loop. So is one stale process. This is the most likely
+explanation for months of "Telegram keeps breaking".
+
+`429` had the same flaw and is transient by definition; Telegram sends
+`retry_after` with it.
+
+**Fixed on both error paths.** Telegram reports these two ways: as an HTTP
+status, and as `ok:false` with an `error_code` inside a `200` body. Only the
+first was found initially; fixing it alone would have left the daemon dying on
+409 whenever the API chose the second form. `401` and `404` remain permanent —
+a bad token or bad method cannot be waited out and must stop loudly.
+
+### How it was isolated
+
+| check | result |
+|---|---|
+| `getMe` × 3 | **OK** — `@ardit_tri_ai_bot`, token valid |
+| DNS / TCP 443 / HTTPS to api.telegram.org | all fine, no proxy, no exit node |
+| `getUpdates` timeout=0 and 10 | **OK** |
+| daemon (`--poll-timeout 30`) | 502, TimeoutError, then 409 → exit |
+
+A valid token and a working network alongside a dying daemon is what pointed at
+classification rather than connectivity.
+
+### Verified after deploy
+
+```
+telegram pid 11036 -> 19036, restarts reset 8 -> 0
+two minutes later: same pid, restarts 0
+supervisor: telegram healthy for 120s; backoff reset
+```
+
+### Desktop now current
+
+`8931f6b`, 771 tests pass on both machines (desktop reports `OK (skipped=1)` —
+it has no `~/.claude/skills`, and that check now skips rather than failing).
+
+Runbook facts confirmed in passing: OmniRoute is on **20129** and the dashboard
+on **8081**, because svchost holds 20128 and 8080. The dashboard listens on
+loopback *and* `100.67.149.86`, as intended.
+
+### Still open
+
+`~/.tri-ai/freellmapi` on the **desktop** listens on `:::3001` — all
+interfaces, the same exposure fixed on the laptop today. It needs
+`HOST=127.0.0.1` and a restart.
