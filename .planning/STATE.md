@@ -1867,3 +1867,42 @@ and the category-only check stay deterministic.
 not an oracle: it answers only whether a generative model is needed, never the
 external gate, and never overrules a model that did run. A label the module
 does not declare is ignored, and a classifier that raises is the offline case.
+
+#### The reading path end to end — 2026-09-25
+
+Live Laya on `127.0.0.1:8127` (loopback deliberately; Laya's own `LAYA_HOST`
+defaults to `0.0.0.0`) plus qwen2.5-coder:7b on the desktop, nine real dictated
+messages:
+
+| message | intent | source | LLM | ms |
+|---|---|---|---|---|
+| hey | chat | rules | no | **0** |
+| thanks mate | chat | classifier | no | 569 |
+| whats going on right now | ask | classifier | no | 523 |
+| stop | stop | rules | no | **0** |
+| dictated Diwali pamphlet | build | model | yes | 1924 |
+| knock together something... | build | model | yes | 1885 |
+| mum's catering one-pager | build | model | yes | 2126 |
+| email the invoice... | — | model | yes | held at the gate |
+| build a website | build | model | yes | asks one question |
+
+Four of nine need no generative call. **Three bugs surfaced here that every
+unit test had passed**, which is the argument for running the real thing:
+
+1. **The adapter sent no `model`,** and the server resolves a default rather
+   than refusing, so it served a checkpoint the criteria were never measured
+   on. Every message returned `stop`. Identified from the failure set being
+   exactly the four the `english` checkpoint got wrong earlier. Now pinned.
+2. **"hey" cost 5.3 s and asked what to build.** Laya said `refine` (its one
+   miss in ten), qwen then said `unclear`. A bare greeting is not a
+   classification problem; `is_obvious()` now answers both in 0 ms, narrowly -
+   "hello can you build me a shop" still reaches a model.
+3. **An external request was answered with small talk.** Laya labelled "email
+   the invoice to the client please" as `chat`, and `_act_on` returns the chat
+   reply before it checks `external`, so the operator would have got "I'm
+   here" and nothing staged. Safe, but it is the not-understood complaint
+   returning by another route. External now skips the shortcut entirely.
+
+Laptop 853 tests OK. Desktop verified independently at `e0e3377`: 829 tests,
+OK, skipped=1. A first desktop run returned exit 0 with an empty log, which is
+not evidence of anything, so it was re-run capturing to a file.
