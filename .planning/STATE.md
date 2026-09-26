@@ -1937,3 +1937,55 @@ stopped daemons.
 Left alone deliberately: six orphaned python processes dating from 2026-09-23
 that belong to no current supervisor. They are not in `daemons.json` and
 killing them is not this change's business, but they are worth a look.
+
+## Fan-out: one message deploys a team — 2026-09-26
+
+`ad2a048`, 905 tests on both machines, daemons restarted.
+
+Telegram intake now routes a substantial request through
+`hermes kanban decompose` into a planner graph of specialist tasks, instead of
+creating one task with one agent. Spiked against the real Hermes first, which
+is the only reason the next two paragraphs exist.
+
+**The spike found two bugs that reading would not have.** `--board` takes a
+*slug*, not a path — `decomposer.py` had always passed a filesystem path, so
+the first real call died on `invalid board slug` raised two layers down after
+the subprocess had already run. And `\bcheckout\b` in the external detector
+read "build me a shop with a cart page and **a checkout page**" as spending
+money, staging it behind `/confirm` and creating nothing. Both fixed and
+tested; the checkout pattern now carries a negative lookahead so a checkout
+*page* builds while going to checkout still stops.
+
+**The refusals matter more than the happy path.** A request too small stays
+one agent; a decomposition that throws still starts the work; a graph the
+planner refuses falls back rather than dropping the request; a reply to a
+completion card stays single because a follow-up refines one artifact.
+Decomposition is an improvement on one agent, never a precondition for any.
+
+### Open risks, in the order I expect them to bite
+
+1. **Shared workspace collisions.** Every node runs in the same directory.
+   Two `frontend_builder` nodes editing `index.html` is a real possibility,
+   and the clean-tree precondition between claims will either serialise them
+   awkwardly or have them overwrite each other. **This is the one to watch on
+   the first real fan-out.** The fix if it bites is a worktree per node —
+   `worktrees.py` exists and `create_task` already accepts a worktree
+   workspace kind, so it is wiring rather than new machinery.
+2. **Phase ordering under claim.** Edges come from phase order, not
+   semantics. A build node must not claim before its design parent is done;
+   the board's parent links should enforce it, but it has never been
+   exercised with a real multi-node graph.
+3. **Per-node taste gate.** Every node inherits the workspace's
+   `python verify.py`, which demands imagery and five kept promises. A node
+   that legitimately writes only a fragment will fail that gate. Preserving
+   rejected output (already shipped) means the work is not lost, but the run
+   still reads as failed.
+4. **Cost.** Seven nodes is seven agent invocations, each with a 30-minute
+   budget. Right for a genuinely multi-part request, wrong for one page
+   described carefully — which is what `warrants_attempt` gates on.
+
+### Next
+
+The cartographer finally has a graph worth drawing. Emit the archify diagram
+at plan time and at completion; the difference between the two is the honest
+artifact, and it is the per-task "neurons firing" view originally asked for.
