@@ -179,11 +179,21 @@ def apply(graph: Mapping[str, Any], root: str | Path) -> Profile:
 
     An unknown workspace keeps `verify_generic: true`, so the weak gate stays
     visible rather than being quietly promoted by having been through here.
+
+    A detection that detected *nothing* does not overwrite a command the node
+    already carries. Measured on the first fan-out to run to completion: the
+    operator's intake policy sets `python verify.py` for the sandbox, this
+    function replaced it on every node with the generic fallback because a
+    workspace with no manifest detects as "unknown", and three specialists
+    were judged by a gate the operator never chose. Detecting a stack is a
+    reason to set the gate; detecting nothing is not.
     """
     profile = detect(root)
     for node in graph.get("nodes", []):
-        node["verify_command"] = profile.verify_command
-        node["verify_generic"] = profile.generic
+        existing = str(node.get("verify_command") or "").strip()
+        if not profile.generic or not existing:
+            node["verify_command"] = profile.verify_command
+            node["verify_generic"] = profile.generic
         node["verify_stack"] = profile.stack
     return profile
 

@@ -63,7 +63,23 @@ DEFAULT_PHASES = (
 
 # Applied when no stack profile has supplied a real command. Generic, not fake:
 # a workspace the agent never changed is a failed task under any stack.
-GENERIC_VERIFY = "git -C . diff --quiet && exit 1 || exit 0"
+# `git diff` ignores untracked files, so the previous form - `git diff
+# --quiet && exit 1 || exit 0` - failed any run that *created* files and
+# passed one that edited a tracked file. Backwards for the common case:
+# measured on a nine-file FastAPI backend that was failed twice by it, with a
+# zero-byte verify log, until the circuit breaker blocked the task.
+#
+# Written in Python rather than shell because `run_verify` uses shell=True,
+# which is cmd.exe here and sh elsewhere - `test -n` is not a cmd builtin and
+# silently succeeded. Python is the one interpreter this repo can count on.
+GENERIC_VERIFY = (
+    'python -c "'
+    "import subprocess,sys;"
+    "out=subprocess.run(['git','status','--porcelain','--untracked-files=all'],"
+    "capture_output=True,text=True).stdout.strip();"
+    "print(out or 'verify: this run changed nothing in the workspace');"
+    'sys.exit(0 if out else 1)"'
+)
 DEFAULT_VERIFY_TIMEOUT = 600
 
 

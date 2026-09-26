@@ -11,6 +11,7 @@ Decomposition, which is the reason it is worth having as a separate function.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import os
 import tempfile
@@ -512,3 +513,54 @@ class EnvironmentIsolationTest(unittest.TestCase):
             decomposer._hermes(["kanban", "list"], 30)
 
         self.assertEqual(seen["env"].get("SENTINEL"), "keep")
+
+
+class GenericVerifyTest(unittest.TestCase):
+    """The fallback gate must notice a file that was created, not only edited.
+
+    `git -C . diff --quiet && exit 1 || exit 0` was the fallback, and
+    `git diff` ignores untracked files. An agent that creates files - the
+    normal case - leaves `git diff` clean, so the gate exits 1 and a real run
+    is recorded as failed. An agent that edits a tracked file passes. Backwards
+    for the common case.
+
+    Measured: backend_builder produced nine files (backend/main.py,
+    database.py, schemas.py, models/models.py and four api/ packages) and was
+    failed by this gate, twice, until the circuit breaker blocked it. The
+    verify log was zero bytes, so the card could not say why either.
+    """
+
+    def test_the_fallback_counts_untracked_files(self):
+        self.assertIn("--porcelain", decomposer.GENERIC_VERIFY)
+
+    def test_the_fallback_does_not_rely_on_git_diff_alone(self):
+        self.assertNotIn("diff --quiet", decomposer.GENERIC_VERIFY)
+
+    def test_it_passes_when_a_file_was_created(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "config", "user.email", "t@e.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "T"], cwd=root, check=True)
+            (root / "seed.txt").write_text("x", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-qm", "seed"], cwd=root, check=True)
+
+            (root / "made.py").write_text("print(1)\n", encoding="utf-8")
+            code = subprocess.run(decomposer.GENERIC_VERIFY, cwd=root, shell=True).returncode
+            self.assertEqual(code, 0, "a created file is a change the gate must see")
+
+    def test_it_fails_when_the_run_changed_nothing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "config", "user.email", "t@e.com"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "T"], cwd=root, check=True)
+            (root / "seed.txt").write_text("x", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-qm", "seed"], cwd=root, check=True)
+
+            code = subprocess.run(decomposer.GENERIC_VERIFY, cwd=root, shell=True).returncode
+            self.assertEqual(code, 1, "a run that produced nothing must fail")

@@ -169,3 +169,44 @@ class ApplyToGraphTest(_Workspace):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DetectionMustNotOverrideAnExplicitChoiceTest(_Workspace):
+    """A detection that detected nothing must not overwrite a real command.
+
+    Measured on the first fan-out to run to completion. The operator's intake
+    policy sets `python verify.py` for the sandbox; `_fanout` passed it to
+    `build_graph` and then `apply` overwrote every node with the generic
+    fallback, because a workspace with no manifest detects as "unknown".
+    Three specialists were then judged by a gate the operator never chose -
+    and `backend_builder`'s nine-file FastAPI backend was rejected by it.
+
+    Detecting a stack is a reason to set the gate. Detecting nothing is not.
+    """
+
+    def test_an_unknown_stack_keeps_the_command_already_on_the_node(self):
+        graph = {"nodes": [{"node_key": "n01", "verify_command": "python verify.py",
+                            "verify_generic": False}]}
+        stack_profile.apply(graph, self.root)
+        self.assertEqual(graph["nodes"][0]["verify_command"], "python verify.py")
+
+    def test_an_unknown_stack_still_records_that_it_detected_nothing(self):
+        graph = {"nodes": [{"node_key": "n01", "verify_command": "python verify.py",
+                            "verify_generic": False}]}
+        stack_profile.apply(graph, self.root)
+        self.assertEqual(graph["nodes"][0]["verify_stack"], "unknown")
+
+    def test_a_node_with_no_command_still_gets_the_fallback(self):
+        graph = {"nodes": [{"node_key": "n01", "verify_command": "",
+                            "verify_generic": True}]}
+        stack_profile.apply(graph, self.root)
+        self.assertTrue(graph["nodes"][0]["verify_command"].strip())
+        self.assertTrue(graph["nodes"][0]["verify_generic"])
+
+    def test_a_detected_stack_still_wins(self):
+        """Detection that found something is better than a generic default."""
+        self.plant("go.mod", body="module x\n")
+        graph = {"nodes": [{"node_key": "n01", "verify_command": "python verify.py",
+                            "verify_generic": False}]}
+        stack_profile.apply(graph, self.root)
+        self.assertIn("go test", graph["nodes"][0]["verify_command"])
