@@ -1765,3 +1765,76 @@ should be built against Jev before that is measured.
   question, and the promise contract wrongly rejecting correct pages is
   implicated in some of the 22 "produced nothing" failures. Speculative until
   that failure class is actually diagnosed.
+
+### Laya, measured rather than claimed — 2026-09-25
+
+Installed on the laptop at `~/.tri-ai/runtimes/laya/.venv` (uv, Python 3.12,
+`laya[serve]`, torch 2.14.0+cpu) and on the desktop at
+`D:\tri-ai-runtimes\laya\.venv`. **Deliberately a separate venv per machine, not
+the suite's interpreter** — torch is the largest dependency Tri-AI would ever
+take, and the core stays stdlib. The desktop runtime lives on **D:** because C:
+had only 10.8 GB free against D:'s 32.3 GB; `UV_CACHE_DIR` and `HF_HOME` are
+pinned to D: too, or the checkpoints would have landed back on C:.
+
+Two corrections to what was assumed before measuring:
+
+- Question types are `choice`, `noul`, `score`. **There is no `boolean`**,
+  although `README.md:628` shows one — it raises `ValueError` on use.
+- The laptop has **no NVIDIA GPU**, so its Laya runs on CPU. The desktop's 3060
+  is the only GPU in the estate.
+
+#### Intent classification, 10 real dictated messages
+
+| checkpoint | criteria | correct | mean top-probability | p50 |
+|---|---|---|---|---|
+| `typed-decisions` | terse | 7/9 | ~0.38 | 774 ms |
+| `typed-decisions` | **sharpened** | **9/10** | **0.31** | **576 ms** |
+| `english` | sharpened | 6/10 | 0.48 | 436 ms |
+
+Criteria wording moved accuracy more than the checkpoint did: rewriting terse
+criteria into full sentences fixed `"stop"`, which the terse version had lost
+to `build`. The `english` checkpoint is faster and more confident and much
+worse — it answered `stop` to `"hey"`, `"thanks mate"`, `"whats going on right
+now"` and `"build a website"`. **Use `typed-decisions`.**
+
+#### The finding that changes the verdict
+
+**The probabilities are too flat to threshold.** Mean top-probability 0.31
+where 0.20 is a coin toss over five options; the correct answer for `"stop"`
+came in at 0.23. The single strongest argument for adopting Laya over an LLM
+was a *calibrated* number to gate on — and on this task, as configured, that
+number does not separate. `auto-start if confidence > 0.7` cannot be written,
+because nothing reaches 0.7.
+
+The loader says so out loud, and it is worth quoting rather than paraphrasing:
+`this checkpoint ships invalid temperatures or values outside [0.5, 5] ...
+Treat confidence from the affected entries as uncalibrated`. The named entry is
+`choice:11+`, and the intent question has five options, so the warning may not
+cover this case — but the flatness is measured regardless of what explains it.
+
+The `external` noul is worse and matters more: `"email the invoice to the
+client please"` scored **0.5879**, barely off a coin toss, on the one judgement
+that guards spending and sending. The regex in `interpreter._is_external`
+answers it deterministically.
+
+#### Revised verdict — ADOPT the argmax, REJECT the probability
+
+- **Take the label.** 9/10 beats the word lists, and it is multilingual and
+  local. It should become the floor's classifier, replacing `read_without_model`
+  as the intent source when the service is reachable.
+- **Do not take the confidence.** No thresholding on Laya's probability until
+  it is shown to separate on real traffic. Keep the two rules vetoes exactly as
+  they are: `_is_external` owns the send/spend/publish gate, and the
+  category-only check owns "too thin to act on". Both are deterministic and
+  both were measured to beat Laya on their own question.
+- **Keep the LLM for the brief.** Laya emits no text; `understood` and `brief`
+  still need a generative model.
+- Speed on a CPU laptop is **576 ms p50**, not the 33 ms in BENCHMARKS.md —
+  that figure is a T4 with batching. Against qwen2.5-coder:7b's measured
+  1.0-1.6 s it is roughly 2x faster and, unlike qwen, it is genuinely local to
+  the laptop rather than reached over the tailnet. First call costs ~13 s of
+  model load, which a long-lived service pays once.
+
+This is the shape the architecture already anticipated: `interpret()` takes an
+injected reader, so Laya arrives as another adapter beside `local_completer`
+and the word lists stay underneath both.

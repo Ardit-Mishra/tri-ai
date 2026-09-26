@@ -55,6 +55,39 @@ class DaemonSupervisorTests(unittest.TestCase):
         self.assertIn("--intake-policy", result.telegram)
         self.assertNotIn("shell", " ".join((*result.worker, *result.telegram)).lower())
 
+    def test_a_reader_endpoint_reaches_the_telegram_daemon_when_configured(self):
+        """Without it the daemon reads messages on word lists alone, which
+        misread a dictated request the model got right."""
+        result = daemon_supervisor.commands(
+            root=self.root, board_path=self.root / "board.db",
+            ledger_path=self.root / "ledger.jsonl", runs_root=self.root / "runs",
+            intake_policy=None,
+            reader_endpoint="http://127.0.0.1:11434/v1/chat/completions",
+            reader_model="qwen2.5-coder:7b",
+        )
+        self.assertIn("--reader-endpoint", result.telegram)
+        self.assertIn("qwen2.5-coder:7b", result.telegram)
+
+    def test_no_reader_endpoint_leaves_the_flag_off_entirely(self):
+        """The floor has to stay reachable: no endpoint means word lists, not
+        a daemon that fails to start."""
+        result = daemon_supervisor.commands(
+            root=self.root, board_path=self.root / "board.db",
+            ledger_path=self.root / "ledger.jsonl", runs_root=self.root / "runs",
+            intake_policy=None,
+        )
+        self.assertNotIn("--reader-endpoint", result.telegram)
+        self.assertNotIn("--reader-model", result.telegram)
+
+    def test_the_worker_never_receives_reader_arguments(self):
+        """Reading a message is an intake concern. The worker runs agents."""
+        result = daemon_supervisor.commands(
+            root=self.root, board_path=self.root / "board.db",
+            ledger_path=self.root / "ledger.jsonl", runs_root=self.root / "runs",
+            intake_policy=None, reader_endpoint="http://127.0.0.1:11434/v1/chat/completions",
+        )
+        self.assertNotIn("--reader-endpoint", result.worker)
+
     def test_missing_default_intake_policy_keeps_telegram_read_only(self):
         missing = self.root / "intake_policy.json"
         self.assertIsNone(daemon_supervisor.resolve_intake_policy(None, default_path=missing))

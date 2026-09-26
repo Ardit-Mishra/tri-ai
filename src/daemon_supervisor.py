@@ -41,6 +41,8 @@ def commands(
     runs_root: Path,
     intake_policy: Optional[Path],
     dashboard_url: Optional[str] = None,
+    reader_endpoint: Optional[str] = None,
+    reader_model: Optional[str] = None,
 ) -> DaemonCommands:
     """Build the only two child argv forms the supervisor may execute."""
     worker = (
@@ -55,6 +57,13 @@ def commands(
         telegram.extend(("--intake-policy", str(intake_policy)))
     if dashboard_url:
         telegram.extend(("--dashboard-url", str(dashboard_url)))
+    # Reading a message before dispatching it is an intake concern, so it
+    # reaches only the Telegram child. Absent, the daemon falls back to word
+    # lists rather than refusing to start - the floor has to stay reachable.
+    if reader_endpoint:
+        telegram.extend(("--reader-endpoint", str(reader_endpoint)))
+        if reader_model:
+            telegram.extend(("--reader-model", str(reader_model)))
     return DaemonCommands(worker, tuple(telegram))
 
 
