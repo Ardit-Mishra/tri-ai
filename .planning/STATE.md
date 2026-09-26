@@ -2228,3 +2228,97 @@ read (`test_the_links_are_read_before_the_cards_are_archived` pins the order).
    on the brief rather than the operator's words.
 4. Cartographer wired to real runs; Step 5 evolution loop; PWA + offline
    artifacts.
+
+---
+
+## Fix 2 landed, and it was not the thing I said it was — `4e94053`
+
+994 tests, exit 0 on both machines. Desktop at `4e94053`, supervisor 13208,
+telegram 24088.
+
+### I measured the corpus instead of generalising from three samples
+
+I had written that "a model refusal is recorded as a successful turn" and
+put it second in the fix order on the strength of three runs. Reading the
+desktop's whole ledger — **82 entries, 74 with a usage file, 59 non-passing**
+— that is right about two runs and wrong about the shape of the problem.
+
+| signal | failed | passed |
+|---|---|---|
+| `api_calls <= 1` | **19 of 52** | 1 of 21 |
+
+| model | runs | one-call | passed |
+|---|---|---|---|
+| `auto/best-coding` | 50 | 7 | 12 |
+| **`devstral:24b`** | 11 | **10** | **1** |
+| `auto/best-free` | 7 | **0** | **7** |
+| `qwen3.5:4b` | 2 | 1 | 0 |
+| `gpt-oss:20b` | 2 | 1 | 0 |
+
+**Nineteen of fifty-two failures are a model that answered once, in prose,
+and never called the terminal tool.** It writes the shell command — or the
+HTML itself — into its reply, the workspace is untouched, and the gate fails
+it correctly. Only **2 of the 19** are refusal-shaped. The rest read as
+confident work that simply never happened:
+
+  * run 36 — a ```bash fence containing `cat << 'EOF' > index.html`, never run
+  * run 45 — cmd.exe caret continuations, as text
+  * run 49 — `echo(` (a PowerShell-ism) inside a cmd one-liner, as text
+  * run 54 — `file-create "index.html" <<'EOF'`, a tool that does not exist
+  * run 38 — a raw `{"name": "terminal", "parameters": …}` printed as prose
+
+Every one of them records `"completed": true, "failed": false`. The ledger
+said `outcome: failed` and nothing else. **The single most common failure in
+this system has been uncountable for 82 runs**, and I misread three samples
+of it as something rarer.
+
+### Two more things the corpus showed
+
+**The lane benchmark measured the wrong thing.** It rated `devstral:24b`
+"3/3 correct, 7.32s". That was answering a question. Driving a tool loop it
+is **1 for 11**. A model can be fast and correct on a prompt and still be
+unable to operate the agent runtime.
+
+**Run 26 is a false pass.** The agent errored — `HTTP 404: model 'gemma4:e4b'
+not found` — and the gate passed it, because `celestial.html` from a previous
+run was still in the workspace and the verifier inspects state rather than a
+diff. The mirror image of the false-failure problem, and already named in
+`worker.py`'s VERIFY-05 comment as "the hollow gate".
+
+### What changed
+
+* `executor.read_usage()` — one named function replacing the ad-hoc parse
+  inside `run_agent`, returning model, provider, failed and `api_calls`.
+* `executor.answered_without_tools()` — `api_calls <= 1`. **None in, None
+  out**: a runtime that records no count is not accused of silence.
+* Recorded in the ledger (`api_calls`, `answered_without_tools`, both
+  documented in the schema block), in the board row's failure metadata, and
+  on the completion card. The card previously said only "produced no files in
+  the workspace" — identical for an agent that worked twenty minutes and got
+  it wrong and one that never touched the disk.
+
+**Deliberately no control-flow change.** A one-call run still fails and still
+counts toward the circuit breaker. Exempting it would loop a model that
+cannot drive the tool loop for ever. The point is to make it measurable, so
+lane selection has something real to select on.
+
+### What this changes about the plan
+
+Step 3 (`lane_select.py`) was specified to prefer lanes by *measured ledger
+outcomes per (role, model)*. The data now says the first thing it must
+measure is not pass rate but **whether the model can call a tool at all** —
+and on the evidence `auto/best-free` (7/7) should outrank `devstral:24b`
+(1/11) by a wide margin, which pass rate alone would also say, but far less
+sharply and with no explanation attached.
+
+### Still open
+
+1. Retries remain 4-for-4 worse than first attempts. The `tool_search`
+   5%-threshold candidate is still unproven; `answered_without_tools` in the
+   ledger is now the instrument to test it with — if the retry hypothesis is
+   right, retries should show a higher one-call rate than first attempts.
+2. The false pass (run 26). A gate that inspects state rather than a diff can
+   credit a run that never happened.
+3. Audit MEDIUMs: archive-failure counting, the `_MERGED` process-lifetime
+   cache, `warrants_attempt` gating on the brief rather than the words.
+4. Cartographer on real runs; Step 5 evolution loop; PWA + offline artifacts.
