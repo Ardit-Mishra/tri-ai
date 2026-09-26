@@ -315,3 +315,142 @@ class BinaryResolutionTest(unittest.TestCase):
     def test_the_override_is_honoured_so_both_call_sites_move_together(self):
         with mock.patch.dict(os.environ, {"TRIAI_HERMES_BIN": r"D:\tools\hermes.exe"}):
             self.assertEqual(str(executor.hermes_bin()), r"D:\tools\hermes.exe")
+
+
+class BoardCreationTest(unittest.TestCase):
+    """The board has to exist before a card can be put on it.
+
+    `hermes kanban --board <slug> create` does not create the board; it exits
+    1 with "board 'triai-intake' does not exist". The earlier spike passed
+    only because `triai-spike` already existed on that machine, so the gap
+    survived a green spike and a green suite and would have failed the first
+    real fan-out - immediately after the PATH fix that was supposed to unblock
+    it.
+
+    Creation is idempotent by tolerance rather than by a lookup: asking
+    whether it exists and then creating it is two calls and a race, while
+    creating it and ignoring "already exists" is one call and no race.
+    """
+
+    def _run(self, calls, results):
+        def fake(args, timeout):
+            calls.append(list(args))
+            for match, value in results:
+                if match in " ".join(args):
+                    return value
+            return "{}"
+        return fake
+
+    def test_the_board_is_created_before_the_card(self):
+        calls = []
+        results = [
+            ("boards create", "created"),
+            ("create ", '{"id": "h_root"}'),
+            ("decompose", '{"ok": true, "child_ids": ["h_1"], "fanout": true}'),
+            ("list", '[{"id": "h_1", "title": "T", "body": "", "assignee": "designer"}]'),
+        ]
+        with mock.patch.object(decomposer, "_hermes", side_effect=self._run(calls, results)):
+            decomposer.run_hermes_decompose("goal", board="triai-intake")
+        joined = [" ".join(c) for c in calls]
+        self.assertTrue(any("boards create triai-intake" in c for c in joined),
+                        f"no board creation in {joined}")
+        board_at = next(i for i, c in enumerate(joined) if "boards create" in c)
+        card_at = next(i for i, c in enumerate(joined)
+                       if "--triage" in c)
+        self.assertLess(board_at, card_at, "the board must precede the card")
+
+    def test_an_existing_board_is_not_an_error(self):
+        """Re-running must be ordinary, not a failure on the second message."""
+        calls = []
+        results = [
+            ("boards create", decomposer.DecomposeError(
+                "hermes kanban boards create triai-intake exited 1: "
+                "kanban: board 'triai-intake' already exists")),
+            ("create ", '{"id": "h_root"}'),
+            ("decompose", '{"ok": true, "child_ids": ["h_1"], "fanout": true}'),
+            ("list", '[{"id": "h_1", "title": "T", "body": "", "assignee": "designer"}]'),
+        ]
+
+        def fake(args, timeout):
+            calls.append(list(args))
+            for match, value in results:
+                if match in " ".join(args):
+                    if isinstance(value, Exception):
+                        raise value
+                    return value
+            return "{}"
+
+        with mock.patch.object(decomposer, "_hermes", side_effect=fake):
+            result = decomposer.run_hermes_decompose("goal", board="triai-intake")
+        self.assertEqual(len(result.children), 1)
+
+
+class ArchiveAfterReadingTest(unittest.TestCase):
+    """Decomposition cards are a planning artifact, not work to be done.
+
+    `hermes kanban` is an execution system: each board carries its own
+    dispatcher, and a card left in todo is a card something may later claim
+    and run. Tri-AI's own board holds the real tasks, with the verify gate and
+    the workspace policy - the Hermes cards exist only to be read back.
+
+    Found on the desktop: after two decompositions the intake board held
+    `running=5, todo=5`. Nothing was executing (no gateway was up for that
+    board, and no process existed), so nothing ran unsupervised - but the
+    cards were dispatchable, and a gateway started later would have run them
+    outside every gate Tri-AI applies.
+    """
+
+    def _decompose_with(self, calls):
+        results = [
+            ("boards create", "ok"),
+            ("create ", '{"id": "h_root"}'),
+            ("decompose", '{"ok": true, "child_ids": ["h_1", "h_2"], "fanout": true}'),
+            ("list", '[{"id": "h_1", "title": "A", "body": "", "assignee": "designer"},'
+                     ' {"id": "h_2", "title": "B", "body": "", "assignee": "builder"}]'),
+        ]
+
+        def fake(args, timeout):
+            calls.append(list(args))
+            for match, value in results:
+                if match in " ".join(args):
+                    return value
+            return "{}"
+        return mock.patch.object(decomposer, "_hermes", side_effect=fake)
+
+    def test_the_root_and_its_children_are_archived_once_read(self):
+        calls = []
+        with self._decompose_with(calls):
+            decomposer.run_hermes_decompose("goal", board="triai-intake")
+        archived = [c for c in calls if "archive" in c]
+        self.assertTrue(archived, f"nothing archived in {[' '.join(c) for c in calls]}")
+        ids = " ".join(archived[0])
+        for task_id in ("h_root", "h_1", "h_2"):
+            self.assertIn(task_id, ids)
+
+    def test_archiving_happens_after_the_children_are_read(self):
+        """Archive first and there is nothing left to read back."""
+        calls = []
+        with self._decompose_with(calls):
+            decomposer.run_hermes_decompose("goal", board="triai-intake")
+        joined = [" ".join(c) for c in calls]
+        read_at = max(i for i, c in enumerate(joined) if " list" in f" {c}")
+        archive_at = next(i for i, c in enumerate(joined) if "archive" in c)
+        self.assertGreater(archive_at, read_at)
+
+    def test_a_failed_archive_does_not_lose_the_decomposition(self):
+        """Tidying is not the point. The graph is."""
+        def fake(args, timeout):
+            joined = " ".join(args)
+            if "archive" in joined:
+                raise decomposer.DecomposeError("archive refused")
+            if "create " in joined:
+                return '{"id": "h_root"}'
+            if "decompose" in joined:
+                return '{"ok": true, "child_ids": ["h_1"], "fanout": true}'
+            if "list" in joined:
+                return '[{"id": "h_1", "title": "A", "body": "", "assignee": "designer"}]'
+            return "{}"
+
+        with mock.patch.object(decomposer, "_hermes", side_effect=fake):
+            result = decomposer.run_hermes_decompose("goal", board="triai-intake")
+        self.assertEqual(len(result.children), 1)

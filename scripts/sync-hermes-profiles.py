@@ -18,7 +18,13 @@ SRC = pathlib.Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC))
 
 import capabilities as base            # noqa: E402
+import executor                        # noqa: E402
 import roles_lifecycle as life         # noqa: E402
+
+# The resolved path, not a bare name. Run over SSH or from a scheduled
+# task there is no user PATH, which is the same trap that stopped
+# decomposer reaching Hermes from the daemon.
+HERMES = str(executor.hermes_bin())
 
 BASE_PHASE = {
     "lead": "build", "researcher": "ideation", "product_strategist": "ideation",
@@ -28,7 +34,7 @@ BASE_PHASE = {
 
 
 def existing() -> set[str]:
-    r = subprocess.run(["hermes", "profile", "list"],
+    r = subprocess.run([HERMES, "profile", "list"],
                        capture_output=True, text=True, timeout=120)
     names = set()
     for line in r.stdout.splitlines():
@@ -68,13 +74,13 @@ def main() -> int:
         try:
             if action == "create":
                 subprocess.run(
-                    ["hermes", "profile", "create", rid,
+                    [HERMES, "profile", "create", rid,
                      "--no-alias", "--no-skills", "--description", desc],
                     check=True, capture_output=True, text=True, timeout=240)
                 created.append(rid)
             else:
                 subprocess.run(
-                    ["hermes", "profile", "describe", rid, desc],
+                    [HERMES, "profile", "describe", rid, desc],
                     check=True, capture_output=True, text=True, timeout=120)
                 described.append(rid)
         except subprocess.CalledProcessError as e:

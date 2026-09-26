@@ -309,11 +309,31 @@ def _hermes(args: Sequence[str], timeout: int) -> str:
     return out
 
 
+def ensure_board(board: str, *, timeout: int = 60) -> None:
+    """Create the decomposition board, tolerating one that already exists.
+
+    `hermes kanban --board <slug> create` does not create the board - it exits
+    1 with "board does not exist". The first spike passed only because that
+    board already existed on the machine it ran on, so the gap survived a
+    green spike and would have failed the first real fan-out.
+
+    Idempotent by tolerance rather than by a lookup: asking whether it exists
+    and then creating it is two calls and a race, while creating it and
+    ignoring the refusal is one call and none.
+    """
+    try:
+        _hermes(["kanban", "boards", "create", board], timeout)
+    except DecomposeError as exc:
+        if "already exists" not in str(exc).casefold():
+            raise
+
+
 def run_hermes_decompose(
     goal: str, *, board: str, body: str = "", timeout: int = 600
 ) -> Decomposition:
     """Create a triage card, decompose it, and read the children back."""
     check_board_slug(board)
+    ensure_board(board)
     created = _last_json_object(_hermes(
         ["kanban", "--board", board, "create", goal, "--triage",
          *(["--body", body] if body else []), "--json"], 180))
@@ -341,6 +361,20 @@ def run_hermes_decompose(
     ]
     if not children:
         raise DecomposeError("decompose reported children but none were readable")
+
+    # The cards have been read; they are a planning artifact and must not be
+    # left where something can run them. `hermes kanban` is an execution
+    # system - each board carries a dispatcher, and a card in todo is a card a
+    # gateway may later claim. Tri-AI's own board holds the real tasks, with
+    # the verify gate and the workspace policy that Hermes knows nothing about.
+    #
+    # After the archive fails the graph is still correct, so a refusal here is
+    # logged by omission rather than raised: tidying is not the point.
+    try:
+        _hermes(["kanban", "--board", board, "archive", root,
+                 *(child.task_id for child in children)], 120)
+    except DecomposeError:
+        pass
 
     return Decomposition(
         goal=goal, root_task_id=root, children=children,
