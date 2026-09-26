@@ -1664,3 +1664,104 @@ failures, the largest single failure mode and unrelated to Telegram.
 operator's (`node index.js` from cmd.exe), not FreeLLMAPI, which is not
 installed there. An earlier note in this file inferred otherwise from an open
 port.
+
+## Intake verdict — Laya and Jev, 2026-09-25
+
+Both raised by the operator, who was right on both counts: they were named in
+the original requirements and neither had been acted on. **Laya wins, and it
+wins on the one axis that decides everything here — it can be the floor.**
+
+### Laya — ADOPT, as a service on the desktop
+
+`https://github.com/NandhaKishorM/laya`, Apache 2.0, already cloned at
+`~/.tri-ai/capabilities/sources/laya` @ `970dc8c`. The catalog's `source-only`
+label was accurate: it is **cloned, not installed**. An earlier check here
+appeared to show `laya 0.3.20` installed; that was the shell sitting inside the
+clone and importing the source tree. Outside it, `import laya` fails.
+
+**What it is.** A multilingual, non-autoregressive **System 1 decision
+engine**. Typed decisions in a single forward pass, trained with RL against
+strictly proper scoring rules (RLCD) — so the probabilities are *calibrated*,
+not self-reported. Primitives: `choice`, `score`, `boolean`. 100+ languages. A
+router picks the checkpoint per request.
+
+**Measured, from the repo's own BENCHMARKS.md (T4):**
+
+| questions | Laya p50 | note |
+|---|---|---|
+| 1 | **32.8 ms** | Jev independently measured at 236-276 ms |
+| 5 | 40.1 ms | questions batch against one state |
+| 10 | 72.3 ms | |
+| 50 | 337.4 ms | 103-332 questions/sec batched |
+
+Against the baseline that matters here: `interpreter` reading a message with
+qwen2.5-coder:7b took **1.0-1.6 s** measured on the desktop over Tailscale.
+Laya's classification half is roughly **30-45x faster**, and calibrated.
+
+**The specific defect it fixes.** `Reading.confidence` is currently whatever
+number the LLM writes into its JSON. That is uncalibrated, and the
+auto-start-versus-ask decision is about to hang on it. A calibrated probability
+is the difference between a threshold that means something and one that only
+reads like it does.
+
+**Why it can be the floor and Jev cannot.** Local, Apache 2.0, no account, no
+per-token cost. It can replace the word lists in `read_without_model()` as tier
+L — which upgrades the floor itself from string matching to a calibrated
+classifier, rather than adding another accelerator above it.
+
+**The cost, and the architectural tension.** Laya needs **torch** plus
+**~2.4 GB of checkpoints** (`convaiinnovations/laya`: `model.safetensors`
+843 MB, `typed-decisions/` 843 MB, `multilingual/` 644 MB + 34 MB tokenizer,
+48 files). Tri-AI today is near-pure stdlib — no `pyproject.toml`, no
+`requirements.txt`, stdlib plus `rich`. Importing torch into the core would be
+the largest dependency it has ever taken, on every machine that runs it.
+
+**Resolution: run it as a service, never as an import.** Laya ships
+`laya[serve]` (HTTP) and `laya[mcp]`. Install it on the **desktop**, which
+already hosts Ollama, OmniRoute and FreeLLMAPI and already holds the GPU, and
+reach it over the tailnet. `src/interpreter.py` then talks to it exactly as
+`local_completer()` talks to Ollama — the seam already exists and is already
+injected, so the core stays stdlib and the heavy dependency lives where the GPU
+is. The laptop keeps the word lists as its floor when the desktop is off, which
+is the degradation path the three-tier selector already assumes.
+
+Only the `typed-decisions` checkpoint (843 MB) is needed for intent reading;
+`multilingual` (678 MB) is worth having because the operator dictates and
+Telegram is a phone surface.
+
+### Jev — HOLD, superseded for this use
+
+TypeSafe AI's System One model. Same idea, same RLCD training, same
+Choice/Score/Noul shape, launched 2026-09-15. `POST
+https://api.typesafe.ai/v1/systemone`, `$0.042 / 1M input tokens, output free`,
+**no free tier**, waitlist or Vercel AI Gateway / Cloudflare Workers AI.
+
+It is a good model and a bad fit *here*, for one reason: hosted and paid means
+it cannot be the floor, and the system is required to run with no subscription.
+That puts it on the same footing as the Claude and Codex subscriptions — an
+accelerator — while Laya does the same job locally and, by Laya's own
+measurement, **6-7x faster** (32.8 ms vs 236-276 ms p50).
+
+Revisit only if Laya's accuracy proves insufficient on real traffic. Nothing
+should be built against Jev before that is measured.
+
+### Cautions carried from the radar
+
+- Three different `awesome-jev` repositories from three different owners
+  surfaced in one search — the duplicate-repo trap the radar already documents
+  (`maka` returns nine byte-identical repos). Pin `owner/repo` plus a commit
+  SHA; never resolve by name or stars.
+- `browser-use/jev-ultrafast` is a **different artifact** — a browser agent
+  built on Jev. Relevant to the Browser Use runtime already installed and gated
+  at `~/.tri-ai/runtimes/browser-use`, and not this.
+
+### Two further fits for Laya, neither adopted yet
+
+- **`lane_select.py`.** Model routing is a documented Laya use case and it
+  ships its own router. But the selector chooses on *measured ledger outcomes
+  per (role, model)* — evidence Laya does not have. An A/B against the ledger,
+  not a swap.
+- **`taste.py`.** "Does this artifact satisfy its promise" is a `score`
+  question, and the promise contract wrongly rejecting correct pages is
+  implicated in some of the 22 "produced nothing" failures. Speculative until
+  that failure class is actually diagnosed.
