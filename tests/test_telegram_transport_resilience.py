@@ -127,3 +127,81 @@ class TelegramTransportResilienceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FourXXClassificationTest(unittest.TestCase):
+    """Not every 4xx is permanent, and two of them are the opposite.
+
+    Observed on DESKTOP-JHQ7HJM on 2026-09-25: the daemon exited on HTTP 409
+    and the supervisor restarted it eight times in a row. 409 means another
+    getUpdates is already polling that bot - which is exactly what happens when
+    a second machine, or a stale process, holds the slot. It clears the moment
+    the other poller stops, so treating it as fatal turns a passing condition
+    into a restart loop that exhausts the supervisor's budget.
+
+    429 is transient by definition; Telegram even sends `retry_after` with it.
+    """
+
+    def _raise(self, code: int):
+        from urllib import error
+        return error.HTTPError("https://api.telegram.org/", code, "e", {}, None)
+
+    def _classify(self, code: int):
+        """Run one HTTP status through the real client's error handling."""
+        def opener(request, timeout=None):
+            raise self._raise(code)
+        api = daemon.HttpsTelegramApi("t", opener=opener)
+        try:
+            api.get_updates(offset=None, timeout=1)
+        except daemon.TelegramPermanentError as exc:
+            return "permanent", exc
+        except daemon.TelegramTransportError as exc:
+            return "retryable", exc
+        return "no error", None
+
+    def test_409_conflict_is_retryable_not_permanent(self):
+        kind, _ = self._classify(409)
+        self.assertEqual(kind, "retryable",
+                         "409 means another poller holds the slot; it self-resolves")
+
+    def test_429_rate_limited_is_retryable_not_permanent(self):
+        kind, _ = self._classify(429)
+        self.assertEqual(kind, "retryable")
+
+    def test_401_unauthorized_is_still_permanent(self):
+        """A bad token cannot be fixed by waiting, and must stop loudly."""
+        kind, _ = self._classify(401)
+        self.assertEqual(kind, "permanent")
+
+    def test_404_is_still_permanent(self):
+        kind, _ = self._classify(404)
+        self.assertEqual(kind, "permanent")
+
+    def _classify_body(self, code: int):
+        """Telegram also reports errors as HTTP 200 with ok:false in the body."""
+        import json as _json
+
+        class _Resp:
+            def __enter__(self_inner): return self_inner
+            def __exit__(self_inner, *a): return False
+            def read(self_inner):
+                return _json.dumps({"ok": False, "error_code": code}).encode()
+
+        api = daemon.HttpsTelegramApi("t", opener=lambda *a, **k: _Resp())
+        try:
+            api.get_updates(offset=None, timeout=1)
+        except daemon.TelegramPermanentError:
+            return "permanent"
+        except daemon.TelegramTransportError:
+            return "retryable"
+        return "no error"
+
+    def test_409_in_the_response_body_is_also_retryable(self):
+        """The same rule must hold on both error paths, or the bug survives."""
+        self.assertEqual(self._classify_body(409), "retryable")
+
+    def test_429_in_the_response_body_is_also_retryable(self):
+        self.assertEqual(self._classify_body(429), "retryable")
+
+    def test_401_in_the_response_body_is_still_permanent(self):
+        self.assertEqual(self._classify_body(401), "permanent")

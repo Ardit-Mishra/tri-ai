@@ -42,6 +42,24 @@ class TelegramPermanentError(TelegramTransportError):
     """A rejected request that retrying cannot repair."""
 
 
+# Two 4xx codes are transient despite the class. Treating every 4xx as fatal
+# turned a passing condition into a restart loop: observed on the desktop on
+# 2026-09-25, the daemon exited on 409 and the supervisor restarted it eight
+# times in a row.
+#
+#   409  another getUpdates is already polling this bot. That is what happens
+#        when a second machine, or a stale process, holds the slot - and it
+#        clears the moment that poller stops.
+#   429  rate limited. Transient by definition; Telegram sends retry_after.
+#
+# 401 and 404 stay permanent: a bad token or a bad method cannot be waited out,
+# and must stop loudly rather than spin.
+RETRYABLE_STATUS = {
+    409: "another poller holds this bot",
+    429: "rate limited",
+}
+
+
 class TelegramApi(Protocol):
     """Minimal transport seam exercised by the daemon tests."""
 
@@ -206,6 +224,11 @@ class HttpsTelegramApi:
             with self._opener(req, timeout=timeout) as response:
                 decoded = json.loads(response.read().decode("utf-8"))
         except error.HTTPError as exc:
+            if exc.code in RETRYABLE_STATUS:
+                raise TelegramTransportError(
+                    f"Telegram Bot API returned HTTP {exc.code} "
+                    f"({RETRYABLE_STATUS[exc.code]}); retrying"
+                ) from exc
             if 400 <= exc.code < 500:
                 raise TelegramPermanentError(
                     f"Telegram Bot API rejected the request with HTTP {exc.code}"
@@ -219,6 +242,15 @@ class HttpsTelegramApi:
             ) from exc
         if not isinstance(decoded, dict) or decoded.get("ok") is not True:
             code = decoded.get("error_code") if isinstance(decoded, dict) else None
+            # Telegram reports the same conditions two ways - as an HTTP status
+            # and as ok:false with an error_code in a 200 body. The retryable
+            # set has to be honoured on both, or the daemon still dies on 409
+            # whenever the API chooses the second form.
+            if isinstance(code, int) and code in RETRYABLE_STATUS:
+                raise TelegramTransportError(
+                    f"Telegram Bot API returned {code} "
+                    f"({RETRYABLE_STATUS[code]}); retrying"
+                )
             if isinstance(code, int) and 400 <= code < 500:
                 raise TelegramPermanentError(f"Telegram Bot API rejected the request ({code})")
             raise TelegramTransportError("Telegram Bot API rejected the request")
