@@ -1989,3 +1989,60 @@ Decomposition is an improvement on one agent, never a precondition for any.
 The cartographer finally has a graph worth drawing. Emit the archify diagram
 at plan time and at completion; the difference between the two is the honest
 artifact, and it is the per-task "neurons firing" view originally asked for.
+
+## Handover — 2026-09-26, fan-out observation in flight
+
+Both machines on `c745086`, **939 tests**, daemons restarted and current.
+
+### A fan-out is running right now
+
+Driven through the real intake path (not Telegram's wire) with
+`D:\tri-ai-runtimes\drive_intake.py`. Three specialists, two phases:
+
+```
+t_d85a8d45  backend_builder    ready   ─┐
+t_a52ef605  frontend_builder   ready   ─┼─→ t_640f0861  payments_engineer  todo
+```
+
+Decomposition took 27s and is **not deterministic** — the same sentence gave
+four specialists on the previous attempt and three on this one.
+
+**A watcher is sampling it** for 25 minutes and writing a transition timeline:
+`D:\tri-ai-runtimes\timeline.py` (run it again to resample; it prints only on
+change). Read the outcome from the board directly if the watcher has exited.
+
+**The open question it answers:** the two `ready` builders share
+`tri-ai-sandbox`. The clean-tree precheck means only one can hold it, so do
+they take turns, or does the loser skip repeatedly and get blocked by the
+circuit breaker for losing a race it never had a chance to win? If it is the
+latter, the fix is a worktree per node — `worktrees.py` exists,
+`create_task` already accepts that workspace kind, and `decomposer.build_graph`
+currently hardcodes `workspace_kind="dir"`. **Do not build that until the run
+has actually failed**; the operator asked to see it fail first.
+
+### Audit findings, not yet fixed (`agent-architecture-audit`)
+
+The gates are sound: one path to `done` (`verifier.outcome == "passed"` →
+`complete_task`), no hidden LLM pass, chat history reaches the reader but never
+the agent prompt. **Every finding is the same shape — a layer degraded
+correctly and said nothing.**
+
+1. **HIGH — a broken fan-out looks like one that was not wanted.**
+   `_fanout` returns `None` for all of: too small, Hermes down, planner
+   refused, timeout. The card is byte-identical. This already cost a live run
+   tonight. `telegram_control.py:700`. The fix has a precedent in the same
+   codebase: the reader's rules fallback announces itself with *"read without
+   a model"*. Do the same here.
+2. **MEDIUM — `decomposer.py:385` swallows archive failures unboundedly.**
+   40 cards accumulated before the archive existed; nothing counts failures.
+3. **MEDIUM — `capabilities.py:198` `_MERGED` caches the roster per process.**
+   A long-lived daemon never sees a roster edit. Same class as the dashboard
+   serving `JARVIS CORE` for days.
+4. **LOW — `warrants_attempt` gates on `reading.brief`, i.e. model output,
+   not the operator's words.** Safe today only because the brief-fidelity fix
+   guarantees brief >= message.
+
+### Unresolved, deliberately
+
+17 `blocked` tasks on the board are the failure record, left in place. The
+`require_imagery` and view-source policies are as set tonight.
