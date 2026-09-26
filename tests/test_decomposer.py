@@ -12,13 +12,16 @@ Decomposition, which is the reason it is worth having as a separate function.
 from __future__ import annotations
 
 import sys
+import os
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import capabilities  # noqa: E402
+import executor  # noqa: E402
 import decomposer  # noqa: E402
 import planner  # noqa: E402
 
@@ -272,3 +275,43 @@ class WarrantsAttemptTest(unittest.TestCase):
     def test_empty_or_trivial_text_is_never_worth_a_call(self):
         for text in ("", "   ", "hey", "stop"):
             self.assertFalse(decomposer.warrants_attempt(text), text)
+
+
+class BinaryResolutionTest(unittest.TestCase):
+    """Decomposition must find Hermes wherever the worker finds it.
+
+    Measured in production, not here: the first real fan-out on the desktop
+    declined with `FileNotFoundError: [WinError 2] The system cannot find the
+    file specified` and fell back to one agent. The daemon's scheduled task
+    runs `-NoProfile`, so the user PATH that makes a bare `hermes` resolve in
+    a shell is not present.
+
+    `executor.run_agent` never had this problem because it spawns
+    `executor.hermes_bin()`, an absolute path with a `TRIAI_HERMES_BIN`
+    override. Two call sites resolving the same binary two ways is the bug;
+    agents ran while decomposition could not even start.
+    """
+
+    def test_the_resolved_binary_is_spawned_rather_than_a_bare_name(self):
+        seen = {}
+
+        class _Contained:
+            def __init__(self):
+                self.proc = mock.Mock(returncode=0)
+                self.proc.communicate.return_value = ('{"ok": true}', "")
+
+        def capture(command, **kwargs):
+            seen["command"] = command
+            return _Contained()
+
+        with mock.patch.object(executor, "spawn_contained", side_effect=capture):
+            decomposer._hermes(["kanban", "list"], 30)
+
+        self.assertNotEqual(seen["command"][0], "hermes",
+                            "a bare name needs a PATH the daemon does not have")
+        self.assertEqual(seen["command"][0], str(executor.hermes_bin()))
+        self.assertEqual(seen["command"][1:], ["kanban", "list"])
+
+    def test_the_override_is_honoured_so_both_call_sites_move_together(self):
+        with mock.patch.dict(os.environ, {"TRIAI_HERMES_BIN": r"D:\tools\hermes.exe"}):
+            self.assertEqual(str(executor.hermes_bin()), r"D:\tools\hermes.exe")

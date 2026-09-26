@@ -283,8 +283,13 @@ def _hermes(args: Sequence[str], timeout: int) -> str:
     `hermes` spawns its own helpers, which is exactly the case the job object
     exists for.
     """
+    # The resolved binary, not a bare name. The daemon's scheduled task runs
+    # -NoProfile and has no user PATH, so `hermes` alone raises FileNotFoundError
+    # there - measured on the first real fan-out, which declined and fell back
+    # to a single agent. `executor.run_agent` has always spawned this same
+    # path, which is why agents ran while decomposition could not start.
     contained = executor.spawn_contained(
-        ["hermes", *args],
+        [str(executor.hermes_bin()), *args],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
     try:

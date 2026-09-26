@@ -445,6 +445,13 @@ with these headings:
   wrote. Anything you cannot find, fix - either put it on the page or change
   the bullet. It is your brief, and it is read after you finish, not before.
 
+The page must read correctly with JavaScript switched off. Whatever a visitor
+is meant to see belongs in the markup this run writes, not in a script that
+builds it at load - the gate reads the page the way view-source does. A shop
+whose products, cart and admin view were all injected by app.js kept none of
+its thirteen promises for exactly this reason. Scripts are for behaviour:
+toggles, validation, interaction. Not for the content itself.
+
 Then build the thing, to that brief, in this same turn.
 
 The brief is not the deliverable and writing it is not finishing. You have one

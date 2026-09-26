@@ -443,3 +443,67 @@ class DeliverableIndexTests(BoardTestCase):
 
     def test_no_deliverables_is_an_empty_result_not_an_error(self):
         self.assertEqual(board.recent_deliverables(self.conn), ())
+
+
+class RejectionReasonTests(unittest.TestCase):
+    """The card must report why a run was rejected, not the last line of it.
+
+    Measured on t_17c5106b run 84. The verify output led with "the page keeps
+    0 of its own 13 promises, needs 5" and then listed all thirteen. Taking
+    `splitlines()[-1]` showed the operator "rejected for: promised but not
+    visible on the page: 'Admin Dashboard'" - which reads as one small miss
+    when in fact nothing at all had matched. A card that misreports the reason
+    sends the operator to fix the wrong thing.
+    """
+
+    OUTPUT = (
+        "verify: this run produced index.html\n"
+        "verify: 4 deliverable(s) from this run\n"
+        "verify: this does not look like it was made for its subject:\n"
+        "  the page keeps 0 of its own 13 promises, needs 5 - the research "
+        "was done and then ignored\n"
+        "  promised but not visible on the page: 'Rs'\n"
+        "  promised but not visible on the page: 'Admin Dashboard'\n"
+    )
+
+    def test_the_headline_finding_is_reported_not_the_last_item(self):
+        summary = completion_report.rejection_reason(self.OUTPUT)
+        self.assertIn("keeps 0 of its own 13 promises", summary)
+        self.assertNotIn("Admin Dashboard", summary)
+
+    def test_a_single_line_finding_is_used_as_is(self):
+        summary = completion_report.rejection_reason(
+            "verify: this does not look like it was made for its subject:\n"
+            "  no image, svg or background-image anywhere\n")
+        self.assertIn("no image", summary)
+
+    def test_output_with_no_finding_falls_back_to_something_true(self):
+        self.assertTrue(completion_report.rejection_reason(
+            "verify: exit 1\n").strip())
+
+    def test_empty_output_does_not_crash_the_card(self):
+        self.assertEqual(completion_report.rejection_reason(""), "")
+
+
+class AttachableTypeTests(unittest.TestCase):
+    """A rejected run's own source is what explains the rejection.
+
+    t_17c5106b run 84 produced BRIEF.md, index.html, app.js and style.css, and
+    only the first two could be attached. app.js was the file that explained
+    everything: 5.9 KB of client-side rendering, which is why the page matched
+    none of its thirteen promises. Withholding it left the operator with a
+    verdict and no way to see the cause.
+    """
+
+    def test_the_stylesheet_and_script_of_a_page_can_be_attached(self):
+        for suffix in (".js", ".css"):
+            self.assertIn(suffix, completion_report.DOCUMENT_SUFFIXES, suffix)
+
+    def test_the_page_and_its_brief_are_still_attachable(self):
+        for suffix in (".html", ".md"):
+            self.assertIn(suffix, completion_report.DOCUMENT_SUFFIXES, suffix)
+
+    def test_an_executable_is_not_attachable(self):
+        """Telegram will carry anything; that is not a reason to send it."""
+        for suffix in (".exe", ".dll", ".ps1", ".bat", ".sh"):
+            self.assertNotIn(suffix, completion_report.DOCUMENT_SUFFIXES, suffix)

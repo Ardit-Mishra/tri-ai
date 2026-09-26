@@ -16,7 +16,13 @@ from typing import Any, Mapping, Optional, Sequence
 MAX_ARTIFACTS_SHOWN = 6
 # Self-contained text types small enough to be worth uploading. A link needs
 # the operator to be on the tailnet; the file itself does not.
-DOCUMENT_SUFFIXES = frozenset({".html", ".htm", ".json", ".txt", ".md", ".csv"})
+# A page is rarely one file. t_17c5106b produced index.html, app.js and
+# style.css, and app.js was the file that explained the rejection - 5.9 KB
+# of client-side rendering, which is why the page matched none of its
+# thirteen promises. Sending the verdict without the cause is half a card.
+DOCUMENT_SUFFIXES = frozenset({
+    ".html", ".htm", ".json", ".txt", ".md", ".csv", ".js", ".css", ".svg",
+})
 DOCUMENT_MAX_BYTES = 2 * 1024 * 1024
 # Upper bound on files uploaded for one run. Uploads used to be uncapped: a run
 # that wrote 250 small pages queued 250 sendDocument calls behind one tidy card,
@@ -129,6 +135,31 @@ def deliverable_documents(
         if len(picked) >= MAX_DOCUMENTS_SENT:
             break
     return tuple(picked)
+
+
+def rejection_reason(output: str) -> str:
+    """The finding that explains a rejection, not the last line of the log.
+
+    Measured on t_17c5106b run 84: the output led with "the page keeps 0 of
+    its own 13 promises, needs 5" and then enumerated all thirteen. Taking the
+    last line told the operator the run was rejected for a single missing
+    string, when in fact nothing had matched at all - and sent them to fix the
+    wrong thing.
+
+    The enumerated items are evidence for the finding, not the finding. The
+    first indented line after the verdict is the finding.
+    """
+    lines = [line.rstrip() for line in str(output or "").splitlines() if line.strip()]
+    if not lines:
+        return ""
+    detail = [
+        line.strip() for line in lines
+        if line.startswith((" ", "\t")) and "promised but not visible" not in line
+    ]
+    if detail:
+        return detail[0]
+    # No indented finding: the gate failed for a reason it did not narrate.
+    return lines[-1].strip()
 
 
 def _preserved_documents(kept: "preserve.Kept") -> tuple[Mapping[str, Any], ...]:
@@ -273,9 +304,9 @@ def render(
                 f"kept {len(kept.files)} file(s) from the rejected run:")
             lines.extend(
                 f"  \u2022 {name}" for name in kept.files[:MAX_ARTIFACTS_SHOWN])
-            if kept.reason:
-                lines.append(
-                    f"rejected for: {kept.reason.splitlines()[-1].strip()}")
+            finding = rejection_reason(kept.reason)
+            if finding:
+                lines.append(f"rejected for: {finding}")
             if kept.stash:
                 lines.append(
                     f"recover in the workspace: git stash pop {kept.stash}")

@@ -737,6 +737,24 @@ class TheInstructionSaysWhatTheGateChecks(unittest.TestCase):
         self.assertIn("reader can see", block)
         self.assertIn("not in a comment", block)
 
+    def test_the_agent_is_told_the_markup_must_carry_the_content(self) -> None:
+        """t_17c5106b built a shop as a single-page app: a shell of HTML and
+        5.9 KB of app.js injecting the products, cart and admin view. Every one
+        of its thirteen promises failed, and the message blamed the research -
+        which had in fact been done well.
+
+        The instruction already said a bullet is not searched for "in a
+        script", and the agent still did this. That wording tells it where the
+        *strings* are looked for; it never says the page itself must render
+        without JavaScript. An agent can satisfy the first reading by planning
+        to put the strings in markup and still build an app that writes them
+        at runtime. So the rule is stated directly, in the terms the gate
+        actually works in: view-source.
+        """
+        block = taste.brief_block().lower()
+        self.assertIn("javascript", block)
+        self.assertIn("view-source", block)
+
     def test_the_agent_is_told_the_run_is_judged_as_a_whole(self) -> None:
         block = taste.brief_block().lower()
         self.assertIn("linked stylesheet", block)
