@@ -136,7 +136,12 @@ GENERIC_NOUNS = frozenset({
 EXTERNAL_PATTERNS = tuple(re.compile(p) for p in (
     r"\bemail\b", r"\be-mail\b", r"\bsend\b", r"\bsends\b", r"\bdm\b",
     r"\bpublish\b", r"\bdeploy\b", r"\bbuy\b", r"\bpurchase\b", r"\border\b",
-    r"\bpay\b", r"\bcheckout\b", r"\btweet\b", r"\bmessage\s+\w+\s+on\b",
+    r"\bpay\b", r"\btweet\b", r"\bmessage\s+\w+\s+on\b",
+    # A checkout *page* is a thing to build; going to checkout is a thing to
+    # do. The bare word stopped "build me a shop with a cart page and a
+    # checkout page" at the confirm gate, which is the gate crying wolf on
+    # ordinary work - and a gate that fires on everything gets ignored.
+    r"\bcheckout\b(?!\s+(?:page|flow|form|screen|view|step|process|button))",
     r"\bpost\s+(?:this|it|that|them)?\s*to\b", r"\blinkedin\b",
     r"\bgo\s+live\b", r"\bsubscribe\b",
 ))

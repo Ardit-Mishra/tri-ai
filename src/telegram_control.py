@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,8 +19,11 @@ from typing import Any, Mapping, Optional, Sequence
 import board
 import capability_catalog
 import completion_report
+import decomposer
 import intake_preflight
 import interpreter
+import planner
+import stack_profile
 import progress_card
 import proposals
 import telegram_read_surface
@@ -182,6 +186,7 @@ class TelegramControl:
         catalog_path: Path | str = capability_catalog.DEFAULT_CATALOG_PATH,
         radar_path: Path | str = Path.home() / ".tri-ai" / "radar" / "latest.json",
         completer: Optional[interpreter.Completer] = None,
+        fanout_timeout: int = 300,
     ) -> None:
         if pending_seconds <= 0:
             raise ValueError("pending action lifetime must be positive")
@@ -194,6 +199,9 @@ class TelegramControl:
         # caller deliberately wires a model in. Reading a message must never
         # be the reason the phone waits on a socket.
         self._completer = completer
+        # Bounded: a decomposition that hangs must not hold the
+        # operator's message. Past it, the single-task path runs.
+        self._fanout_timeout = fanout_timeout
 
     def _pending(
         self,
@@ -636,6 +644,81 @@ class TelegramControl:
         lines.append('Say "stop" to cancel, or just tell me what to change.')
         return "\n".join(lines)
 
+    # ------------------------------------------------------------------
+    # Fan-out
+    #
+    # Until now every Telegram message became exactly one task with one
+    # agent, whatever it asked for. Spiked against the real Hermes: "Build a
+    # 3D interactive portfolio landing page with a WebGL hero, three project
+    # sections and a contact block" decomposes into seven children - three
+    # designers, four frontend builders, ordered design then build then
+    # integrate. That is the multi-agent deployment this system exists for,
+    # and the Telegram path could not reach it.
+    #
+    # Three refusals matter more than the happy path, and each has a test:
+    # a request too small to be worth splitting stays one task; a
+    # decomposition that throws still starts the work; and a graph the
+    # planner refuses falls back rather than dropping the request.
+    # Decomposition is an improvement on one agent, never a precondition for
+    # having any.
+    # ------------------------------------------------------------------
+
+    FANOUT_BOARD = "triai-intake"
+
+    def _fanout(
+        self, conn, *, chat_id: str, workspace: WorkspacePolicy,
+        reading: "interpreter.Reading", prompt: str,
+    ) -> Optional[str]:
+        """Split the request across specialists, or return None to stay single.
+
+        Returns None for every outcome that is not a persisted graph, so the
+        caller's ordinary single-task path is the fallback for all of them.
+        """
+        goal = reading.brief or prompt
+        if not decomposer.warrants_attempt(goal):
+            return None
+        try:
+            decomposition = decomposer.run_hermes_decompose(
+                goal, board=self.FANOUT_BOARD, timeout=self._fanout_timeout)
+            if not decomposition.fanout or len(decomposition.children) < 2:
+                return None
+            graph = decomposer.build_graph(
+                decomposition,
+                workspace_kind="dir",
+                workspace_path=str(workspace.path),
+                verify_command=workspace.profile.command,
+                verify_timeout=workspace.profile.timeout,
+            )
+            # The gate each node is held to comes from the workspace's own
+            # stack, not from what the request claimed to be.
+            stack_profile.apply(graph, workspace.path)
+            created = planner.write_graph(conn, graph)
+        except Exception as exc:
+            # Any failure here - Hermes down, a refused graph, a bad node -
+            # falls back to one agent. Losing the operator's request to a
+            # planning tool would be worse than not planning.
+            print(f"telegram: fan-out declined ({type(exc).__name__}: {exc}); "
+                  "starting a single task", file=sys.stderr, flush=True)
+            return None
+        if not created:
+            return None
+
+        phases = []
+        for node in graph["nodes"]:
+            phase = str(node.get("_phase") or "build")
+            if phase not in phases:
+                phases.append(phase)
+        roles = sorted({str(n.get("agent_role") or "builder") for n in graph["nodes"]})
+        lines = [
+            f"{PLAY_ICON} Starting: {reading.understood}",
+            f"{len(created)} agents across {len(phases)} phase(s) in {workspace.alias}",
+            "  " + ", ".join(roles),
+        ]
+        if reading.source == "rules":
+            lines.append("read without a model - correct me if that is wrong")
+        lines.append('Say "stop" to cancel, or just tell me what to change.')
+        return "\n".join(lines)
+
     def _converse(
         self, conn, text: str, *, chat_id: str, board_path: Path | str,
         ledger_path: Path | str, runs_root: Path | str,
@@ -703,6 +786,14 @@ class TelegramControl:
                 conn, chat_id=chat_id, workspace=workspace,
                 prompt=reading.brief or text, parent_task_id=parent,
             )
+        # A follow-up refines one existing artifact, so it stays one agent.
+        if parent is None:
+            fanned = self._fanout(
+                conn, chat_id=chat_id, workspace=workspace,
+                reading=reading, prompt=text,
+            )
+            if fanned is not None:
+                return fanned
         return self._start_now(
             conn, chat_id=chat_id, workspace=workspace, reading=reading,
             prompt=text, parent_task_id=parent,

@@ -305,6 +305,19 @@ class ExternalTest(unittest.TestCase):
                      "send a message to my landlord"):
             self.assertTrue(interpreter.interpret(text).external, text)
 
+    def test_building_a_checkout_is_not_spending_money(self):
+        """`\\bcheckout\\b` stopped "build me a shop with a cart page and a
+        checkout page" dead at the confirm gate. A checkout page is a thing to
+        make; going to checkout is a thing to do."""
+        for text in ("build me a shop with a cart page and a checkout page",
+                     "design the checkout flow", "add a checkout form"):
+            self.assertFalse(interpreter.interpret(text).external, text)
+
+    def test_actually_going_to_checkout_is_still_external(self):
+        for text in ("go to checkout", "complete the checkout",
+                     "proceed to checkout with my saved card"):
+            self.assertTrue(interpreter.interpret(text).external, text)
+
     def test_ordinary_making_is_not_external(self):
         for text in ("build me a recipe card page for masala chai",
                      "write a script that renames my files",

@@ -36,6 +36,7 @@ This module writes nothing to the board. It emits a document;
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -84,6 +85,58 @@ class Decomposition:
     children: list[Child] = field(default_factory=list)
     fanout: bool = True
     reason: str = ""
+
+
+# Hermes takes a board *slug*, not a path. Spiking this found the assumption:
+# a tempfile path came back as `kanban: invalid board slug ... must be 1-64
+# chars, lowercase alphanumerics / hyphens / underscores`, from two layers
+# down, after the call had already been made.
+_SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+
+def check_board_slug(board: str) -> str:
+    """Return the slug, or refuse it here rather than inside Hermes."""
+    text = str(board or "")
+    if not _SLUG.match(text):
+        raise DecomposeError(
+            f"board must be a slug, not a path: {text!r}. Hermes wants 1-64 "
+            "characters of lowercase letters, digits, hyphens or underscores, "
+            "not starting with a hyphen or underscore."
+        )
+    return text
+
+
+# Words that name a separable piece of work. A request listing several is a
+# request for several things, whatever its length.
+_PARTS = (
+    "page", "pages", "section", "sections", "screen", "screens", "view",
+    "views", "endpoint", "endpoints", "api", "dashboard", "cart", "checkout",
+    "admin", "login", "signup", "form", "grid", "hero", "footer", "header",
+    "blog", "gallery", "profile", "settings", "search", "feed", "chart",
+    "table", "report", "pipeline", "worker", "service", "database", "schema",
+)
+
+# Splitting is not free: it costs a model call and a round of board churn
+# before any work starts. Below this a request is almost never worth it.
+MIN_FANOUT_WORDS = 12
+MIN_FANOUT_PARTS = 2
+
+
+def warrants_attempt(text: str) -> bool:
+    """Whether asking Hermes to split this is worth the latency.
+
+    Not a decision about *how* to split - Hermes is better at that and
+    answers `fanout` either way. This only decides whether to ask.
+
+    Deliberately permissive: a false yes costs one extra call and Hermes then
+    declines to fan out, while a false no silently hands a seven-agent job to
+    a single agent, which is the failure this exists to remove.
+    """
+    words = re.findall(r"[a-z0-9']+", str(text or "").casefold())
+    if len(words) < MIN_FANOUT_WORDS:
+        return False
+    distinct_parts = {word for word in words if word in _PARTS}
+    return len(distinct_parts) >= MIN_FANOUT_PARTS
 
 
 def _phases() -> tuple[str, ...]:
@@ -255,6 +308,7 @@ def run_hermes_decompose(
     goal: str, *, board: str, body: str = "", timeout: int = 600
 ) -> Decomposition:
     """Create a triage card, decompose it, and read the children back."""
+    check_board_slug(board)
     created = _last_json_object(_hermes(
         ["kanban", "--board", board, "create", goal, "--triage",
          *(["--body", body] if body else []), "--json"], 180))

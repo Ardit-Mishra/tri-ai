@@ -208,3 +208,67 @@ class HermesOutputTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BoardSlugTest(unittest.TestCase):
+    """`--board` takes a slug, not a path.
+
+    Found by spiking rather than by reading: passing a tempfile path produced
+    `kanban: invalid board slug ... must be 1-64 chars, lowercase
+    alphanumerics / hyphens / underscores`. The module had always described the
+    argument as a board and never said which kind, so the first real call
+    failed on an error message from two layers down.
+    """
+
+    def test_a_filesystem_path_is_refused_before_hermes_is_reached(self):
+        for bad in (r"C:\Users\x\board.db", "/tmp/board.db", "Board", "-lead",
+                    "_x", "has space", "x" * 65, ""):
+            with self.assertRaises(decomposer.DecomposeError, msg=bad):
+                decomposer.check_board_slug(bad)
+
+    def test_an_ordinary_slug_passes(self):
+        for good in ("triai", "tri-ai-sandbox", "board_1", "a", "x" * 64):
+            self.assertEqual(decomposer.check_board_slug(good), good)
+
+    def test_the_refusal_says_what_a_slug_is(self):
+        with self.assertRaises(decomposer.DecomposeError) as caught:
+            decomposer.check_board_slug("/tmp/board.db")
+        self.assertIn("slug", str(caught.exception).lower())
+
+
+class WarrantsAttemptTest(unittest.TestCase):
+    """Whether a request is worth splitting at all.
+
+    Decomposition costs a model call and a round of board churn before any
+    work starts, so it is not free and must not run on everything. Hermes has
+    the better judgement about *how* to split and answers `fanout` either way;
+    this only decides whether asking is worth the latency.
+
+    Deliberately permissive. A false yes costs one extra call and Hermes then
+    says `fanout: false`; a false no silently sends a seven-agent job to a
+    single agent, which is the failure this whole step exists to remove.
+    """
+
+    def test_a_substantial_multipart_request_is_worth_asking_about(self):
+        for text in (
+            "Build a 3D interactive portfolio landing page with a WebGL hero, "
+            "three project sections and a contact block",
+            "build me a shop with a product grid, a cart, a checkout page and "
+            "an admin view for stock",
+        ):
+            self.assertTrue(decomposer.warrants_attempt(text), text)
+
+    def test_a_small_repair_is_not(self):
+        for text in ("add a starfield", "fix the header spacing",
+                     "make it darker", "change the title to Kaya"):
+            self.assertFalse(decomposer.warrants_attempt(text), text)
+
+    def test_a_single_deliverable_with_detail_is_not_split(self):
+        """One page, described carefully, is still one page."""
+        self.assertFalse(decomposer.warrants_attempt(
+            "build me a recipe card page for a masala chai with the "
+            "ingredients, the method and the timings"))
+
+    def test_empty_or_trivial_text_is_never_worth_a_call(self):
+        for text in ("", "   ", "hey", "stop"):
+            self.assertFalse(decomposer.warrants_attempt(text), text)
