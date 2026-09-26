@@ -102,6 +102,7 @@ import executor
 import failure_class
 import intake_preflight
 import ledger
+import preserve
 import taste
 import worktrees
 
@@ -571,6 +572,23 @@ def execute_task(
 
     # --- everything else reverts -----------------------------------------
     outcome = verifier.outcome                       # failed | timeout | spawn_error
+
+    # Keep what the run made before the revert stashes it out of sight. Run 82
+    # of t_7220dc1d built a page that parsed and kept all five of its promises,
+    # was rejected for having no imagery, and the card then reported "produced
+    # no files in the workspace" - because artifacts are only recorded on the
+    # pass branch. The gate was right and the sentence was false, and two runs
+    # like that read as two total failures.
+    #
+    # Not a board artifact: those mean "delivered, and resolvable inside the
+    # workspace", which a reverted file is not. This is a copy beside the run's
+    # own logs, and the stash stays the recovery path of record.
+    preserve.keep(
+        repo, agent_artifacts, agent_log.parent,
+        reason=verifier.output.strip()[-400:],
+        stash=executor.stash_message(task_id, run_id),
+    )
+
     unrestored = _restore_workspace(
         conn, claimed, run_id, repo, branch, agent_log=agent_log,
         verify_log=verify_log, ledger_path=lp, started=started,

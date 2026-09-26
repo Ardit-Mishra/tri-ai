@@ -733,13 +733,16 @@ class TelegramControl:
             conn.close()
 
     def pending_completions(
-        self, *, chat_id: str, board_path: Path | str, dashboard_url: Optional[str] = None,
+        self, *, chat_id: str, board_path: Path | str,
+        dashboard_url: Optional[str] = None,
+        runs_root: Optional[Path | str] = None,
     ) -> tuple[completion_report.CompletionCard, ...]:
         """Return finished runs this chat has not been told about yet."""
         conn = board.connect(Path(board_path))
         try:
             return tuple(
-                completion_report.render(row, dashboard_url=dashboard_url)
+                completion_report.render(row, dashboard_url=dashboard_url,
+                                         runs_root=runs_root)
                 for row in board.pending_completions_for_chat(conn, chat_id)
             )
         finally:

@@ -505,6 +505,7 @@ class TelegramDaemon:
                 chat_id=chat_id,
                 board_path=self._board_path,
                 dashboard_url=self._dashboard_url,
+                runs_root=self._runs_root,
             ):
                 message_id: Optional[int] = None
                 chunks = _message_chunks(card.text)

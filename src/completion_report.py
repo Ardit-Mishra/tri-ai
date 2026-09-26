@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+
+import preserve
 from typing import Any, Mapping, Optional, Sequence
 
 MAX_ARTIFACTS_SHOWN = 6
@@ -129,6 +131,28 @@ def deliverable_documents(
     return tuple(picked)
 
 
+def _preserved_documents(kept: "preserve.Kept") -> tuple[Mapping[str, Any], ...]:
+    """Attach what a rejected run made, on the same terms as a delivered one.
+
+    The operator asked for a thing. Being able to open it and judge for
+    themselves beats being handed the name of the rule it broke.
+    """
+    picked: list[Mapping[str, Any]] = []
+    for name, path in zip(kept.files, kept.paths):
+        if Path(name).suffix.lower() not in DOCUMENT_SUFFIXES:
+            continue
+        try:
+            if not path.is_file() or path.stat().st_size > DOCUMENT_MAX_BYTES:
+                continue
+        except OSError:
+            continue
+        picked.append({"path": name, "absolute": str(path),
+                       "caption": f"{name} (rejected run)"})
+        if len(picked) >= MAX_DOCUMENTS_SENT:
+            break
+    return tuple(picked)
+
+
 def _unresolvable(
     artifacts: Sequence[Mapping[str, Any]],
     workspace: object,
@@ -164,6 +188,7 @@ def render(
     row: Mapping[str, Any],
     *,
     dashboard_url: Optional[str] = None,
+    runs_root: Optional[Path | str] = None,
 ) -> CompletionCard:
     """Format one finished run. Every line is board evidence, not inference."""
     task_id = str(row.get("task_id", ""))
@@ -234,7 +259,34 @@ def render(
                 f"longer at the recorded path"
             )
     else:
-        lines.extend(["", "produced no files in the workspace"])
+        # A rejected run records no board artifacts - those mean
+        # "delivered", and its output has been reverted. But it may still
+        # have built the thing and missed one rule, so look where the
+        # worker preserved it before declaring it made nothing. Saying
+        # "produced no files" about a 12.7 KB page is how a near-miss came
+        # to read as a total failure.
+        kept = (preserve.read(Path(runs_root) / task_id / str(run_id))
+                if runs_root else preserve.Kept())
+        if kept:
+            lines.append("")
+            lines.append(
+                f"kept {len(kept.files)} file(s) from the rejected run:")
+            lines.extend(
+                f"  \u2022 {name}" for name in kept.files[:MAX_ARTIFACTS_SHOWN])
+            if kept.reason:
+                lines.append(
+                    f"rejected for: {kept.reason.splitlines()[-1].strip()}")
+            if kept.stash:
+                lines.append(
+                    f"recover in the workspace: git stash pop {kept.stash}")
+            documents = _preserved_documents(kept)
+        else:
+            lines.extend(["", "produced no files in the workspace"])
+            documents = ()
+        return CompletionCard(
+            task_id=task_id, run_id=run_id, text="\n".join(lines),
+            documents=documents,
+        )
 
     return CompletionCard(
         task_id=task_id,

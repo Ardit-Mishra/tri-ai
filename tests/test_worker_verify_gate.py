@@ -39,6 +39,7 @@ from support import BoardTestCase  # noqa: E402
 import board  # noqa: E402
 import executor  # noqa: E402
 import ledger  # noqa: E402
+import preserve  # noqa: E402
 import worker  # noqa: E402
 
 
@@ -432,6 +433,85 @@ class WorkerVerifyGate(BoardTestCase):
         statuses = [self.task_row(t)["status"] for t in (a, b)]
         self.assertEqual(sorted(statuses), ["done", "ready"],
                          f"exactly one task may leave the invocation as done, got {statuses}")
+
+    def test_a_rejected_run_keeps_what_it_made_where_a_person_can_reach_it(self):
+        """Run 82 of t_7220dc1d built a 12.7 KB page that parsed and kept all
+        five of its promises, was rejected for having no imagery, and the card
+        then said "produced no files in the workspace". That was false - the
+        page was in a stash on a machine the operator cannot see from a phone.
+
+        The gate still fails it. Failing just stops meaning vanishing.
+        """
+        repo = self._make_repo()
+        tid = self._make_task(repo, title="build a page", verify="python verify.py")
+        claimed = self._claim(tid)
+
+        def agent_writes_a_page(*_a, **_k):
+            (repo / "index.html").write_text(
+                "<h1>a real page</h1>", encoding="utf-8")
+            return self._agent(0)
+
+        verify = executor.VerifyResult(
+            "failed", 1, "verify: no image, svg or background-image anywhere\n", 0.3)
+        with mock.patch.object(executor, "run_agent", side_effect=agent_writes_a_page), \
+             mock.patch.object(executor, "run_verify", return_value=verify):
+            attempt = worker.execute_task(
+                self.conn, claimed, ledger_path=self.ledger, runs_root=self.runs,
+            )
+
+        self.assertEqual(attempt.outcome, "failed")
+        run_id = self.conn.execute(
+            "SELECT id FROM task_runs WHERE task_id = ? ORDER BY id DESC LIMIT 1",
+            (tid,),
+        ).fetchone()["id"]
+
+        kept = preserve.read(self.runs / tid / str(run_id))
+        self.assertIn("index.html", kept.files)
+        self.assertEqual(
+            (kept.paths[0]).read_text(encoding="utf-8"), "<h1>a real page</h1>")
+        self.assertIn("image", kept.reason)
+        self.assertTrue(kept.stash, "the recovery path has to be named")
+
+    def test_the_workspace_is_still_reverted_clean(self):
+        """Preserving must not weaken the invariant the next claim depends on."""
+        repo = self._make_repo()
+        tid = self._make_task(repo, title="build a page", verify="python verify.py")
+        claimed = self._claim(tid)
+
+        def agent_writes_a_page(*_a, **_k):
+            (repo / "index.html").write_text("<h1>page</h1>", encoding="utf-8")
+            return self._agent(0)
+
+        verify = executor.VerifyResult("failed", 1, "no imagery\n", 0.3)
+        with mock.patch.object(executor, "run_agent", side_effect=agent_writes_a_page), \
+             mock.patch.object(executor, "run_verify", return_value=verify):
+            worker.execute_task(
+                self.conn, claimed, ledger_path=self.ledger, runs_root=self.runs,
+            )
+
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=repo, capture_output=True, text=True,
+        ).stdout.strip()
+        self.assertEqual(dirty, "", "the revert must still leave a clean tree")
+        self.assertFalse((repo / "index.html").exists())
+
+    def test_a_run_that_made_nothing_preserves_nothing(self):
+        repo = self._make_repo()
+        tid = self._make_task(repo, title="does nothing", verify="python verify.py")
+        claimed = self._claim(tid)
+
+        verify = executor.VerifyResult("failed", 1, "no deliverable\n", 0.3)
+        with self._patch_runners(self._agent(0), verify):
+            worker.execute_task(
+                self.conn, claimed, ledger_path=self.ledger, runs_root=self.runs,
+            )
+
+        run_id = self.conn.execute(
+            "SELECT id FROM task_runs WHERE task_id = ? ORDER BY id DESC LIMIT 1",
+            (tid,),
+        ).fetchone()["id"]
+        self.assertEqual(preserve.read(self.runs / tid / str(run_id)).files, ())
 
     def test_failed_task_retries_once_then_the_kernel_circuit_breaker_blocks_it(self):
         """Known-state failures are retryable, but never an unbounded loop."""

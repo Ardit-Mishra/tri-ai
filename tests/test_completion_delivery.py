@@ -137,6 +137,65 @@ class CompletionCardTests(unittest.TestCase):
         base.update(overrides)
         return base
 
+    def test_a_rejected_run_that_made_something_does_not_claim_it_made_nothing(self):
+        """The card told the operator "produced no files in the workspace"
+        about a run that had written a 12.7 KB page. Artifacts are only
+        recorded on the pass branch, so a rejected run looked empty however
+        much it built. The page is preserved beside the run's logs now, and
+        the card reads from there."""
+        import tempfile
+        import preserve
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        runs = Path(tmp.name)
+        repo = runs / "ws"
+        repo.mkdir()
+        (repo / "index.html").write_text("<h1>x</h1>", encoding="utf-8")
+        run_dir = runs / "t_63cfab7a" / "6"
+        run_dir.mkdir(parents=True)
+        preserve.keep(repo, [{"path": "index.html"}], run_dir,
+                      reason="no image, svg or background-image anywhere",
+                      stash="triai-revert:t_63cfab7a:6")
+
+        card = completion_report.render(
+            self.row(outcome="failed", artifacts=()), runs_root=runs)
+        self.assertNotIn("produced no files", card.text)
+        self.assertIn("index.html", card.text)
+        self.assertIn("background-image", card.text)
+        self.assertIn("triai-revert:t_63cfab7a:6", card.text)
+
+    def test_a_preserved_page_is_attached_so_it_can_be_judged(self):
+        import tempfile
+        import preserve
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        runs = Path(tmp.name)
+        repo = runs / "ws"
+        repo.mkdir()
+        (repo / "index.html").write_text("<h1>x</h1>" * 40, encoding="utf-8")
+        run_dir = runs / "t_63cfab7a" / "6"
+        run_dir.mkdir(parents=True)
+        preserve.keep(repo, [{"path": "index.html"}], run_dir)
+
+        card = completion_report.render(
+            self.row(outcome="failed", artifacts=()), runs_root=runs)
+        self.assertEqual(len(card.documents), 1)
+        self.assertTrue(Path(card.documents[0]["absolute"]).is_file())
+
+    def test_a_rejected_run_that_made_nothing_still_says_so(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        card = completion_report.render(
+            self.row(outcome="failed", artifacts=()), runs_root=Path(tmp.name))
+        self.assertIn("produced no files", card.text)
+
+    def test_without_a_runs_root_nothing_changes(self):
+        card = completion_report.render(self.row(outcome="failed", artifacts=()))
+        self.assertIn("produced no files", card.text)
+
     def test_card_leads_with_the_operators_own_prompt(self):
         card = completion_report.render(self.row())
         self.assertEqual(card.task_id, "t_63cfab7a")

@@ -68,6 +68,13 @@ CLOSURE_MODULES = (
     # the same graph the worker executes, so an import it grows should be
     # visible here rather than discovered later.
     "cartographer.py",
+    # preserve.py runs on the worker's failure path and copies a rejected run's
+    # output out of the workspace before the revert stashes it. It reads paths
+    # that came from git porcelain and writes files, which is enough to belong
+    # here: a `..` in one of those paths would read outside the workspace, and
+    # the guard against that is a property of this module rather than of its
+    # caller.
+    "preserve.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole
