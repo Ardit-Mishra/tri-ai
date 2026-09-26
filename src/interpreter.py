@@ -360,10 +360,21 @@ def parse_model_reply(raw: str, *, text: str) -> Optional[Reading]:
         return None
 
     brief = str(parsed.get("brief") or "").strip()
-    if intent in {"build", "refine"} and not brief:
-        # Never dispatch an empty prompt; the operator's words are better than
-        # nothing and are what they would have got before this module existed.
-        brief = _clean(text)
+    if intent in {"build", "refine"}:
+        spoken = _clean(text)
+        # A brief may expand a thin request. It may never summarise a
+        # specified one. Measured on a 1,881-character build spec: the brief
+        # came back at 22% and had dropped the pinned CDN URL, the importmap
+        # and all three project names - the agent would have been told "three
+        # projects section" and invented the projects.
+        #
+        # Length is a blunt test and the right one here. Anything shorter than
+        # what the operator wrote is a summary, and a summary of instructions
+        # loses instructions. The operator's words are the specification; the
+        # reading turn is for recovering meaning from a half-dictated
+        # sentence, not for compressing one that already says what it wants.
+        if not brief or len(brief) < len(spoken):
+            brief = spoken
     if intent not in {"build", "refine"}:
         brief = ""
 

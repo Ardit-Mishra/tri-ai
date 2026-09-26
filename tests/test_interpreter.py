@@ -219,6 +219,50 @@ class HistoryTest(unittest.TestCase):
         self.assertIn("turn49", prompt)
 
 
+class BriefNeverLosesDetailTest(unittest.TestCase):
+    """A brief may expand a thin request. It may not summarise a specified one.
+
+    Measured against qwen2.5-coder:7b on a 1,881-character build spec: the
+    brief came back at 409 characters - 22% - and had dropped the pinned CDN
+    URL, the importmap, and all three project names. The agent would have been
+    told "three projects section" and invented the projects, on a portfolio
+    about the operator.
+
+    The operator's words are the specification. The reading turn exists to
+    recover meaning from a half-dictated sentence, not to compress one that
+    already says what it wants.
+    """
+
+    def test_a_brief_shorter_than_the_request_does_not_replace_it(self):
+        spec = ("Build a single self-contained index.html with Three.js r170 "
+                "from https://cdn.jsdelivr.net/npm/three@0.170.0/build/"
+                "three.module.js via an importmap, honouring "
+                "prefers-reduced-motion and capping devicePixelRatio at 2.")
+        reading = interpreter.interpret(
+            spec, complete=_model(_build_payload(brief="Make a 3D page.")))
+        self.assertIn("three.module.js", reading.brief)
+        self.assertIn("devicePixelRatio", reading.brief)
+
+    def test_a_brief_that_expands_a_thin_request_is_still_used(self):
+        """The dictation case, which is why the brief exists at all."""
+        reading = interpreter.interpret(
+            "pamphlet for diwali",
+            complete=_model(_build_payload(
+                brief="Create a printable Diwali pamphlet with a lamp motif, "
+                      "festival dates, and a short note on the festival of "
+                      "lights, laid out for A5.")),
+        )
+        self.assertIn("A5", reading.brief)
+
+    def test_the_restatement_is_untouched_by_this(self):
+        """`understood` is a summary on purpose - it is for a phone screen."""
+        spec = "Build a page with Three.js r170 and an importmap, " * 6
+        reading = interpreter.interpret(
+            spec, complete=_model(_build_payload(
+                understood="Build a 3D page", brief="short")))
+        self.assertEqual(reading.understood, "Build a 3D page")
+
+
 class RulesAsAFloorTest(unittest.TestCase):
     """The model improves on the rules; it does not get to be less careful.
 
