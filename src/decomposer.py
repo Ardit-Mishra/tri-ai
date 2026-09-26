@@ -36,6 +36,7 @@ This module writes nothing to the board. It emits a document;
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from dataclasses import dataclass, field
@@ -288,9 +289,17 @@ def _hermes(args: Sequence[str], timeout: int) -> str:
     # there - measured on the first real fan-out, which declined and fell back
     # to a single agent. `executor.run_agent` has always spawned this same
     # path, which is why agents ran while decomposition could not start.
+    # `board.py` assigns HERMES_KANBAN_DB to Tri-AI's own board on import, and
+    # a subprocess inherits it - where it outranks `--board`. Measured on a
+    # real fan-out: the intake board has its own DB, and the five
+    # decomposition cards were written into Tri-AI's production board instead,
+    # carrying Hermes's `assignee` and none of Tri-AI's own fields. Archived,
+    # so not dispatchable, but five foreign rows per fan-out in the board that
+    # holds real work. `--board` has to be the only thing that decides.
+    env = {k: v for k, v in os.environ.items() if k != "HERMES_KANBAN_DB"}
     contained = executor.spawn_contained(
         [str(executor.hermes_bin()), *args],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env,
     )
     try:
         out, err = contained.proc.communicate(timeout=timeout)

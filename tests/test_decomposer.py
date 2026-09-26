@@ -454,3 +454,61 @@ class ArchiveAfterReadingTest(unittest.TestCase):
         with mock.patch.object(decomposer, "_hermes", side_effect=fake):
             result = decomposer.run_hermes_decompose("goal", board="triai-intake")
         self.assertEqual(len(result.children), 1)
+
+
+class EnvironmentIsolationTest(unittest.TestCase):
+    """The decomposition subprocess must not inherit Tri-AI's board.
+
+    `board.py` assigns `HERMES_KANBAN_DB` to ~/.tri-ai/board.db on import, so
+    the Hermes kernel Tri-AI embeds uses Tri-AI's own board. Any `hermes`
+    subprocess spawned from the same process inherits it - and that variable
+    outranks `--board`.
+
+    Measured on a real fan-out: the intake board has its own DB at
+    `hermes\kanban\boards\triai-intake\kanban.db`, and the five
+    decomposition cards were written into Tri-AI's board.db instead, carrying
+    Hermes's `assignee` and no `agent_role` or `verify_command`. Archived, so
+    not dispatchable - but five foreign rows per fan-out in the board that
+    holds real work.
+
+    `--board` has to be the only thing that decides.
+    """
+
+    def test_the_board_variable_is_not_passed_to_the_subprocess(self):
+        seen = {}
+
+        class _Contained:
+            def __init__(self):
+                self.proc = mock.Mock(returncode=0)
+                self.proc.communicate.return_value = ('{"ok": true}', "")
+
+        def capture(command, **kwargs):
+            seen.update(kwargs)
+            return _Contained()
+
+        with mock.patch.dict(os.environ, {"HERMES_KANBAN_DB": r"C:\triai\board.db"}), \
+             mock.patch.object(executor, "spawn_contained", side_effect=capture):
+            decomposer._hermes(["kanban", "list"], 30)
+
+        env = seen.get("env")
+        self.assertIsNotNone(env, "the subprocess must be given an explicit env")
+        self.assertNotIn("HERMES_KANBAN_DB", env)
+
+    def test_the_rest_of_the_environment_survives(self):
+        """Stripping one variable must not strip PATH and everything else."""
+        seen = {}
+
+        class _Contained:
+            def __init__(self):
+                self.proc = mock.Mock(returncode=0)
+                self.proc.communicate.return_value = ("{}", "")
+
+        def capture(command, **kwargs):
+            seen.update(kwargs)
+            return _Contained()
+
+        with mock.patch.dict(os.environ, {"HERMES_KANBAN_DB": "x", "SENTINEL": "keep"}), \
+             mock.patch.object(executor, "spawn_contained", side_effect=capture):
+            decomposer._hermes(["kanban", "list"], 30)
+
+        self.assertEqual(seen["env"].get("SENTINEL"), "keep")

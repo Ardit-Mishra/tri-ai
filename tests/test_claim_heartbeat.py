@@ -121,8 +121,20 @@ class HeartbeatIsEarned(BoardTestCase):
                 activity.touch()
                 time.sleep(self.INTERVAL)
             worked = self.heartbeat_at()
-            time.sleep(self.INTERVAL * 4)     # let the last earned beat land
+            # Wait for the last earned beat to land rather than guessing how
+            # long that takes. A fixed `INTERVAL * 4` was still too tight: on
+            # a loaded machine the suite ran 379s instead of 260s and the
+            # final beat landed between the two reads, failing by one second
+            # on a property the code was honouring. Poll until two reads agree,
+            # then prove it stays that way through a long silence.
+            deadline = time.time() + 5.0
             settled = self.heartbeat_at()
+            while time.time() < deadline:
+                time.sleep(self.INTERVAL * 2)
+                current = self.heartbeat_at()
+                if current == settled:
+                    break
+                settled = current
             time.sleep(self.INTERVAL * 8)     # silence, and more silence
             still_settled = self.heartbeat_at()
 
