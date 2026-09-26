@@ -1592,3 +1592,75 @@ loopback *and* `100.67.149.86`, as intended.
 `~/.tri-ai/freellmapi` on the **desktop** listens on `:::3001` — all
 interfaces, the same exposure fixed on the laptop today. It needs
 `HOST=127.0.0.1` and a restart.
+
+## Telegram UX — what is actually wrong, measured not assumed
+
+Two of my own assessments here were wrong and are corrected below. Do not
+re-derive them.
+
+**WRONG 1: "the operator has never run the good version."** All of
+`progress_card.py`, `completion_report.py`, `_deliver_documents` and
+`send_document` already existed at the desktop's old head `cd37c3a`. The
+complaints are about what these produce, not their absence.
+
+**WRONG 2: "the completion card tells you almost nothing."** That verdict came
+from feeding `render()` ledger-shaped keys (`reason`, `model`, `verify_exit`)
+when it reads board-row keys (`error`, `metadata` as a JSON string, `summary`,
+`artifacts`, `ended_at`). With the correct shape it is good:
+
+```
+PASSED — Build me a recipe card page for a masala chai
+task t_c5374def · run 41
+verify: exit 0
+took 6m 23s
+model deskollama/qwen2.5-coder:7b @ ollama
+produced 2 files:
+  • index.html   http://100.67.149.86:8081/artifact/t_c5374def/0
+  • style.css    ...
+```
+
+Progress cards are equally terse — one message edited in place per task:
+`⚡ Building · <prompt>` / `task … · workspace … · running 4m`, with phases
+claimed → worktree_prep → agent_active → verify_gate → done/failed/cancelled.
+
+### So the real gaps are these, and only these
+
+1. **No conversation.** Plain text creates a task and waits for `/confirm`.
+   There is no follow-up, no "change that", no "what's going on" in words. It is
+   command-and-card, which matches `phase-4.5`'s read-only design and not how
+   the operator wants to work.
+2. **Artifacts arrive as tailnet links.** `_deliver_documents` uploads only
+   "self-contained text types" under a size cap; everything else is a URL that
+   needs Tailscale. Off the tailnet, a finished result is unreachable.
+3. **14 commands** for a phone surface.
+4. **`/confirm` on every task**, including ones that touch nothing external.
+
+### Recommended shape (not yet built)
+
+Auto-confirm anything that is not send/spend/publish; keep the gate only for
+the three roles marked `external=True`. Collapse to natural language plus
+`/confirm` and `/stop`. Attach artifacts as files wherever the size cap allows
+rather than defaulting to a link. Reply-to-a-card already routes back to its
+task (`board.task_for_notified_message`) — that is the seam a conversation
+should be built on.
+
+## Session handover — 2026-09-25, context exhausted at 93%
+
+Branch `codex/freellm-router`, head pushed to GitHub, **771 tests pass on both
+machines**. Desktop is current and its daemons run the merged code.
+
+Done today: Step 0 (commit + clean-clone verify), decomposer, stack_profile,
+lane_select, cartographer, roles 7→29, capability merge fix, Hermes junction
+repair + 29 profiles, registry accuracy, FreeLLMAPI 13 vulns → 0, the
+laptop's `HOST=127.0.0.1` bind fix, the two-machine history merge, and the
+Telegram 409 fix.
+
+**Next, in order:** (1) the Telegram UX shape above; (2) Step 5, the evolution
+loop — intake verdict plus the ledger→proposal promotion ladder, extending
+`src/proposals.py` and `src/memory/evolution.py`; (3) the 22 "produced nothing"
+failures, the largest single failure mode and unrelated to Telegram.
+
+**Not a bug:** the node process on desktop `:::3001` is an unrelated app of the
+operator's (`node index.js` from cmd.exe), not FreeLLMAPI, which is not
+installed there. An earlier note in this file inferred otherwise from an open
+port.
