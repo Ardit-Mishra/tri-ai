@@ -23,6 +23,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import attachments
+import interpreter
 import telegram_read_surface
 import telegram_control
 
@@ -852,6 +853,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--dashboard-url",
         help="Base URL of the read-only dashboard, used to link produced artifacts",
     )
+    parser.add_argument(
+        "--reader-endpoint",
+        help=(
+            "OpenAI-compatible chat endpoint used to read what a message means "
+            "before dispatching it. Omit it and reading falls back to word "
+            "lists, which is the floor the system is required to run on."
+        ),
+    )
+    parser.add_argument(
+        "--reader-model", default="qwen2.5-coder:7b",
+        help="Model for message reading. Tier L by default: free and measured "
+             "at 0.82s warm, which is what makes reading-before-acting cheap.",
+    )
     parser.add_argument("--once", action="store_true", help="Process one long-poll response, then exit")
     args = parser.parse_args(argv)
 
@@ -859,7 +873,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         settings = settings_from_sources(os.environ)
         transport = HttpsTelegramApi(settings.token)
         policy = telegram_control.load_policy(args.intake_policy) if args.intake_policy else None
-        control = telegram_control.TelegramControl(policy, dashboard_url=args.dashboard_url)
+        completer = (
+            interpreter.local_completer(
+                endpoint=args.reader_endpoint, model=args.reader_model)
+            if args.reader_endpoint else None
+        )
+        control = telegram_control.TelegramControl(
+            policy, dashboard_url=args.dashboard_url, completer=completer)
         handler = control.dispatch
         callback_handler = control.dispatch_callback
         notifier = control.pending_notifications

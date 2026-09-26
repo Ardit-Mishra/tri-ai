@@ -152,11 +152,12 @@ class ReplyRevisionLoopTests(BoardTestCase):
 
     # -- the loop ----------------------------------------------------------
     def test_a_tapped_reply_creates_a_follow_up_linked_to_its_original(self):
-        # 1. A plain prompt is staged with buttons, and confirmed by tapping.
+        # 1. A plain prompt starts work directly - no button, no /confirm.
         self.transport.queue_updates([self.message("build a space page", update_id=1)])
         self.daemon.poll_once(offset=None, timeout=1)
-        self.assertIn("workspace: sandbox", self.transport.texts()[0])
-        self.confirm_from_buttons(2)
+        # Ordinary making no longer waits to be confirmed; it starts, and the
+        # reply names both the reading and where the work is going.
+        self.assertIn("sandbox", self.transport.texts()[0])
 
         original = self.conn.execute(
             "SELECT id FROM tasks ORDER BY created_at DESC LIMIT 1"
@@ -176,12 +177,9 @@ class ReplyRevisionLoopTests(BoardTestCase):
             self.message("add an animated starfield", update_id=3, reply_to=card_message_id),
         ])
         self.daemon.poll_once(offset=None, timeout=1)
-        staged = self.transport.texts()[-1]
-        self.assertIn(f"Pending follow-up", staged)
-        self.assertIn(original, staged)
+        self.assertIn("Revising", self.transport.texts()[-1])
 
-        # 4. Tapping Confirm creates the follow-up, linked to the original.
-        self.confirm_from_buttons(4)
+        # 4. The follow-up exists and is linked to the original.
         follow_up = self.conn.execute(
             "SELECT id FROM tasks WHERE id != ? ORDER BY created_at DESC LIMIT 1",
             (original,),
@@ -202,7 +200,9 @@ class ReplyRevisionLoopTests(BoardTestCase):
         )
 
     def test_tapping_cancel_creates_nothing(self):
-        self.transport.queue_updates([self.message("build a space page", update_id=1)])
+        # An external request is what stages now, so it is what can be tapped.
+        self.transport.queue_updates([
+            self.message("email the client the invoice", update_id=1)])
         self.daemon.poll_once(offset=None, timeout=1)
         markup = self.transport.last_markup()
         cancel = markup["inline_keyboard"][0][1]["callback_data"]
@@ -212,7 +212,8 @@ class ReplyRevisionLoopTests(BoardTestCase):
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 0)
 
     def test_a_bare_confirm_resolves_the_single_outstanding_request(self):
-        self.transport.queue_updates([self.message("build a space page", update_id=1)])
+        self.transport.queue_updates([
+            self.message("email the client the invoice", update_id=1)])
         self.daemon.poll_once(offset=None, timeout=1)
         self.transport.queue_updates([self.message("/confirm", update_id=2)])
         self.daemon.poll_once(offset=None, timeout=1)
@@ -225,8 +226,6 @@ class ReplyRevisionLoopTests(BoardTestCase):
             self.message("add a starfield", update_id=1, reply_to=9999),
         ])
         self.daemon.poll_once(offset=None, timeout=1)
-        self.assertIn("Pending intake", self.transport.texts()[-1])
-        self.confirm_from_buttons(2)
         self.assertEqual(
             self.conn.execute("SELECT COUNT(*) FROM task_links").fetchone()[0], 0,
         )
@@ -234,7 +233,6 @@ class ReplyRevisionLoopTests(BoardTestCase):
     def test_a_progress_card_is_opened_then_edited_in_place(self):
         self.transport.queue_updates([self.message("build a space page", update_id=1)])
         self.daemon.poll_once(offset=None, timeout=1)
-        self.confirm_from_buttons(2)
         task_id = self.conn.execute(
             "SELECT id FROM tasks ORDER BY created_at DESC LIMIT 1"
         ).fetchone()["id"]
@@ -264,7 +262,6 @@ class ReplyRevisionLoopTests(BoardTestCase):
     def test_a_produced_html_artifact_is_uploaded_with_the_card(self):
         self.transport.queue_updates([self.message("build a space page", update_id=1)])
         self.daemon.poll_once(offset=None, timeout=1)
-        self.confirm_from_buttons(2)
         task_id = self.conn.execute(
             "SELECT id FROM tasks ORDER BY created_at DESC LIMIT 1"
         ).fetchone()["id"]

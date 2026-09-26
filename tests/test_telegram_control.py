@@ -89,14 +89,17 @@ class ConfirmedIntake(ControlFixture):
         self.assertEqual(payload["prompt"], "smoke test task")
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 0)
 
-    def test_plain_text_creates_a_confirmed_intake_draft_in_the_default_workspace(self):
-        request_id = self.pending_id(self.dispatch("smoke test task"))
-        payload = json.loads(self.conn.execute(
-            "SELECT payload FROM triai_pending_actions WHERE id = ?", (request_id,)
-        ).fetchone()[0])
-        self.assertEqual(payload["workspace"], str(self.repo))
-        self.assertEqual(payload["prompt"], "smoke test task")
-        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 0)
+    def test_plain_text_starts_work_in_the_default_workspace(self):
+        """Plain text used to stage a draft and wait for /confirm, whatever it
+        said. It now starts, because a gate on ordinary making interrupts
+        without protecting anything - see `test_telegram_conversation`. What
+        has to stay true is where the work lands.
+        """
+        self.dispatch("smoke test task")
+        row = self.conn.execute(
+            "SELECT workspace_path, body FROM tasks").fetchone()
+        self.assertEqual(Path(row["workspace_path"]), self.repo)
+        self.assertIn("smoke test", str(row["body"]))
 
     def test_workspaces_and_help_expose_the_operator_owned_aliases(self):
         self.assertIn("demo (default)", self.dispatch("/workspaces"))

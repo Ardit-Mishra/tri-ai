@@ -19,6 +19,7 @@ import board
 import capability_catalog
 import completion_report
 import intake_preflight
+import interpreter
 import progress_card
 import proposals
 import telegram_read_surface
@@ -96,6 +97,8 @@ def confirm_keyboard(action_id: str) -> dict[str, Any]:
 # the Hermes venv's 3.11 - so one inline "\U0001f4c1" made this module, and
 # every test that imports it, unloadable. The whole Telegram surface sat
 # untested that way: eight test files reported as loader errors.
+ELLIPSIS = "…"
+PLAY_ICON = "▶"
 OTHER_WORKSPACE_ICON = "\U0001f4c1"
 
 
@@ -178,6 +181,7 @@ class TelegramControl:
         dashboard_url: Optional[str] = None,
         catalog_path: Path | str = capability_catalog.DEFAULT_CATALOG_PATH,
         radar_path: Path | str = Path.home() / ".tri-ai" / "radar" / "latest.json",
+        completer: Optional[interpreter.Completer] = None,
     ) -> None:
         if pending_seconds <= 0:
             raise ValueError("pending action lifetime must be positive")
@@ -186,6 +190,10 @@ class TelegramControl:
         self._dashboard_url = dashboard_url
         self._catalog_path = Path(catalog_path)
         self._radar_path = Path(radar_path)
+        # Absent by default, so the offline rules path is what runs unless a
+        # caller deliberately wires a model in. Reading a message must never
+        # be the reason the phone waits on a socket.
+        self._completer = completer
 
     def _pending(
         self,
@@ -354,30 +362,35 @@ class TelegramControl:
         return "Workspaces: " + ", ".join(aliases) + ". Use /run <workspace-alias> <prompt>."
 
     def _help(self) -> str:
-        commands = [
-            "/status",
-            "/task <task-id>",
-            "/logs <task-id>",
-            "/workspaces",
-            "/files",
-            "/run <workspace-alias> <prompt>",
-            "/retry <task-id>",
-            "/cancel <task-id>",
-            "/confirm <request-id>",
-            "/remember <note>",
-            "/recall <query>",
-            "/capabilities",
-            "/radar",
-        ]
-        suffix = (
-            " Plain text creates a confirmation-required draft in the default workspace."
-            " Reply to a finished task's message to queue a follow-up linked to it."
-        )
+        """Lead with talking, because that is now the whole interface.
+
+        The old help opened with fourteen slash commands, which taught the
+        operator that the bot was a command line with a chat window around it.
+        They still all work and are listed below the fold; nothing was removed.
+        """
         if self._policy is None:
-            suffix = " Task intake is not configured."
-        elif self._policy.default_workspace is None:
-            suffix = " Plain text needs default_workspace configured; use /workspaces."
-        return "Commands: " + ", ".join(commands) + "." + suffix
+            return "Task intake is not configured. I can still answer /status."
+        lines = [
+            "Just talk to me.",
+            "",
+            '  "build me a recipe card page for masala chai"  - I start, and '
+            'tell you what I understood first.',
+            '  "make it darker"  - refines what I just built.',
+            '  "what is running?"  - the board, in words.',
+            '  "stop"  - drops whatever is waiting.',
+            "",
+            "I only stop to ask when something sends, spends or publishes, "
+            "or when a request is too thin to act on.",
+            "",
+            "Commands still work: /status, /task <id>, /logs <id>, /files, "
+            "/workspaces, /run <workspace-alias> <prompt>, /retry <id>, "
+            "/cancel <id>, /confirm <id>, /remember <note>, /recall <query>, "
+            "/capabilities, /radar.",
+        ]
+        if self._policy.default_workspace is None:
+            lines.append("Set default_workspace before plain text can start work.")
+        return "\n".join(lines)
+
 
     def _capability_report(self) -> str:
         try:
@@ -449,26 +462,12 @@ class TelegramControl:
                 natural_read, board_path=board_path, ledger_path=ledger_path, runs_root=runs_root
             )
         if not normalized.startswith("/"):
-            if self._policy is None:
-                return "Task intake is not configured. Use /status or /help."
-            if self._policy.default_workspace is None:
-                return "No default workspace is configured. Use /workspaces, then /run <workspace-alias> <prompt>."
             conn = board.connect(Path(board_path))
             try:
-                # Replying to a completion card means "another go at that one".
-                parent = None
-                workspace = self._policy.workspaces[self._policy.default_workspace]
-                if reply_to_message_id is not None:
-                    parent = board.task_for_notified_message(
-                        conn, chat_id=chat_id, message_id=reply_to_message_id,
-                    )
-                    if parent is not None:
-                        scoped = self._workspace_for_task(conn, parent)
-                        if scoped is not None:
-                            workspace = scoped
-                return self._pending_run(
-                    conn, chat_id=chat_id, workspace=workspace,
-                    prompt=normalized, parent_task_id=parent,
+                return self._converse(
+                    conn, normalized, chat_id=chat_id, board_path=board_path,
+                    ledger_path=ledger_path, runs_root=runs_root,
+                    reply_to_message_id=reply_to_message_id,
                 )
             finally:
                 conn.close()
@@ -560,6 +559,170 @@ class TelegramControl:
             return f"Unknown command: {command}"
         finally:
             conn.close()
+
+    # ------------------------------------------------------------------
+    # Conversation
+    #
+    # A message used to become a pending run and wait for /confirm, whatever
+    # it said - so "hey" queued a task, and a half-specified request burned six
+    # minutes producing the wrong thing. The interpreter now reads the message
+    # first, and this decides what that reading is worth doing about.
+    #
+    # The gate is not removed, it is aimed. Send, spend and publish still stop
+    # and ask, because those are the actions that cannot be taken back.
+    # Everything else starts, and says what it understood while starting, so a
+    # misreading costs a correction instead of a run.
+    # ------------------------------------------------------------------
+
+    MAX_TITLE = 70
+
+    def _title_for(self, reading: "interpreter.Reading", fallback: str) -> str:
+        """Name the task after the request.
+
+        Every task used to be titled "Telegram: <workspace>", which left the
+        board, the progress card and the completion card equally uninformative
+        about what had actually been asked for.
+        """
+        title = (reading.understood or fallback).strip().rstrip(".")
+        if len(title) > self.MAX_TITLE:
+            title = title[: self.MAX_TITLE - 1].rstrip() + ELLIPSIS
+        return title or "Untitled request"
+
+    def _start_now(
+        self, conn, *, chat_id: str, workspace: WorkspacePolicy,
+        reading: "interpreter.Reading", prompt: str,
+        parent_task_id: Optional[str] = None,
+    ) -> str:
+        """Create the request and confirm it in the same breath.
+
+        It still goes through `create_pending_action` and
+        `confirm_pending_action` rather than reaching into the task table, so
+        there is exactly one path into board state and auto-started work is
+        indistinguishable from confirmed work once it lands.
+        """
+        action_id = self._pending(
+            conn,
+            chat_id=chat_id,
+            action="run",
+            payload={
+                "parent_task_id": parent_task_id,
+                "title": self._title_for(reading, prompt),
+                "prompt": reading.brief or prompt,
+                "workspace": str(workspace.path),
+                "verify_command": workspace.profile.command,
+                "verify_timeout": workspace.profile.timeout,
+            },
+        )
+        result = board.confirm_pending_action(
+            conn, action_id=action_id, chat_id=chat_id)
+        if not result.changed:
+            return f"Could not start that: {result.status} ({result.detail})"
+
+        verb = "Revising" if parent_task_id else "Starting"
+        lines = [
+            f"{PLAY_ICON} {verb}: {reading.understood}",
+            f"task {result.task_id} in {workspace.alias}",
+        ]
+        if reading.source == "rules":
+            # Say so. A word-list reading is weaker than a model's, and the
+            # operator should know which one just decided what to build.
+            lines.append("read without a model - correct me if that is wrong")
+        flagged = intake_preflight.warning_line(
+            intake_preflight.check(reading.brief or prompt, workspace.path),
+            workspace.alias,
+        )
+        if flagged:
+            lines.append(flagged)
+        lines.append('Say "stop" to cancel, or just tell me what to change.')
+        return "\n".join(lines)
+
+    def _converse(
+        self, conn, text: str, *, chat_id: str, board_path: Path | str,
+        ledger_path: Path | str, runs_root: Path | str,
+        reply_to_message_id: Optional[int] = None,
+    ) -> str:
+        """Read one message, then act on what it turned out to mean."""
+        if self._policy is None:
+            return "Task intake is not configured. Use /status or /help."
+        if self._policy.default_workspace is None:
+            return ("No default workspace is configured. Use /workspaces, then "
+                    "/run <workspace-alias> <prompt>.")
+
+        # Read against the history as it stood *before* this message, then
+        # record - otherwise the message being read is already in its own
+        # context and a follow-up looks like it refines itself.
+        history = board.recent_turns(conn, chat_id=chat_id)
+        board.record_turn(conn, chat_id=chat_id, role="operator", text=text)
+        reading = interpreter.interpret(
+            text, history=history, complete=self._completer)
+        reply = self._act_on(
+            conn, reading, text, chat_id=chat_id, board_path=board_path,
+            ledger_path=ledger_path, runs_root=runs_root,
+            reply_to_message_id=reply_to_message_id,
+        )
+        board.record_turn(conn, chat_id=chat_id, role="kaya", text=str(reply))
+        return reply
+
+    def _act_on(
+        self, conn, reading: "interpreter.Reading", text: str, *, chat_id: str,
+        board_path: Path | str, ledger_path: Path | str, runs_root: Path | str,
+        reply_to_message_id: Optional[int] = None,
+    ) -> str:
+        if reading.intent == "chat":
+            return ("I'm here. Tell me what to make and I'll start - no slash "
+                    'commands needed. Ask "what is running?" any time.')
+        if reading.intent == "stop":
+            return self._stop(conn, chat_id=chat_id)
+        if reading.intent == "ask":
+            return telegram_read_surface.dispatch_command(
+                "/status", board_path=board_path, ledger_path=ledger_path,
+                runs_root=runs_root,
+            )
+        if reading.intent == "unclear" or reading.question:
+            # One question, and nothing created. Guessing here is what spent
+            # six minutes producing an artifact nobody asked for.
+            head = (f"Got: {reading.understood}\n"
+                    if reading.intent != "unclear" else "")
+            return f"{head}{reading.question}"
+
+        parent = None
+        workspace = self._policy.workspaces[self._policy.default_workspace]
+        if reply_to_message_id is not None:
+            # Replying to a card means "another go at that one".
+            parent = board.task_for_notified_message(
+                conn, chat_id=chat_id, message_id=reply_to_message_id)
+            if parent is not None:
+                scoped = self._workspace_for_task(conn, parent)
+                if scoped is not None:
+                    workspace = scoped
+
+        if reading.external:
+            # The one interruption worth having. Nothing that sends, spends or
+            # publishes starts on a reading alone.
+            return self._pending_run(
+                conn, chat_id=chat_id, workspace=workspace,
+                prompt=reading.brief or text, parent_task_id=parent,
+            )
+        return self._start_now(
+            conn, chat_id=chat_id, workspace=workspace, reading=reading,
+            prompt=text, parent_task_id=parent,
+        )
+
+    def _stop(self, conn, *, chat_id: str) -> str:
+        """Withdraw what is waiting; name what is already running.
+
+        Stopping a running task still goes through `/cancel <task-id>`, because
+        which one to stop is a choice only the operator can make and guessing
+        at it would throw away work.
+        """
+        outstanding = board.pending_actions_for_chat(conn, chat_id)
+        for item in outstanding:
+            board.cancel_pending_action(
+                conn, action_id=item["id"], chat_id=chat_id)
+        if outstanding:
+            return f"Cancelled {len(outstanding)} request(s) that were waiting."
+        return ("Nothing was waiting. If something is already running, "
+                "send /status to see it and /cancel <task-id> to stop it.")
 
     def pending_notifications(self, *, chat_id: str, board_path: Path | str) -> tuple[proposals.OutboundProposal, ...]:
         """Return unsent board proposals for one authorized transport recipient."""

@@ -174,6 +174,7 @@ def migrate(conn: sqlite3.Connection) -> dict[str, bool]:
     conn.execute(RUN_ARTIFACTS_DDL)
     conn.execute(COMPLETION_NOTIFICATIONS_DDL)
     conn.execute(PROGRESS_CARDS_DDL)
+    conn.execute(CHAT_TURNS_DDL)
 
     conn.commit()
     return added
@@ -509,6 +510,17 @@ CREATE TABLE IF NOT EXISTS triai_environment_backoff (
     updated_at   INTEGER NOT NULL
 )
 """
+
+CHAT_TURNS_DDL = """
+CREATE TABLE IF NOT EXISTS triai_chat_turns (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id     TEXT NOT NULL,
+    role        TEXT NOT NULL,
+    text        TEXT NOT NULL,
+    created_at  INTEGER NOT NULL
+)
+"""
+
 
 PENDING_ACTIONS_DDL = """
 CREATE TABLE IF NOT EXISTS triai_pending_actions (
@@ -1566,3 +1578,43 @@ def clear_quarantine(conn: sqlite3.Connection, workspace: Path | str) -> bool:
             (workspace_key(workspace),),
         )
     return cur.rowcount > 0
+
+
+# Conversation is state, so it belongs on the board rather than in the daemon's
+# memory. A restart must not erase what was being discussed - this daemon
+# restarts, and a supervisor that restarts it is the reason the 409 loop was
+# survivable at all.
+TURN_ROLES = frozenset({"operator", "kaya"})
+RECENT_TURNS = 8
+
+
+def record_turn(
+    conn: sqlite3.Connection, *, chat_id: str, role: str, text: str
+) -> None:
+    """Append one conversational turn. Append-only; nothing here is edited."""
+    if role not in TURN_ROLES:
+        raise ValueError(f"unsupported turn role: {role!r}")
+    if not chat_id:
+        raise ValueError("chat id is required")
+    cleaned = str(text).strip()
+    if not cleaned:
+        return
+    kb = kanban()
+    with kb.write_txn(conn):
+        conn.execute(
+            "INSERT INTO triai_chat_turns (chat_id, role, text, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (str(chat_id), role, cleaned[:2000], int(time.time())),
+        )
+
+
+def recent_turns(
+    conn: sqlite3.Connection, *, chat_id: str, limit: int = RECENT_TURNS
+) -> tuple[str, ...]:
+    """The last few turns for one chat, oldest first so it reads as a thread."""
+    rows = conn.execute(
+        "SELECT role, text FROM triai_chat_turns WHERE chat_id = ? "
+        "ORDER BY id DESC LIMIT ?",
+        (str(chat_id), max(int(limit), 0)),
+    ).fetchall()
+    return tuple(f"{row['role']}: {row['text']}" for row in reversed(rows))
