@@ -32,13 +32,13 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 import beacon
-from dashboard import jarvis_terminal
+from dashboard import kaya_terminal
 from services.status import collector
 
 
 class RuntimeLayoutHasOneDefinition(unittest.TestCase):
     def test_the_paths_match_what_the_runtime_actually_uses(self):
-        paths = jarvis_terminal.runtime_paths(pathlib.Path("/rt"))
+        paths = kaya_terminal.runtime_paths(pathlib.Path("/rt"))
         self.assertEqual(paths["board_path"].name, "board.db")
         self.assertEqual(paths["ledger_path"].name, "ledger.jsonl")
         self.assertEqual(paths["daemon_state_path"].parent.name, "logs")
@@ -46,11 +46,11 @@ class RuntimeLayoutHasOneDefinition(unittest.TestCase):
 
     def test_the_dashboard_cli_defaults_agree_with_the_helper(self):
         """Two readers disagreeing about the layout is what broke the beacon."""
-        paths = jarvis_terminal.runtime_paths(jarvis_terminal.DEFAULT_RUNTIME_ROOT)
-        self.assertEqual(paths["board_path"], jarvis_terminal.DEFAULT_RUNTIME_ROOT / "board.db")
+        paths = kaya_terminal.runtime_paths(kaya_terminal.DEFAULT_RUNTIME_ROOT)
+        self.assertEqual(paths["board_path"], kaya_terminal.DEFAULT_RUNTIME_ROOT / "board.db")
         self.assertEqual(
             paths["daemon_state_path"],
-            jarvis_terminal.DEFAULT_RUNTIME_ROOT / "logs" / "daemons.json",
+            kaya_terminal.DEFAULT_RUNTIME_ROOT / "logs" / "daemons.json",
         )
 
     def test_the_beacon_reads_through_the_helper(self):

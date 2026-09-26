@@ -1,4 +1,4 @@
-"""Read-only web surface for the JARVIS evidence snapshot.
+"""Read-only web surface for the KAYA evidence snapshot.
 
 Loopback by default; a wider binding exists for reaching the HUD from a phone
 over a trusted network, and has to be asked for explicitly. There is no
@@ -19,15 +19,15 @@ from typing import Callable, Optional, Sequence
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from dashboard import jarvis_terminal
+    from dashboard import kaya_terminal
 else:
-    from . import jarvis_terminal
+    from . import kaya_terminal
 
 
-SnapshotReader = Callable[[], jarvis_terminal.DashboardSnapshot]
+SnapshotReader = Callable[[], kaya_terminal.DashboardSnapshot]
 
 
-class JarvisHTTPServer(ThreadingHTTPServer):
+class KayaHTTPServer(ThreadingHTTPServer):
     """Suppress normal Windows disconnects while retaining real server errors."""
 
     def handle_error(self, request: object, client_address: object) -> None:
@@ -47,7 +47,7 @@ def _workspace_key(path: Optional[str]) -> Optional[str]:
         return None
 
 
-def _rule_task_links(snapshot: jarvis_terminal.DashboardSnapshot) -> list[dict[str, str]]:
+def _rule_task_links(snapshot: kaya_terminal.DashboardSnapshot) -> list[dict[str, str]]:
     """Derive the read-only graph links for rules scoped to task workspaces."""
     tasks_by_workspace: dict[str, list[str]] = {}
     for task in snapshot.tasks:
@@ -61,7 +61,7 @@ def _rule_task_links(snapshot: jarvis_terminal.DashboardSnapshot) -> list[dict[s
     return links
 
 
-def _telemetry_payload(task: jarvis_terminal.TaskView) -> dict[str, object]:
+def _telemetry_payload(task: kaya_terminal.TaskView) -> dict[str, object]:
     """Project one task's run telemetry exactly as the reader recorded it."""
     telemetry = task.telemetry
     if telemetry is None:
@@ -102,12 +102,14 @@ def _telemetry_payload(task: jarvis_terminal.TaskView) -> dict[str, object]:
     }
 
 
-HTML = r"""<!doctype html>
+PRODUCT_NAME = "KAYA"
+
+_HTML_TEMPLATE = r"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>TRI-AI // OPERATIONS CORE</title>
+  <title>TRI-AI // KAYA</title>
   <style>
     :root { color-scheme: dark; --bg:#09090b; --surface:#18181b; --line:#27272a; --muted:#a1a1aa; --text:#fafafa; --emerald:#34d399; --crimson:#fb7185; --amber:#fbbf24; --violet:#a78bfa; }
     * { box-sizing:border-box; }
@@ -268,7 +270,7 @@ HTML = r"""<!doctype html>
 <body>
   <main class="shell">
     <header>
-      <div class="brand">TRI-AI // OPERATIONS CORE <span>READ ONLY</span></div>
+      <div class="brand">TRI-AI // KAYA <span>READ ONLY</span></div>
       <div class="header-right">
         <!-- Outside #services on purpose: render() clears that container on
              every snapshot, and the stream badge must survive a re-render. -->
@@ -1107,8 +1109,10 @@ HTML = r"""<!doctype html>
 </body>
 </html>"""
 
+HTML = _HTML_TEMPLATE.replace("KAYA", PRODUCT_NAME)
 
-def snapshot_payload(snapshot: jarvis_terminal.DashboardSnapshot) -> dict[str, object]:
+
+def snapshot_payload(snapshot: kaya_terminal.DashboardSnapshot) -> dict[str, object]:
     """Serialize only evidence already present in a terminal snapshot."""
     return {
         "metrics": {
@@ -1256,7 +1260,7 @@ ARTIFACT_TYPES = {
 
 
 def _handler(snapshot_fn: SnapshotReader, event_interval: float, artifact_fn=None) -> type[BaseHTTPRequestHandler]:
-    class JarvisHandler(BaseHTTPRequestHandler):
+    class KayaHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
         def log_message(self, _format: str, *_args: object) -> None:
@@ -1362,7 +1366,7 @@ def _handler(snapshot_fn: SnapshotReader, event_interval: float, artifact_fn=Non
                     return
             self.send_error(404, "not found")
 
-    return JarvisHandler
+    return KayaHandler
 
 
 LOOPBACK_HOST = "127.0.0.1"
@@ -1376,7 +1380,7 @@ def create_server(
     event_interval: float = 2.0,
     allow_non_loopback: bool = False,
     artifact_fn=None,
-) -> JarvisHTTPServer:
+) -> KayaHTTPServer:
     """Create the read-only dashboard server; loopback unless told otherwise.
 
     The dashboard has no control-plane endpoint and no credential access, but
@@ -1390,7 +1394,7 @@ def create_server(
     """
     if host != LOOPBACK_HOST and not allow_non_loopback:
         raise ValueError(
-            "JARVIS web server binds loopback 127.0.0.1 unless non-loopback "
+            "KAYA web server binds loopback 127.0.0.1 unless non-loopback "
             "binding is explicitly allowed (--host with --allow-non-loopback)"
         )
     if not str(host).strip():
@@ -1398,8 +1402,8 @@ def create_server(
     if event_interval <= 0:
         raise ValueError("event_interval must be positive")
     if snapshot_fn is None:
-        runtime = jarvis_terminal.DEFAULT_RUNTIME_ROOT
-        snapshot_fn = lambda: jarvis_terminal.read_snapshot(
+        runtime = kaya_terminal.DEFAULT_RUNTIME_ROOT
+        snapshot_fn = lambda: kaya_terminal.read_snapshot(
             board_path=runtime / "board.db",
             ledger_path=runtime / "ledger.jsonl",
             daemon_state_path=runtime / "logs" / "daemons.json",
@@ -1409,15 +1413,15 @@ def create_server(
             radar_path=runtime / "radar" / "latest.json",
         )
         if artifact_fn is None:
-            artifact_fn = lambda task_id: jarvis_terminal.read_task_artifacts(
+            artifact_fn = lambda task_id: kaya_terminal.read_task_artifacts(
                 runtime / "board.db", task_id,
             )
-    return JarvisHTTPServer(
+    return KayaHTTPServer(
         (host, int(port)), _handler(snapshot_fn, event_interval, artifact_fn),
     )
 
 
-def serve(servers: Sequence[JarvisHTTPServer]) -> None:
+def serve(servers: Sequence[KayaHTTPServer]) -> None:
     """Serve every bound interface until interrupted.
 
     One socket cannot cover both loopback and a single named interface, and
@@ -1430,7 +1434,7 @@ def serve(servers: Sequence[JarvisHTTPServer]) -> None:
     if not servers:
         raise ValueError("no servers to serve")
     threads = [
-        threading.Thread(target=server.serve_forever, name=f"jarvis-{index}", daemon=True)
+        threading.Thread(target=server.serve_forever, name=f"kaya-{index}", daemon=True)
         for index, server in enumerate(servers[1:], start=1)
     ]
     for thread in threads:
@@ -1443,7 +1447,7 @@ def serve(servers: Sequence[JarvisHTTPServer]) -> None:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Serve the local read-only JARVIS dashboard.")
+    parser = argparse.ArgumentParser(description="Serve the local read-only KAYA dashboard.")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument(
         "--host",
@@ -1471,7 +1475,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if host not in hosts:
             hosts.append(host)
 
-    servers: list[JarvisHTTPServer] = []
+    servers: list[KayaHTTPServer] = []
     try:
         for host in hosts:
             servers.append(
@@ -1481,17 +1485,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             )
             if host != LOOPBACK_HOST:
                 print(
-                    f"JARVIS dashboard is reachable beyond this machine on {host}:"
+                    f"KAYA dashboard is reachable beyond this machine on {host}:"
                     f"{args.port} - read-only, but it exposes task titles, workspace "
                     "paths and live log tails to that network",
                     file=sys.stderr,
                 )
-            print(f"JARVIS dashboard listening on http://{host}:{servers[-1].server_port}")
+            print(f"KAYA dashboard listening on http://{host}:{servers[-1].server_port}")
         serve(servers)
     except KeyboardInterrupt:
         return 0
     except (OSError, ValueError) as exc:
-        print(f"jarvis web stopped: {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"kaya web stopped: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     finally:
         for server in servers:

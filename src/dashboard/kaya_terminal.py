@@ -968,7 +968,7 @@ def _status_counts(tasks: Sequence[TaskView]) -> str:
 
 def _renderable(snapshot: DashboardSnapshot) -> Group:
     heading = Panel(
-        Text("TRI-AI JARVIS | Read-only evidence dashboard", style="bold cyan"),
+        Text("TRI-AI KAYA | Read-only evidence dashboard", style="bold cyan"),
         subtitle=(
             f"tasks={len(snapshot.tasks)} ({_status_counts(snapshot.tasks)}) | "
             f"ledger={snapshot.ledger_entry_count} | accepted rules={snapshot.activated_rule_count}"
@@ -1022,7 +1022,7 @@ def render_snapshot(snapshot: DashboardSnapshot, *, console: Console) -> None:
 
 
 def _arguments(argv: Optional[Sequence[str]]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Render the read-only Tri-AI JARVIS terminal dashboard.")
+    parser = argparse.ArgumentParser(description="Render the read-only Tri-AI KAYA terminal dashboard.")
     parser.add_argument("--board", type=Path, default=DEFAULT_RUNTIME_ROOT / "board.db")
     parser.add_argument("--ledger", type=Path, default=DEFAULT_RUNTIME_ROOT / "ledger.jsonl")
     parser.add_argument("--daemon-state", type=Path, default=DEFAULT_RUNTIME_ROOT / "logs" / "daemons.json")
@@ -1062,7 +1062,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except KeyboardInterrupt:
         return 0
     except (DashboardSourceError, OSError, sqlite3.Error, ValueError) as exc:
-        print(f"jarvis dashboard stopped: {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"kaya dashboard stopped: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
 
 

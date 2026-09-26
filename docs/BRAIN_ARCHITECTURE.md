@@ -2,7 +2,7 @@
 
 Tri-AI and the dashboard are one product. Tri-AI is the governed execution
 engine; the dashboard is its read-only control and evidence surface. The
-visible `JARVIS` label is temporary and does not name a second runtime.
+visible `KAYA` label is temporary and does not name a second runtime.
 
 ## What the Brain is
 

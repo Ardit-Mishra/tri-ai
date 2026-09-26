@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from dashboard import jarvis_web as web  # noqa: E402
+from dashboard import kaya_web as web  # noqa: E402
 from test_dashboard_web import fixture_snapshot  # noqa: E402
 
 
@@ -153,7 +153,13 @@ class MotionAccessibilityTests(unittest.TestCase):
         source = Path(web.__file__).with_name("tri_space.js").read_text(encoding="utf-8")
         self.assertIn('import * as THREE from "/assets/three.module.min.js"', source)
         self.assertIn("new THREE.WebGLRenderer", source)
-        self.assertIn('setView(window.innerWidth > 767 ? "3d" : "2d")', source)
+        # Was `setView(window.innerWidth > 767 ? "3d" : "2d")`. That sent every
+        # phone to the flat 2D ring, and the phone is the surface this is read
+        # from - the operator had never seen the spatial view on the device
+        # they actually use. 3D is the default at every width now, and
+        # `test_neural_view` holds that down along with the brain layout.
+        self.assertIn('setView("3d")', source)
+        self.assertIn('setView("2d")', source)
         self.assertIn('id="motionToggle"', web.HTML)
         self.assertIn('id="neuralGraph"', web.HTML)
 

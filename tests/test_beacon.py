@@ -18,7 +18,7 @@ import json
 import unittest
 
 import beacon
-from dashboard import jarvis_terminal as terminal
+from dashboard import kaya_terminal as terminal
 
 
 # Distinctive enough that a substring search cannot match by accident.

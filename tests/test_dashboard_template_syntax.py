@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from dashboard import jarvis_web as web  # noqa: E402
+from dashboard import kaya_web as web  # noqa: E402
 from test_dashboard_web import fixture_snapshot  # noqa: E402
 
 

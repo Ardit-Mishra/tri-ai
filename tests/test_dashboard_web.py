@@ -1,4 +1,4 @@
-"""Endpoint and isolation proofs for the local JARVIS web surface."""
+"""Endpoint and isolation proofs for the local KAYA web surface."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from urllib import request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dashboard import jarvis_terminal as terminal  # noqa: E402
-from dashboard import jarvis_web as web  # noqa: E402
+from dashboard import kaya_terminal as terminal  # noqa: E402
+from dashboard import kaya_web as web  # noqa: E402
 
 
 def fixture_snapshot() -> terminal.DashboardSnapshot:
@@ -118,7 +118,9 @@ class WebSerializationTests(unittest.TestCase):
 
         with request.urlopen(base + "/", timeout=2) as response:
             page = response.read().decode("utf-8")
-        self.assertIn("TRI-AI // OPERATIONS CORE", page)
+        # Read from the constant rather than repeated here, so the brand and
+        # its test cannot drift apart the way they just did.
+        self.assertIn(f"TRI-AI // {web.PRODUCT_NAME}", page)
         self.assertIn("EventSource", page)
         self.assertIn("#09090b", page)
         self.assertIn("#05070a", page)
@@ -149,7 +151,7 @@ class WebSerializationTests(unittest.TestCase):
 
 
 class WebBoundaryTests(unittest.TestCase):
-    source = Path(__file__).resolve().parents[1] / "src" / "dashboard" / "jarvis_web.py"
+    source = Path(__file__).resolve().parents[1] / "src" / "dashboard" / "kaya_web.py"
 
     def test_web_surface_has_no_board_mutator_credential_or_process_capability(self):
         tree = ast.parse(self.source.read_text(encoding="utf-8"))

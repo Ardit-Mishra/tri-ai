@@ -1,4 +1,4 @@
-"""Proofs for the read-only Phase 6 JARVIS terminal dashboard."""
+"""Proofs for the read-only Phase 6 KAYA terminal dashboard."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import board  # noqa: E402
-from dashboard import jarvis_terminal as jarvis  # noqa: E402
+from dashboard import kaya_terminal as kaya  # noqa: E402
 from memory import brain  # noqa: E402
 from support import BoardTestCase  # noqa: E402
 
@@ -55,8 +55,8 @@ class DashboardFixture(BoardTestCase):
             "status": "running", "supervisor_pid": 100, "worker_pid": 101, "telegram_pid": 102,
         }), encoding="utf-8")
 
-    def snapshot(self) -> jarvis.DashboardSnapshot:
-        return jarvis.read_snapshot(
+    def snapshot(self) -> kaya.DashboardSnapshot:
+        return kaya.read_snapshot(
             board_path=self.db_path,
             ledger_path=self.ledger_path,
             daemon_state_path=self.state_path,
@@ -76,7 +76,7 @@ class DashboardFixture(BoardTestCase):
         memory.close()
         before = brain_path.read_bytes()
 
-        snapshot = jarvis.read_snapshot(
+        snapshot = kaya.read_snapshot(
             board_path=self.db_path,
             ledger_path=self.ledger_path,
             daemon_state_path=self.state_path,
@@ -114,7 +114,7 @@ class DashboardSnapshotTests(DashboardFixture):
         }), encoding="utf-8")
         before_catalog, before_radar = catalog_path.read_bytes(), radar_path.read_bytes()
 
-        snapshot = jarvis.read_snapshot(
+        snapshot = kaya.read_snapshot(
             board_path=self.db_path, ledger_path=self.ledger_path,
             daemon_state_path=self.state_path, capability_catalog_path=catalog_path,
             radar_path=radar_path, pid_alive=lambda pid: False,
@@ -130,7 +130,7 @@ class DashboardSnapshotTests(DashboardFixture):
         self.assertEqual(radar_path.read_bytes(), before_radar)
 
     def test_default_liveness_probe_recognizes_the_current_process(self):
-        self.assertTrue(jarvis._pid_alive(os.getpid()))
+        self.assertTrue(kaya._pid_alive(os.getpid()))
 
     @unittest.skipUnless(os.name == "nt", "Windows process-object lifetime behaviour")
     def test_exited_process_with_a_lingering_handle_reports_down(self):
@@ -141,7 +141,7 @@ class DashboardSnapshotTests(DashboardFixture):
         child = subprocess.Popen([sys.executable, "-c", "raise SystemExit(0)"])
         self.addCleanup(child.wait)
         child.wait()
-        self.assertFalse(jarvis._pid_alive(child.pid))
+        self.assertFalse(kaya._pid_alive(child.pid))
 
     def test_snapshot_projects_run_phases_from_recorded_evidence(self):
         by_id = {task.task_id: task for task in self.snapshot().tasks}
@@ -149,7 +149,7 @@ class DashboardSnapshotTests(DashboardFixture):
         self.assertIsNotNone(running)
         self.assertEqual(running.run_status, "running")
         phases = {phase.key: phase for phase in running.phases}
-        self.assertEqual(set(phases), set(jarvis.PHASE_ORDER))
+        self.assertEqual(set(phases), set(kaya.PHASE_ORDER))
         self.assertIn(phases["claimed"].state, {"done", "active"})
         # The fixture uses a directory workspace, so there is no worktree stage
         # to reach; it must be reported as skipped rather than pending.
@@ -170,7 +170,7 @@ class DashboardSnapshotTests(DashboardFixture):
         (run_dir / "agent.log").write_text(
             "\n".join(f"line {index}" for index in range(1, 120)) + "\n", encoding="utf-8",
         )
-        snapshot = jarvis.read_snapshot(
+        snapshot = kaya.read_snapshot(
             board_path=self.db_path,
             ledger_path=self.ledger_path,
             daemon_state_path=self.state_path,
@@ -181,7 +181,7 @@ class DashboardSnapshotTests(DashboardFixture):
         running = next(task for task in snapshot.tasks if task.task_id == self.running)
         logs = {log.name: log for log in running.telemetry.logs}
         self.assertEqual(set(logs), {"agent"})
-        self.assertEqual(len(logs["agent"].lines), jarvis.LOG_TAIL_LINES)
+        self.assertEqual(len(logs["agent"].lines), kaya.LOG_TAIL_LINES)
         self.assertEqual(logs["agent"].lines[-1], "line 119")
         self.assertTrue(logs["agent"].truncated)
         # A finished task must not have its logs read at all.
@@ -194,7 +194,7 @@ class DashboardSnapshotTests(DashboardFixture):
         self.assertEqual(task_statuses, {
             self.done: "done", self.ready: "ready", self.running: "running",
         })
-        self.assertEqual(snapshot.edges, (jarvis.TaskEdge(self.done, self.ready),))
+        self.assertEqual(snapshot.edges, (kaya.TaskEdge(self.done, self.ready),))
         self.assertEqual([event.task_id for event in snapshot.ledger_events], [self.running, self.done])
         self.assertEqual(snapshot.ledger_entry_count, 2)
         self.assertEqual(snapshot.ledger_errors, ("ledger line 3 is not valid JSON",))
@@ -239,9 +239,9 @@ class DashboardSnapshotTests(DashboardFixture):
     def test_rich_rendering_contains_only_snapshot_evidence(self):
         stream = io.StringIO()
         console = Console(file=stream, force_terminal=False, width=150, color_system=None)
-        jarvis.render_snapshot(self.snapshot(), console=console)
+        kaya.render_snapshot(self.snapshot(), console=console)
         rendered = stream.getvalue()
-        self.assertIn("TRI-AI JARVIS", rendered)
+        self.assertIn("TRI-AI KAYA", rendered)
         self.assertIn(self.done, rendered)
         self.assertIn(self.ready, rendered)
         self.assertIn(f"{self.done} -> {self.ready}", rendered)
@@ -255,8 +255,8 @@ class DashboardSnapshotTests(DashboardFixture):
         self.assertEqual(self.db_path.read_bytes(), before)
 
     def test_missing_board_is_an_honest_source_error(self):
-        with self.assertRaisesRegex(jarvis.DashboardSourceError, "board database does not exist"):
-            jarvis.read_snapshot(
+        with self.assertRaisesRegex(kaya.DashboardSourceError, "board database does not exist"):
+            kaya.read_snapshot(
                 board_path=self.tmp / "missing.db", ledger_path=self.ledger_path,
                 daemon_state_path=self.state_path,
             )
@@ -264,18 +264,18 @@ class DashboardSnapshotTests(DashboardFixture):
     def test_cli_renders_a_snapshot_without_writing(self):
         stdout, stderr = io.StringIO(), io.StringIO()
         with redirect_stdout(stdout), redirect_stderr(stderr):
-            result = jarvis.main([
+            result = kaya.main([
                 "--board", str(self.db_path), "--ledger", str(self.ledger_path),
                 "--daemon-state", str(self.state_path), "--ledger-limit", "2",
             ])
         self.assertEqual(result, 0, stderr.getvalue())
-        self.assertIn("TRI-AI JARVIS", stdout.getvalue())
+        self.assertIn("TRI-AI KAYA", stdout.getvalue())
         self.assertIn(self.done, stdout.getvalue())
 
     def test_cli_returns_nonzero_for_a_missing_board(self):
         stdout, stderr = io.StringIO(), io.StringIO()
         with redirect_stdout(stdout), redirect_stderr(stderr):
-            result = jarvis.main([
+            result = kaya.main([
                 "--board", str(self.tmp / "missing.db"), "--ledger", str(self.ledger_path),
                 "--daemon-state", str(self.state_path),
             ])
@@ -284,7 +284,7 @@ class DashboardSnapshotTests(DashboardFixture):
 
 
 class DashboardBoundaryTests(unittest.TestCase):
-    source = Path(__file__).resolve().parents[1] / "src" / "dashboard" / "jarvis_terminal.py"
+    source = Path(__file__).resolve().parents[1] / "src" / "dashboard" / "kaya_terminal.py"
 
     def test_dashboard_has_no_board_mutation_network_or_spawn_capability(self):
         tree = ast.parse(self.source.read_text(encoding="utf-8"))

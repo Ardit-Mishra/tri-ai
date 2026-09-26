@@ -19,8 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import board  # noqa: E402
 import completion_report  # noqa: E402
-from dashboard import jarvis_terminal as terminal  # noqa: E402
-from dashboard import jarvis_web as web  # noqa: E402
+from dashboard import kaya_terminal as terminal  # noqa: E402
+from dashboard import kaya_web as web  # noqa: E402
 from support import BoardTestCase  # noqa: E402
 
 

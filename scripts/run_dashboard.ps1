@@ -1,6 +1,6 @@
 # run_dashboard.ps1
 #
-# Serve the read-only JARVIS dashboard, which every completion card links to.
+# Serve the read-only KAYA dashboard, which every completion card links to.
 #
 # It was not running on the desktop at all, and the URL the cards carried -
 # http://100.67.149.86:8080 - pointed at a port held by svchost.exe, the same
@@ -33,7 +33,7 @@ if (-not $TailscaleAddress) {
 }
 
 $Arguments = @(
-    "-m", "dashboard.jarvis_web",
+    "-m", "dashboard.kaya_web",
     "--port", $Port,
     "--host", "127.0.0.1"
 )
@@ -48,7 +48,7 @@ if ($WhatIf) {
     exit 0
 }
 
-# `-m dashboard.jarvis_web` from src/, so the package's own relative imports
+# `-m dashboard.kaya_web` from src/, so the package's own relative imports
 # resolve the same way they do for the worker.
 Set-Location (Join-Path $Root "src")
 & $Python @Arguments

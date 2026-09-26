@@ -35,9 +35,9 @@ from typing import Any, Mapping, Optional, Sequence
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from dashboard import jarvis_terminal
+    from dashboard import kaya_terminal
 else:
-    from .dashboard import jarvis_terminal
+    from .dashboard import kaya_terminal
 
 
 SIGNATURE_HEADER = "X-Tri-AI-Signature"
@@ -55,7 +55,7 @@ class BeaconError(RuntimeError):
     """The heartbeat could not be built or delivered."""
 
 
-def _task_counts(snapshot: jarvis_terminal.DashboardSnapshot) -> dict[str, int]:
+def _task_counts(snapshot: kaya_terminal.DashboardSnapshot) -> dict[str, int]:
     """Count tasks by status.
 
     Counts only. A status string is a closed vocabulary the board controls; a
@@ -64,7 +64,7 @@ def _task_counts(snapshot: jarvis_terminal.DashboardSnapshot) -> dict[str, int]:
     return dict(sorted(Counter(task.status for task in snapshot.tasks).items()))
 
 
-def _daemon_view(health: jarvis_terminal.DaemonHealth) -> dict[str, Any]:
+def _daemon_view(health: kaya_terminal.DaemonHealth) -> dict[str, Any]:
     """Process names and liveness, without the diagnostic string.
 
     ``diagnostic`` explains *why* a daemon is unhealthy and quotes paths and
@@ -79,7 +79,7 @@ def _daemon_view(health: jarvis_terminal.DaemonHealth) -> dict[str, Any]:
 
 
 def public_payload(
-    snapshot: jarvis_terminal.DashboardSnapshot,
+    snapshot: kaya_terminal.DashboardSnapshot,
     *,
     node: str,
     role: str,
@@ -179,14 +179,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="print the payload, post nothing")
     args = parser.parse_args(argv)
 
-    paths = jarvis_terminal.runtime_paths(args.runtime_root)
+    paths = kaya_terminal.runtime_paths(args.runtime_root)
     try:
-        snapshot = jarvis_terminal.read_snapshot(
+        snapshot = kaya_terminal.read_snapshot(
             board_path=paths["board_path"],
             ledger_path=paths["ledger_path"],
             daemon_state_path=paths["daemon_state_path"],
         )
-    except jarvis_terminal.DashboardSourceError as exc:
+    except kaya_terminal.DashboardSourceError as exc:
         print(f"beacon: cannot read local state: {exc}", file=sys.stderr)
         return 2
 
