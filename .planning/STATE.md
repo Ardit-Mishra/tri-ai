@@ -1906,3 +1906,34 @@ unit test had passed**, which is the argument for running the real thing:
 Laptop 853 tests OK. Desktop verified independently at `e0e3377`: 829 tests,
 OK, skipped=1. A first desktop run returned exit 0 with an empty log, which is
 not evidence of anything, so it was re-run capturing to a file.
+
+#### Deployed to the desktop — 2026-09-25
+
+Both machines on `8bce2e6`. Laptop 853 tests OK; desktop 853 tests OK
+(skipped=1), run there rather than assumed.
+
+The reader is live. The "Tri-AI Daemons" scheduled task now carries
+`-ReaderEndpoint "http://127.0.0.1:11434/v1/chat/completions" -ReaderModel
+"qwen2.5-coder:7b"` appended to its previous arguments; nothing else about the
+task changed. **The previous argument string is saved at
+`D:\tri-ai-runtimes\task-args.bak`**, so reverting is a `Set-ScheduledTask`
+with that value.
+
+Verified after start: `--reader-endpoint` and `qwen2.5-coder:7b` present in
+telegram daemon pid 10580's command line, supervisor 11288 and worker 1768
+alive, and across a two-minute window the pid was unchanged, `restarts` stayed
+0 and the log grew zero bytes.
+
+**One trap worth keeping.** `Stop-ScheduledTask` kills the PowerShell wrapper
+and leaves the Python supervisor and its children running. The first restart
+attempt therefore exited 1 on the supervisor's own "another Tri-AI daemon
+supervisor is still running" guard - which is the guard working, not a fault -
+while Telegram carried on serving from the old process the whole time. The
+correct shutdown is to touch the `stop_path` recorded in
+`~/.tri-ai/logs/daemons.json`; the supervisor then stops its children cleanly
+and exits. Use that, never a PID kill, and never assume a stopped task means
+stopped daemons.
+
+Left alone deliberately: six orphaned python processes dating from 2026-09-23
+that belong to no current supervisor. They are not in `daemons.json` and
+killing them is not this change's business, but they are worth a look.
