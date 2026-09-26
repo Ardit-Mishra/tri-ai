@@ -75,6 +75,11 @@ CLOSURE_MODULES = (
     # the guard against that is a property of this module rather than of its
     # caller.
     "preserve.py",
+    # process_liveness.py answers "is this pid still alive", and the orphan
+    # sweep reverts a workspace on the strength of that answer. A false "dead"
+    # stashes the files out from under a running agent, so the liveness check
+    # is as much a part of the execution path as the revert it authorises.
+    "process_liveness.py",
 )
 
 # Modules not yet written. Enumerated rather than filtered, so an unaudited hole

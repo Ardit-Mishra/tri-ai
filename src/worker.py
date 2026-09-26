@@ -103,6 +103,7 @@ import failure_class
 import intake_preflight
 import ledger
 import preserve
+import process_liveness
 import taste
 import worktrees
 
@@ -626,6 +627,73 @@ def execute_task(
 # ---------------------------------------------------------------------------
 # Attempt endings
 # ---------------------------------------------------------------------------
+
+
+def recover_orphans(conn) -> int:
+    """Stash what a dead worker left behind, so its workspace is usable again.
+
+    Measured on the desktop: an agent wrote five files, its worker was killed
+    by a daemon restart, and the files stayed. Every task claimed afterwards in
+    that workspace hit the clean-tree precheck and skipped - for ever. Two
+    specialists from the first real fan-out died that way without writing a
+    byte.
+
+    The precheck is right and unchanged: *the worker never touches a repo it
+    did not dirty*, because it cannot tell an orphan's leftovers from the
+    operator's own edits. This is the one case where the board knows: a task it
+    claimed, in a workspace it recorded, whose worker process is gone. Nothing
+    else is swept - not a bare directory, not a live claim, not a workspace no
+    task named.
+
+    `executor.revert` stashes and never deletes, so the work is recoverable
+    with `git stash pop` exactly as a failed run's is. Returns how many
+    workspaces were recovered.
+
+    Two conditions, both required. A pid can be reused by an unrelated
+    process, and an expired claim alone says nothing about liveness - together
+    they say the worker that held this claim is not coming back.
+    """
+    recovered = 0
+    now = int(time.time())
+    rows = conn.execute(
+        "SELECT id, worker_pid, workspace_path, claim_expires "
+        "FROM tasks WHERE status = 'running'"
+    ).fetchall()
+
+    for row in rows:
+        workspace = row["workspace_path"]
+        if not workspace:
+            continue
+        expires = row["claim_expires"]
+        if expires is not None and int(expires) > now:
+            continue            # the lease still stands; leave it be
+        if process_liveness.pid_alive(row["worker_pid"]):
+            continue            # reverting under a running agent destroys work
+
+        try:
+            result = executor.revert(
+                workspace, task_id=str(row["id"]), run_id=None)
+        except Exception as exc:        # noqa: BLE001 - one repo must not
+            print(f"worker: orphan sweep could not revert {workspace}: "      # strand the rest
+                  f"{type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+            continue
+        if result.outcome == "failed":
+            # The workspace still holds the work, so releasing the claim would
+            # only produce a task that skips on the next tick. Leave both.
+            print(f"worker: orphan sweep could not revert {workspace}: "
+                  f"{result.output[-200:]}", file=sys.stderr, flush=True)
+            continue
+
+        # Only now release the claim. Reverting first means the task returns
+        # to a workspace that is actually usable - released first, it could be
+        # claimed again before the sweep reached the revert, and skip on the
+        # dirt this call was about to clear.
+        board.kanban().reclaim_task(
+            conn, str(row["id"]),
+            reason="orphan_recovery: worker gone, workspace reverted")
+        recovered += 1
+
+    return recovered
 
 
 def _skip(
@@ -1372,6 +1440,11 @@ def run_once(
     goes through ``board.release_stale_claims``.
     """
     board.release_stale_claims(conn)              # THE wrapper, never the kernel's
+    # Then clear up after any worker that died holding one. A dead worker's
+    # files stay in its workspace, and the clean-tree precheck then skips every
+    # task claimed there afterwards - for ever. Before the claim, deliberately:
+    # claiming first burns an attempt skipping on dirt this was about to clear.
+    recover_orphans(conn)
     selected_id: Optional[str] = None
     for ready in board.ready_tasks(conn):
         if task_id is not None and ready["id"] != task_id:
