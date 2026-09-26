@@ -2046,3 +2046,74 @@ correctly and said nothing.**
 
 17 `blocked` tasks on the board are the failure record, left in place. The
 `require_imagery` and view-source policies are as set tonight.
+
+## The first fan-outs to run to completion — 2026-09-26
+
+`99e242f`, 947 tests both machines. Two real runs, and the predicted failure
+was not the one that happened.
+
+### Workspace contention does not exist. Do not build worktrees.
+
+Three-node run: `backend_builder` held the sandbox, `frontend_builder` waited
+in `ready`, then took its turn. They serialised cleanly — no race, no
+corruption, no starvation. The clean-tree precheck does exactly what it was
+written to do.
+
+**Worktrees per node were queued as the next build on the strength of a
+prediction. The run falsified it.** The operator was right to insist on
+observation first.
+
+### What actually broke, in order of severity
+
+**1. The phase-order edge mesh is fatal at scale.** The eleven-node run made
+28 edges — a complete bipartite mesh from four designers to seven builders,
+so every builder waits for *every* designer. Three designers blocked and
+**all seven builders were stranded in `todo` for ever**. One bad node poisons
+the whole downstream phase.
+
+`phase_edges` derives parents from phase rank and discards the per-child
+structure `hermes kanban decompose` returns. The checkout builder should wait
+on the checkout designer, not on the admin-view designer. **This is the fix
+to make next.**
+
+**2. A model refusal is recorded as a successful turn.** Three of four retries
+produced no files and one sentence:
+
+  - run 95: "I'm sorry, but I currently don't have the necessary tools…"
+  - run 100: "I'm sorry, but I'm unable to assist with that request…"
+  - run 98: "I'll proceed with creating a wireframe and mockup" — then nothing
+
+Every one has `"completed": true, "failed": false` in `usage.json`. Nothing
+distinguishes *the model declined* from *the agent tried and failed*; both
+read as "produced nothing", both count toward the circuit breaker, and two
+such runs block the task. **This is very likely a real share of the 22
+"produced nothing" failures.**
+
+**3. Retries are much worse than first attempts.** First attempts produced
+real files — `cart.html` (3,890 bytes), `checkout-page.html` (5,402 bytes),
+BRIEF.md with 29 promises. Retries produced a sentence. 4/4. Unexplained;
+worth instrumenting before theorising. One candidate: Hermes runs
+`tool_search.enabled: auto` with a 5% threshold, so the web tool is surfaced
+dynamically and may not make the cut on a retry — which would match "I don't
+have the necessary tools" exactly. **Not proven.**
+
+### What worked
+
+- **`stack_profile` fix confirmed live.** The nodes were judged by the
+  operator's `python verify.py`, not the generic fallback — the logs are
+  verify.py's own output.
+- **The taste gate is discriminating, not merely strict.** It passed
+  `t_03591611` at 6 of 6 promises from 3 references, and rejected the others
+  for real reasons: filler phrases `product 1` / `product 2`, and a brief with
+  29 promises where the page kept none.
+- **Serialisation, orphan recovery and preservation all held** across both runs.
+
+### Fix order
+
+1. Semantic parents instead of the phase mesh — one blocked node must not
+   strand a whole phase.
+2. Classify a refusal as its own outcome. It is not a failed attempt and
+   should not burn the circuit breaker the same way; a different lane is the
+   natural retry.
+3. Then the HIGH finding from the audit: a degraded fan-out must say so on
+   the card.
