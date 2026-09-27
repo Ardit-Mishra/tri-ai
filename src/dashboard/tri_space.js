@@ -406,9 +406,12 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
           node_count: cluster.node_count, folder_count: cluster.folder_count,
         });
         if (!node) return;
+        const pending = cluster.state === "pending";
         const material = new THREE.MeshStandardMaterial({
-          color: nodeColor({ kind: "brain" }), emissive: 0x63d9b6, emissiveIntensity: 0.9,
-          metalness: 0.12, roughness: 0.32, transparent: true, opacity: 0.98,
+          color: pending ? 0xffb703 : nodeColor({ kind: "brain" }),
+          emissive: pending ? 0xffb703 : 0x63d9b6,
+          emissiveIntensity: pending ? 0.38 : 0.9,
+          metalness: 0.12, roughness: 0.32, transparent: true, opacity: pending ? 0.56 : 0.98,
         });
         const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.23, 2), material);
         mesh.position.copy(brainShape(unit).multiplyScalar(6.15));

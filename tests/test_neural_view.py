@@ -116,6 +116,7 @@ class ArchitectureTopologyTest(_Source):
         self.assertIn("function proceduralAmbientItems", self.source)
         self.assertIn("function buildFileClusters", self.source)
         self.assertIn("if (visualItems) filePositions.set", self.source)
+        self.assertIn('cluster.state === "pending"', self.source)
 
     def test_every_authorized_file_is_rendered_as_a_real_three_d_point(self):
         self.assertIn("function buildFileUniverse(fileGraph)", self.source)

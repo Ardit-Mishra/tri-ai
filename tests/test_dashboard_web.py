@@ -175,7 +175,7 @@ class WebSerializationTests(unittest.TestCase):
         self.assertEqual(scene["ambient"]["node_count"], 3)
         self.assertEqual(scene["clusters"], [{
             "id": "cluster:desktop", "source": "desktop", "label": "Desktop",
-            "node_count": 3, "folder_count": 2,
+            "node_count": 3, "folder_count": 2, "state": "indexed",
         }])
         self.assertNotIn("items", scene)
         self.assertNotIn("classified-notes.txt", json.dumps(scene))
@@ -193,6 +193,17 @@ class WebSerializationTests(unittest.TestCase):
 
         self.assertEqual(scene["sources"][0]["label"], "Desktop")
         self.assertNotIn("private-machine-name", json.dumps(scene))
+
+    def test_private_scene_marks_empty_registered_sources_as_pending(self):
+        graph = {
+            "status": "partial", "synthetic": False, "item_count": 0,
+            "sources": [{"id": "phone", "label": "Phone", "node_count": 0, "authorized": True}],
+            "items": [], "diagnostic": "awaiting source", "revision": "revision-1",
+        }
+
+        scene = web._private_file_graph_scene(graph)
+
+        self.assertEqual(scene["clusters"][0]["state"], "pending")
 
     def test_server_is_loopback_only_and_serves_html_json_and_sse(self):
         # Non-loopback is refused unless the operator asks for it by name: a

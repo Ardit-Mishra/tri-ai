@@ -1684,12 +1684,14 @@ def _private_file_graph_scene(graph: dict[str, object]) -> dict[str, object]:
         if not isinstance(source_id, str) or not isinstance(label, str) or type(node_count) is not int:
             continue
         folder_count = folder_counts.get(source_id, 0)
+        state = "indexed" if node_count else "pending"
         clusters.append({
             "id": f"cluster:{source_id}", "source": source_id, "label": label,
-            "node_count": node_count, "folder_count": folder_count,
+            "node_count": node_count, "folder_count": folder_count, "state": state,
         })
         ambient_sources.append({
             "source": source_id, "node_count": node_count, "folder_count": folder_count,
+            "state": state,
         })
 
     return {
