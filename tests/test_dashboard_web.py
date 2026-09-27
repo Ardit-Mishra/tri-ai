@@ -130,8 +130,8 @@ class WebSerializationTests(unittest.TestCase):
         # its test cannot drift apart the way they just did.
         self.assertIn(f"TRI-AI // {web.PRODUCT_NAME}", page)
         self.assertIn("EventSource", page)
-        self.assertIn("#09090b", page)
-        self.assertIn("#05070a", page)
+        self.assertIn("#08100e", page)
+        self.assertIn("Cortex Chamber", page)
         self.assertIn("neuralGraph", page)
         self.assertIn("advanceGraph", page)
         self.assertIn("Learned rules", page)
@@ -144,6 +144,10 @@ class WebSerializationTests(unittest.TestCase):
         # The page must answer "what is happening" without a tap.
         self.assertIn('id="nowWhat"', page)
         self.assertIn("function renderNow(data)", page)
+        self.assertIn('id="themeToggle"', page)
+        self.assertIn("function setTheme(theme)", page)
+        self.assertIn('id="modelLanes"', page)
+        self.assertIn("function renderModelLanes(data)", page)
 
         with request.urlopen(base + "/api/snapshot", timeout=2) as response:
             api_payload = json.loads(response.read().decode("utf-8"))

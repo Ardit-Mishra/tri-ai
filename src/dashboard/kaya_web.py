@@ -102,7 +102,7 @@ def _telemetry_payload(task: kaya_terminal.TaskView) -> dict[str, object]:
     }
 
 
-PRODUCT_NAME = "KAYA"
+PRODUCT_NAME = "CORTEX"
 
 _HTML_TEMPLATE = r"""<!doctype html>
 <html lang="en">
@@ -111,7 +111,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>TRI-AI // KAYA</title>
   <style>
-    :root { color-scheme: dark; --bg:#09090b; --surface:#18181b; --line:#27272a; --muted:#a1a1aa; --text:#fafafa; --emerald:#34d399; --crimson:#fb7185; --amber:#fbbf24; --violet:#a78bfa; }
+    :root { color-scheme:dark; --bg:#08100e; --surface:#101b18; --line:rgba(185,224,207,.18); --muted:#a7bbb3; --text:#f4f7f2; --signal:#58d2b0; --signal-strong:#a5f0d2; --mineral:#efb66e; --crimson:#ef767a; --violet:#a99ad6; --ink:#05100c; }
     * { box-sizing:border-box; }
     body { margin:0; min-width:320px; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     .shell { width:min(1600px,100%); margin:0 auto; padding:20px; }
@@ -266,9 +266,92 @@ _HTML_TEMPLATE = r"""<!doctype html>
       .sheet-handle em { color:var(--muted); display:block; font-size:9px; font-style:normal; margin-top:5px; text-transform:uppercase; }
       .shell { padding-bottom:64px; }
     }
-  </style>
+    /* Cortex Chamber replaces the generic HUD shell. The graph is the primary
+       workspace; telemetry and inspection exist to explain it, not compete. */
+    :root { --bg:#08100e; --surface:#101a16; --surface-strong:#0b1511; --line:rgba(180,218,200,.20); --text:#f3f6f0; --muted:#9fb2a9; --cyan:#63d9b6; --emerald:#8de0bf; --amber:#e9b86d; --crimson:#ed7d80; --violet:#aa9bd0; --ink:#05100c; }
+    body { background:var(--bg); font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; letter-spacing:0; }
+    body::before { border-left:1px solid rgba(180,218,200,.07); content:""; inset:0 auto 0 50%; pointer-events:none; position:fixed; z-index:-1; }
+    body[data-theme="light"] { --bg:#edf1ec; --surface:#f7faf5; --surface-strong:#e7eee7; --line:rgba(21,53,40,.18); --text:#10291e; --muted:#587066; --cyan:#167a5e; --emerald:#25795f; --amber:#9b5d16; --crimson:#a94c54; --violet:#67578f; color-scheme:light; }
+    body[data-theme="light"] #spatialGraph { background:#e7eee7; }
+    .shell { max-width:1720px; padding:18px 28px 32px; }
+    header { border-color:var(--line); min-height:58px; padding:0 0 14px; }
+    .brand { align-items:baseline; color:var(--text); display:flex; font-size:17px; font-weight:780; gap:10px; letter-spacing:0; }
+    .brand::before { background:var(--cyan); border-radius:50%; box-shadow:0 0 0 5px color-mix(in srgb,var(--cyan) 12%,transparent); content:""; display:inline-block; height:8px; width:8px; }
+    .brand span { color:var(--muted); font-family:inherit; font-size:10px; font-weight:650; letter-spacing:.12em; margin:0; }
+    .header-right { align-items:center; flex-direction:row; gap:9px; }
+    .services { gap:5px; }
+    .service { background:transparent; border:0; color:var(--muted); font-size:9px; padding:4px 0; }
+    .service:not(:last-child)::after { color:var(--line); content:"/"; margin-left:5px; }
+    .stream-badge,.demo-badge { border-radius:0; font-size:9px; padding:5px 8px; }
+    .theme-toggle { background:transparent; border:1px solid var(--line); color:var(--text); cursor:pointer; font:650 10px/1 ui-sans-serif,system-ui,sans-serif; letter-spacing:.08em; min-height:30px; padding:0 10px; text-transform:uppercase; }
+    .theme-toggle:hover { border-color:var(--cyan); color:var(--cyan); }
+    .theme-toggle:focus-visible,.view-switch button:focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }
+    .cortex-intent { border-bottom:1px solid var(--line); display:grid; gap:22px; grid-template-columns:minmax(0,1fr) auto; padding:25px 0 22px; }
+    .now { background:transparent; border:0; margin:0; min-height:0; padding:0; }
+    .now-kicker { color:var(--cyan); font-size:10px; font-weight:750; letter-spacing:.14em; }
+    .now-what { font-size:clamp(24px,2.45vw,40px); font-weight:720; letter-spacing:0; line-height:1.08; margin:10px 0 0; max-width:19ch; }
+    .now-sub { font-size:13px; max-width:70ch; }
+    .now-steps { margin-top:14px; }
+    .now-step { border-color:var(--line); border-radius:0; color:var(--muted); font-size:9px; padding:5px 8px; }
+    .now-step.active { background:color-mix(in srgb,var(--cyan) 10%,transparent); border-color:var(--cyan); color:var(--cyan); }
+    .now-say { background:transparent; border-left:1px solid var(--cyan); color:var(--muted); max-width:70ch; }
+    .cortex-readout { align-self:end; border-left:1px solid var(--line); display:grid; gap:12px; min-width:235px; padding:5px 0 5px 20px; }
+    .readout-label { color:var(--muted); font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
+    .readout-value { color:var(--text); font-size:13px; font-weight:650; line-height:1.35; }
+    .readout-value span { color:var(--cyan); }
+    .metrics { background:transparent; border:0; border-bottom:1px solid var(--line); display:grid; gap:0; grid-template-columns:repeat(6,minmax(0,1fr)); margin:0; }
+    .metric { background:transparent; border-right:1px solid var(--line); min-height:82px; padding:16px 14px 15px 0; }
+    .metric:not(:first-child) { padding-left:14px; }
+    .metric:last-child { border-right:0; }
+    .metric label { color:var(--muted); font-size:9px; font-weight:700; letter-spacing:.1em; }
+    .metric strong { color:var(--text); font-family:ui-sans-serif,system-ui,sans-serif; font-size:25px; font-variant-numeric:tabular-nums; font-weight:680; letter-spacing:0; margin-top:6px; }
+    .hud-grid { gap:22px; grid-template-columns:minmax(0,1fr) minmax(300px,340px); margin-top:22px; }
+    .hud-panel { background:transparent; border:0; box-shadow:none; padding:0; }
+    .hud-panel::before,.hud-panel::after { display:none; }
+    .graph-panel { background:var(--surface-strong); border:1px solid var(--line); min-height:620px; overflow:hidden; padding:18px; position:relative; }
+    .graph-panel::before { background:var(--surface-strong); border:0; content:""; display:block; inset:0; opacity:.4; pointer-events:none; position:absolute; }
+    .graph-panel > * { position:relative; }
+    .panel-head { color:var(--muted); font-size:9px; letter-spacing:.12em; margin-bottom:8px; }
+    .panel-head strong { color:var(--text); font-size:11px; letter-spacing:.08em; }
+    .graph-head-tools { gap:12px; }
+    .view-switch { border-color:var(--line); }
+    .view-switch button { color:var(--muted); font-size:9px; }
+    .view-switch button.active { background:var(--cyan); color:var(--ink); }
+    #spatialGraph,#neuralGraph { height:490px; }
+    .cortex-stage-label { background:rgba(5,16,13,.82); border-left:2px solid var(--cyan); left:30px; max-width:31ch; padding:10px 12px 11px; pointer-events:none; position:absolute; top:62px; z-index:2; }
+    .cortex-stage-label span { color:var(--cyan); display:block; font-size:9px; font-weight:750; letter-spacing:.18em; text-transform:uppercase; }
+    .cortex-stage-label strong { color:var(--text); display:block; font-size:clamp(20px,2vw,30px); font-weight:710; letter-spacing:0; margin-top:6px; }
+    .cortex-stage-label em { color:var(--muted); display:block; font-size:11px; font-style:normal; line-height:1.45; margin-top:6px; max-width:29ch; }
+    .graph-hint { border-top:1px solid var(--line); color:var(--muted); font-size:9px; margin-top:4px; padding-top:11px; }
+    .graph-legend { display:none; }
+    .model-lanes { border-top:1px solid var(--line); display:flex; gap:0; margin-top:10px; overflow:auto; }
+    .model-lane { border-right:1px solid var(--line); flex:1 0 150px; min-height:62px; padding:10px 12px 8px 0; }
+    .model-lane:not(:first-child) { padding-left:12px; }
+    .model-lane:last-child { border-right:0; }
+    .model-lane .lane-kind { color:var(--muted); display:block; font-size:8px; letter-spacing:.11em; text-transform:uppercase; }
+    .model-lane strong { color:var(--text); display:block; font-size:11px; font-weight:650; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .model-lane b { color:var(--cyan); font-size:10px; font-weight:650; }
+    .hud-aside { border-left:1px solid var(--line); gap:0; padding-left:20px; }
+    .hud-aside .hud-panel { border-bottom:1px solid var(--line); padding:0 0 18px; }
+    .hud-aside .hud-panel + .hud-panel { padding-top:18px; }
+    .memory-rule { border-left:1px solid var(--amber); padding-left:10px; }
+    .registry-item,.radar-item { background:transparent; border-left:1px solid var(--line); padding-left:10px; }
+    .registry-item h3,.radar-item h3 { font-size:11px; }
+    .section-title { border-top:1px solid var(--line); color:var(--muted); font-family:ui-sans-serif,system-ui,sans-serif; font-size:9px; font-weight:750; letter-spacing:.14em; margin:28px 0 0; padding-top:16px; }
+    .evidence { background:transparent; border:0; min-height:0; }
+    .terminal { font-family:ui-sans-serif,system-ui,sans-serif; font-size:11px; min-width:0; padding:0; }
+    .event { grid-template-columns:125px minmax(170px,1fr) 105px 80px 95px; }
+    .cortex-footer { color:var(--muted); font-size:10px; padding-top:16px; }
+    body[data-theme="light"] .graph-panel { background:#102119; }
+    body[data-theme="light"] .graph-panel .panel-head strong,body[data-theme="light"] .cortex-stage-label strong { color:#f3f6f0; }
+    body[data-theme="light"] .cortex-stage-label { background:rgba(5,16,13,.86); }
+    body[data-theme="light"] .cortex-stage-label em,body[data-theme="light"] .graph-hint,body[data-theme="light"] .model-lane .lane-kind { color:#c6d7cd; }
+    body[data-theme="light"] .model-lane strong { color:#f3f6f0; }
+    @media (max-width:1000px) { .hud-grid { grid-template-columns:1fr; } .hud-aside { border-left:0; border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:18px 0 0; } .hud-aside .hud-panel { padding-right:14px; } }
+    @media (max-width:700px) { .shell { padding:14px; } header { align-items:flex-start; } .header-right { align-items:flex-end; flex-wrap:wrap; justify-content:flex-end; } .services { display:none; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } .graph-panel { min-height:480px; padding:14px; } #spatialGraph,#neuralGraph { height:370px; } .cortex-stage-label { left:22px; top:56px; } .hud-aside { display:block; } .hud-aside .hud-panel { padding-right:0; } }
+    </style>
 </head>
-<body>
+<body data-theme="dark">
   <main class="shell">
     <header>
       <div class="brand">TRI-AI // KAYA <span>READ ONLY</span></div>
@@ -278,15 +361,22 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <span class="demo-badge" id="demoBadge" hidden>Demonstration data</span>
         <span class="stream-badge down" id="streamBadge" role="status" aria-atomic="true">Evidence stream connecting</span>
         <div class="services" id="services" aria-label="Daemon service state"></div>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">Light interface</button>
       </div>
     </header>
-    <section class="now" id="now" aria-live="polite">
-      <div class="now-kicker"><i class="now-idle" id="nowPip"></i><span id="nowKicker">Checking…</span></div>
-      <p class="now-what" id="nowWhat">—</p>
-      <div class="now-sub" id="nowSub"></div>
-      <div class="now-steps" id="nowSteps"></div>
-      <div class="now-say" id="nowSay" hidden></div>
-      <div class="now-files" id="nowFiles"></div>
+    <section class="cortex-intent" aria-label="Current operating intent">
+      <section class="now" id="now" aria-live="polite">
+        <div class="now-kicker"><i class="now-idle" id="nowPip"></i><span id="nowKicker">Checking…</span></div>
+        <p class="now-what" id="nowWhat">—</p>
+        <div class="now-sub" id="nowSub"></div>
+        <div class="now-steps" id="nowSteps"></div>
+        <div class="now-say" id="nowSay" hidden></div>
+        <div class="now-files" id="nowFiles"></div>
+      </section>
+      <aside class="cortex-readout" aria-label="Cortex state">
+        <div><span class="readout-label">Private intelligence</span><div class="readout-value">Evidence-led <span>only</span></div></div>
+        <div><span class="readout-label">Execution posture</span><div class="readout-value">Verify before release</div></div>
+      </aside>
     </section>
     <section class="metrics" aria-label="System metrics">
       <div class="metric"><label>Tasks</label><strong id="total">-</strong></div>
@@ -299,10 +389,12 @@ _HTML_TEMPLATE = r"""<!doctype html>
     <section class="hud-grid" aria-label="Neural task and memory map">
       <section class="hud-panel graph-panel">
         <div class="panel-head"><strong>Execution topology</strong><span class="graph-head-tools"><span id="graphSummary">Awaiting evidence</span><span class="view-switch" aria-label="Topology view"><button id="graph3d" type="button" disabled>3D</button><button id="graph2d" type="button" class="active">2D</button><button id="motionToggle" type="button" aria-pressed="false">Pause</button></span></span></div>
+        <div class="cortex-stage-label"><span>Tri-AI Cortex</span><strong>Work with a visible mind.</strong><em>Models, memory, and evidence remain connected to the task they serve.</em></div>
         <div id="spatialGraph" role="img" aria-label="Interactive three-dimensional Tri-AI execution and capability topology"><div class="spatial-tooltip" id="spatialTooltip"></div></div>
         <canvas id="neuralGraph" role="img" aria-label="Interactive task, memory, capability, and technology-radar graph"></canvas>
         <div class="graph-hint">Drag canvas to pan // double-tap or wheel to zoom // tap a node to inspect</div>
         <div class="graph-legend"><span><i class="legend-dot" style="background:#00f0ff"></i>task</span><span><i class="legend-dot" style="background:#00ff9d"></i>done</span><span><i class="legend-dot" style="background:#ff4d6d"></i>failed/cancelled</span><span><i class="legend-dot" style="background:#ffb703"></i>accepted rule</span><span><i class="legend-dot" style="background:#a78bfa"></i>brain memory</span><span><i class="legend-dot" style="background:#38bdf8"></i>capability</span><span><i class="legend-dot" style="background:#f472b6"></i>radar</span></div>
+        <div class="model-lanes" id="modelLanes" aria-label="Observed model lanes"></div>
       </section>
       <aside class="hud-aside" id="hudAside">
         <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Toggle inspector sheet"><span></span><em id="sheetLabel">Inspector</em></div>
@@ -327,10 +419,20 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <p class="preview-note">Rendered in a sandboxed frame. Tap outside, press Escape, or use Close to dismiss.</p>
       </div>
     </div>
-    <div class="state" id="connection">Connecting to local evidence stream...</div>
+    <div class="cortex-footer" id="connection">Connecting to local evidence stream...</div>
   </main>
   <script>
     const byId = id => document.getElementById(id);
+    const themeToggle=byId('themeToggle');
+    function setTheme(theme) {
+      document.body.dataset.theme=theme;
+      const light=theme==='light';
+      themeToggle.setAttribute('aria-pressed',String(light));
+      themeToggle.textContent=light?'Dark interface':'Light interface';
+      try { localStorage.setItem('tri-ai-theme',theme); } catch (_) { /* storage is optional */ }
+    }
+    try { setTheme(localStorage.getItem('tri-ai-theme')||'dark'); } catch (_) { setTheme('dark'); }
+    themeToggle.addEventListener('click',()=>setTheme(document.body.dataset.theme==='light'?'dark':'light'));
     const clear = node => { while (node.firstChild) node.removeChild(node.firstChild); };
     const make = (tag, text, cls) => { const node=document.createElement(tag); node.textContent=text; if(cls) node.className=cls; return node; };
     // Relative time is what an operator glancing at a phone actually reads;
@@ -416,7 +518,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
       if (!hud.selected || !hud.nodeById.has(hud.selected)) hud.selected=hud.nodes[0]?.id||null;
       const rooms=hud.nodes.filter(node=>node.tier==='room').length,stages=hud.nodes.filter(node=>node.tier==='stage').length;
       renderNow(data); setText(byId('graphSummary'),`${rooms + stages} task${rooms + stages === 1 ? '' : 's'}${hud.edges.length ? ` // ${hud.edges.length} linked` : ''}`);
-      renderInspector(); renderMemory(); renderCapabilities(data); renderRadar(data);
+      renderInspector(); renderMemory(); renderCapabilities(data); renderRadar(data); renderModelLanes(data);
     }
     function resizeCanvas() { const rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1; const width=Math.max(1,Math.round(rect.width*ratio)),height=Math.max(1,Math.round(rect.height*ratio)); if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;} ctx.setTransform(ratio,0,0,ratio,0,0); return rect; }
     function screenPoint(event) { const rect=canvas.getBoundingClientRect(); return {x:event.clientX-rect.left,y:event.clientY-rect.top}; }
@@ -566,6 +668,28 @@ _HTML_TEMPLATE = r"""<!doctype html>
           files.append(link);
         });
       }
+    }
+    function renderModelLanes(data) {
+      const root=byId('modelLanes'); clear(root);
+      const observed=new Map();
+      data.tasks.forEach(task=>{
+        const telemetry=task.telemetry||{};
+        if(!telemetry.model)return;
+        const key=`${telemetry.provider||'unspecified'}::${telemetry.model}`;
+        const lane=observed.get(key)||{model:telemetry.model,provider:telemetry.provider||'provider not recorded',count:0,running:0};
+        lane.count+=1; if(task.status==='running')lane.running+=1; observed.set(key,lane);
+      });
+      const lanes=[...observed.values()].slice(0,4);
+      if(!lanes.length){
+        const lane=make('div','','model-lane');
+        lane.append(make('span','Observed model lane','lane-kind'),make('strong','No routed run recorded'));
+        root.append(lane); return;
+      }
+      lanes.forEach(lane=>{
+        const card=make('div','','model-lane');
+        card.append(make('span',lane.provider,'lane-kind'),make('strong',lane.model),make('b',lane.running?`${lane.running} active`: `${lane.count} retained run${lane.count===1?'':'s'}`));
+        root.append(card);
+      });
     }
     function renderMemory() {
       const root=byId('memoryBank'),data=hud.data,brain=data.brain||{items:[],item_count:0,inbox_count:0,edge_count:0}; clear(root); setText(byId('memoryCount'),`${brain.item_count} memories // ${data.rules.length} rules`);
