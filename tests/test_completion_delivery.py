@@ -1,0 +1,509 @@
+"""Proofs for produced-artifact capture, completion delivery, and artifact serving.
+
+Together these close the gap where a task finished, wrote a real file, and told
+nobody. Each layer is proved on evidence the board actually holds.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import time
+import threading
+import unittest
+from pathlib import Path
+from urllib import error, request
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+import board  # noqa: E402
+import completion_report  # noqa: E402
+from dashboard import kaya_terminal as terminal  # noqa: E402
+from dashboard import kaya_web as web  # noqa: E402
+from support import BoardTestCase  # noqa: E402
+
+
+class ArtifactRecordTests(BoardTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.task = board.create_task(
+            self.conn, title="Telegram: tri-ai", prompt="build a diwali page",
+            repo=self.tmp, verify_command="true", verify_timeout=30,
+        )
+
+    def test_artifacts_round_trip_with_change_and_size(self):
+        written = board.record_run_artifacts(
+            self.conn, task_id=self.task, run_id=1,
+            artifacts=[
+                {"path": "diwali.html", "change": "??", "size_bytes": 11770},
+                {"path": "notes/plan.md", "change": "M", "size_bytes": None},
+            ],
+        )
+        self.assertEqual(written, 2)
+        rows = board.run_artifacts(self.conn, task_id=self.task, run_id=1)
+        self.assertEqual([r["path"] for r in rows], ["diwali.html", "notes/plan.md"])
+        self.assertEqual(rows[0]["change"], "??")
+        self.assertEqual(rows[0]["size_bytes"], 11770)
+        self.assertIsNone(rows[1]["size_bytes"])
+
+    def test_recording_is_idempotent_for_the_same_path(self):
+        for _ in range(2):
+            board.record_run_artifacts(
+                self.conn, task_id=self.task, run_id=1,
+                artifacts=[{"path": "diwali.html", "change": "??", "size_bytes": 10}],
+            )
+        self.assertEqual(len(board.run_artifacts(self.conn, task_id=self.task, run_id=1)), 1)
+
+    def test_malformed_artifacts_are_refused_before_any_write(self):
+        for bad in ([{"path": "", "change": "??"}], [{"path": "x", "change": ""}],
+                    [{"path": "x", "change": "??", "size_bytes": "big"}]):
+            with self.assertRaises(ValueError):
+                board.record_run_artifacts(
+                    self.conn, task_id=self.task, run_id=1, artifacts=bad,
+                )
+        self.assertEqual(board.run_artifacts(self.conn, task_id=self.task), ())
+
+
+class CompletionNotificationTests(BoardTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.task = board.create_task(
+            self.conn, title="Telegram: tri-ai", prompt="build a diwali page",
+            repo=self.tmp, verify_command="true", verify_timeout=30,
+        )
+        claimed = self.kb.claim_task(self.conn, self.task, claimer="fixture:1")
+        self.assertIsNotNone(claimed)
+        self.run_id = self.conn.execute(
+            "SELECT MAX(id) AS id FROM task_runs WHERE task_id = ?", (self.task,)
+        ).fetchone()["id"]
+        self.conn.execute(
+            "UPDATE task_runs SET status='done', outcome='completed', ended_at=200, "
+            "started_at=100, summary='verify exit 0 in 1.0s', "
+            "metadata='{\"verify_exit\": 0, \"model\": \"auto/best-free\"}' WHERE id = ?",
+            (self.run_id,),
+        )
+        self.conn.commit()
+
+    def test_a_finished_run_is_pending_until_it_is_delivered(self):
+        pending = board.pending_completions_for_chat(self.conn, "chat-1")
+        self.assertEqual([row["task_id"] for row in pending], [self.task])
+
+        self.assertTrue(board.record_completion_notification(
+            self.conn, task_id=self.task, run_id=self.run_id,
+            chat_id="chat-1", message_id=77,
+        ))
+        self.assertEqual(board.pending_completions_for_chat(self.conn, "chat-1"), ())
+
+    def test_delivery_is_per_chat_and_never_repeats(self):
+        board.record_completion_notification(
+            self.conn, task_id=self.task, run_id=self.run_id,
+            chat_id="chat-1", message_id=77,
+        )
+        # A second chat has still not been told.
+        self.assertEqual(len(board.pending_completions_for_chat(self.conn, "chat-2")), 1)
+        # Re-recording the same delivery is a no-op, not a duplicate send.
+        self.assertFalse(board.record_completion_notification(
+            self.conn, task_id=self.task, run_id=self.run_id,
+            chat_id="chat-1", message_id=78,
+        ))
+
+    def test_pending_rows_carry_the_artifacts_the_run_produced(self):
+        board.record_run_artifacts(
+            self.conn, task_id=self.task, run_id=self.run_id,
+            artifacts=[{"path": "diwali.html", "change": "??", "size_bytes": 11770}],
+        )
+        row = board.pending_completions_for_chat(self.conn, "chat-1")[0]
+        self.assertEqual([a["path"] for a in row["artifacts"]], ["diwali.html"])
+
+    def test_an_unfinished_run_is_never_announced(self):
+        self.conn.execute(
+            "UPDATE task_runs SET status='running', ended_at=NULL WHERE id = ?", (self.run_id,),
+        )
+        self.conn.commit()
+        self.assertEqual(board.pending_completions_for_chat(self.conn, "chat-1"), ())
+
+
+class CompletionCardTests(unittest.TestCase):
+    def row(self, **overrides):
+        base = {
+            "task_id": "t_63cfab7a", "run_id": 6, "title": "Telegram: tri-ai",
+            "body": "build a html page saying hello everyone in celebration of diwali",
+            "outcome": "completed", "summary": "verify exit 0 in 178.79s",
+            "error": None, "started_at": 100, "ended_at": 279,
+            "metadata": json.dumps({"verify_exit": 0, "model": "auto/best-free", "provider": "custom"}),
+            "artifacts": ({"path": "diwali.html", "change": "??", "size_bytes": 11770},),
+        }
+        base.update(overrides)
+        return base
+
+    def test_a_rejected_run_that_made_something_does_not_claim_it_made_nothing(self):
+        """The card told the operator "produced no files in the workspace"
+        about a run that had written a 12.7 KB page. Artifacts are only
+        recorded on the pass branch, so a rejected run looked empty however
+        much it built. The page is preserved beside the run's logs now, and
+        the card reads from there."""
+        import tempfile
+        import preserve
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        runs = Path(tmp.name)
+        repo = runs / "ws"
+        repo.mkdir()
+        (repo / "index.html").write_text("<h1>x</h1>", encoding="utf-8")
+        run_dir = runs / "t_63cfab7a" / "6"
+        run_dir.mkdir(parents=True)
+        preserve.keep(repo, [{"path": "index.html"}], run_dir,
+                      reason="no image, svg or background-image anywhere",
+                      stash="triai-revert:t_63cfab7a:6")
+
+        card = completion_report.render(
+            self.row(outcome="failed", artifacts=()), runs_root=runs)
+        self.assertNotIn("produced no files", card.text)
+        self.assertIn("index.html", card.text)
+        self.assertIn("background-image", card.text)
+        self.assertIn("triai-revert:t_63cfab7a:6", card.text)
+
+    def test_a_preserved_page_is_attached_so_it_can_be_judged(self):
+        import tempfile
+        import preserve
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        runs = Path(tmp.name)
+        repo = runs / "ws"
+        repo.mkdir()
+        (repo / "index.html").write_text("<h1>x</h1>" * 40, encoding="utf-8")
+        run_dir = runs / "t_63cfab7a" / "6"
+        run_dir.mkdir(parents=True)
+        preserve.keep(repo, [{"path": "index.html"}], run_dir)
+
+        card = completion_report.render(
+            self.row(outcome="failed", artifacts=()), runs_root=runs)
+        self.assertEqual(len(card.documents), 1)
+        self.assertTrue(Path(card.documents[0]["absolute"]).is_file())
+
+    def test_a_rejected_run_that_made_nothing_still_says_so(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        card = completion_report.render(
+            self.row(outcome="failed", artifacts=()), runs_root=Path(tmp.name))
+        self.assertIn("produced no files", card.text)
+
+    def test_without_a_runs_root_nothing_changes(self):
+        card = completion_report.render(self.row(outcome="failed", artifacts=()))
+        self.assertIn("produced no files", card.text)
+
+    def test_card_leads_with_the_operators_own_prompt(self):
+        card = completion_report.render(self.row())
+        self.assertEqual(card.task_id, "t_63cfab7a")
+        self.assertEqual(card.run_id, 6)
+        first = card.text.splitlines()[0]
+        self.assertIn("DONE", first)
+        self.assertIn("diwali", first)
+        # The generic intake title must not displace the real prompt.
+        self.assertNotIn("Telegram: tri-ai", first)
+
+    def test_card_reports_verify_evidence_duration_and_artifacts(self):
+        text = completion_report.render(self.row()).text
+        self.assertIn("verify: exit 0", text)
+        self.assertIn("took 2m 59s", text)
+        self.assertIn("model auto/best-free @ custom", text)
+        self.assertIn("diwali.html (11.5 KB)", text)
+
+    def test_card_links_artifacts_when_a_dashboard_url_is_known(self):
+        text = completion_report.render(self.row(), dashboard_url="http://100.64.0.1:8080/").text
+        self.assertIn("http://100.64.0.1:8080/artifact/t_63cfab7a/0", text)
+
+    def test_a_run_that_produced_nothing_says_so_rather_than_implying_output(self):
+        text = completion_report.render(self.row(artifacts=())).text
+        self.assertIn("produced no files", text)
+
+    def test_a_failed_run_reports_its_error(self):
+        text = completion_report.render(self.row(
+            outcome="failed", error="verify exit 1", artifacts=(),
+        )).text
+        self.assertIn("FAILED", text.splitlines()[0])
+        self.assertIn("error: verify exit 1", text)
+
+    def test_a_row_without_a_run_id_is_refused(self):
+        with self.assertRaises(ValueError):
+            completion_report.render(self.row(run_id=None))
+
+
+class ArtifactReadSurfaceTests(BoardTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.workspace = self.tmp / "ws"
+        self.workspace.mkdir()
+        (self.workspace / "diwali.html").write_text("<h1>hello</h1>", encoding="utf-8")
+        self.task = board.create_task(
+            self.conn, title="Telegram: tri-ai", prompt="build a diwali page",
+            repo=self.workspace, verify_command="true", verify_timeout=30,
+        )
+
+    def test_recorded_artifacts_resolve_inside_the_workspace(self):
+        board.record_run_artifacts(
+            self.conn, task_id=self.task, run_id=1,
+            artifacts=[{"path": "diwali.html", "change": "??", "size_bytes": 14}],
+        )
+        views = terminal.read_task_artifacts(self.db_path, self.task)
+        self.assertEqual(len(views), 1)
+        self.assertEqual(views[0].path, "diwali.html")
+        self.assertEqual(Path(views[0].absolute), (self.workspace / "diwali.html").resolve())
+
+    def test_a_recorded_path_escaping_its_workspace_is_dropped(self):
+        board.record_run_artifacts(
+            self.conn, task_id=self.task, run_id=1,
+            artifacts=[
+                {"path": "../escape.txt", "change": "??", "size_bytes": 1},
+                {"path": "diwali.html", "change": "??", "size_bytes": 14},
+            ],
+        )
+        views = terminal.read_task_artifacts(self.db_path, self.task)
+        self.assertEqual([v.path for v in views], ["diwali.html"])
+
+    def test_only_the_newest_run_is_exposed(self):
+        board.record_run_artifacts(
+            self.conn, task_id=self.task, run_id=1,
+            artifacts=[{"path": "old.txt", "change": "??", "size_bytes": 1}],
+        )
+        board.record_run_artifacts(
+            self.conn, task_id=self.task, run_id=2,
+            artifacts=[{"path": "diwali.html", "change": "??", "size_bytes": 14}],
+        )
+        self.assertEqual(
+            [v.path for v in terminal.read_task_artifacts(self.db_path, self.task)],
+            ["diwali.html"],
+        )
+
+
+class ArtifactRouteTests(BoardTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.workspace = self.tmp / "ws"
+        self.workspace.mkdir()
+        (self.workspace / "diwali.html").write_text("<h1>Shubh Deepavali</h1>", encoding="utf-8")
+        self.task = board.create_task(
+            self.conn, title="Telegram: tri-ai", prompt="build a diwali page",
+            repo=self.workspace, verify_command="true", verify_timeout=30,
+        )
+        board.record_run_artifacts(
+            self.conn, task_id=self.task, run_id=1,
+            artifacts=[{"path": "diwali.html", "change": "??", "size_bytes": 24}],
+        )
+        self.server = web.create_server(
+            host="127.0.0.1", port=0,
+            snapshot_fn=lambda: terminal.read_snapshot(
+                board_path=self.db_path,
+                ledger_path=self.tmp / "ledger.jsonl",
+                daemon_state_path=self.tmp / "daemons.json",
+                pid_alive=lambda pid: False,
+            ),
+            event_interval=0.05,
+            artifact_fn=lambda task_id: terminal.read_task_artifacts(self.db_path, task_id),
+        )
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.base = f"http://127.0.0.1:{self.server.server_port}"
+
+    def test_a_recorded_artifact_is_served_with_its_real_media_type(self):
+        with request.urlopen(f"{self.base}/artifact/{self.task}/0", timeout=3) as response:
+            body = response.read().decode("utf-8")
+            self.assertEqual(response.headers["Content-Type"], "text/html; charset=utf-8")
+            self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+        self.assertIn("Shubh Deepavali", body)
+
+    def test_an_index_past_the_recorded_set_is_not_found(self):
+        with self.assertRaises(error.HTTPError) as caught:
+            request.urlopen(f"{self.base}/artifact/{self.task}/7", timeout=3)
+        self.assertEqual(caught.exception.code, 404)
+
+    def test_an_unknown_task_serves_nothing(self):
+        with self.assertRaises(error.HTTPError) as caught:
+            request.urlopen(f"{self.base}/artifact/t_nosuchtask/0", timeout=3)
+        self.assertEqual(caught.exception.code, 404)
+
+    def test_the_route_takes_an_index_not_a_path(self):
+        # There is no path component to traverse: anything that is not
+        # /artifact/<id>/<int> simply is not the artifact route.
+        for path in ("/artifact/../../etc/passwd", "/artifact/t_x/../../secret",
+                     "/artifact/t_x/0/extra"):
+            with self.assertRaises(error.HTTPError) as caught:
+                request.urlopen(self.base + path, timeout=3)
+            self.assertEqual(caught.exception.code, 404)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class FollowUpLinkTests(BoardTestCase):
+    """Replying to a finished task's message queues a follow-up linked to it."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.original = board.create_task(
+            self.conn, title="Telegram: sandbox", prompt="build a space landing page",
+            repo=self.tmp, verify_command="true", verify_timeout=30,
+        )
+        claimed = self.kb.claim_task(self.conn, self.original, claimer="fixture:1")
+        self.assertIsNotNone(claimed)
+        self.run_id = self.conn.execute(
+            "SELECT MAX(id) AS id FROM task_runs WHERE task_id = ?", (self.original,)
+        ).fetchone()["id"]
+        board.record_completion_notification(
+            self.conn, task_id=self.original, run_id=self.run_id,
+            chat_id="chat-1", message_id=4242,
+        )
+
+    def test_a_replied_to_message_resolves_to_its_task(self):
+        self.assertEqual(
+            board.task_for_notified_message(self.conn, chat_id="chat-1", message_id=4242),
+            self.original,
+        )
+
+    def test_a_reply_from_another_chat_resolves_to_nothing(self):
+        self.assertIsNone(
+            board.task_for_notified_message(self.conn, chat_id="chat-2", message_id=4242)
+        )
+
+    def test_an_unknown_message_resolves_to_nothing(self):
+        self.assertIsNone(
+            board.task_for_notified_message(self.conn, chat_id="chat-1", message_id=1)
+        )
+
+    def test_confirming_a_follow_up_links_it_to_the_original(self):
+        action_id = "act-followup"
+        board.create_pending_action(
+            self.conn, action_id=action_id, chat_id="chat-1", action="run",
+            payload={
+                "parent_task_id": self.original,
+                "title": "Telegram: sandbox",
+                "prompt": "add an animated starfield",
+                "workspace": str(self.tmp),
+                "verify_command": "true",
+                "verify_timeout": 30,
+            },
+            expires_at=int(time.time()) + 300,
+        )
+        result = board.confirm_pending_action(self.conn, action_id=action_id, chat_id="chat-1")
+        self.assertTrue(result.changed)
+        follow_up = result.task_id
+        edges = self.conn.execute(
+            "SELECT parent_id, child_id FROM task_links WHERE child_id = ?", (follow_up,)
+        ).fetchall()
+        self.assertEqual([(r["parent_id"], r["child_id"]) for r in edges],
+                         [(self.original, follow_up)])
+
+    def test_a_plain_task_records_no_parent(self):
+        action_id = "act-plain"
+        board.create_pending_action(
+            self.conn, action_id=action_id, chat_id="chat-1", action="run",
+            payload={
+                "parent_task_id": None,
+                "title": "Telegram: sandbox", "prompt": "something new",
+                "workspace": str(self.tmp), "verify_command": "true", "verify_timeout": 30,
+            },
+            expires_at=int(time.time()) + 300,
+        )
+        result = board.confirm_pending_action(self.conn, action_id=action_id, chat_id="chat-1")
+        self.assertTrue(result.changed)
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT COUNT(*) AS n FROM task_links WHERE child_id = ?", (result.task_id,)
+            ).fetchone()["n"],
+            0,
+        )
+
+
+class DeliverableIndexTests(BoardTestCase):
+    def test_recent_deliverables_group_files_under_their_prompt(self):
+        task = board.create_task(
+            self.conn, title="Telegram: sandbox", prompt="build a space landing page",
+            repo=self.tmp, verify_command="true", verify_timeout=30,
+        )
+        board.record_run_artifacts(
+            self.conn, task_id=task, run_id=1,
+            artifacts=[
+                {"path": "celestial.html", "change": "??", "size_bytes": 28687},
+                {"path": "evidence/check.py", "change": "??", "size_bytes": 989},
+            ],
+        )
+        entries = board.recent_deliverables(self.conn)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["prompt"], "build a space landing page")
+        self.assertEqual(
+            sorted(item["path"] for item in entries[0]["paths"]),
+            ["celestial.html", "evidence/check.py"],
+        )
+
+    def test_no_deliverables_is_an_empty_result_not_an_error(self):
+        self.assertEqual(board.recent_deliverables(self.conn), ())
+
+
+class RejectionReasonTests(unittest.TestCase):
+    """The card must report why a run was rejected, not the last line of it.
+
+    Measured on t_17c5106b run 84. The verify output led with "the page keeps
+    0 of its own 13 promises, needs 5" and then listed all thirteen. Taking
+    `splitlines()[-1]` showed the operator "rejected for: promised but not
+    visible on the page: 'Admin Dashboard'" - which reads as one small miss
+    when in fact nothing at all had matched. A card that misreports the reason
+    sends the operator to fix the wrong thing.
+    """
+
+    OUTPUT = (
+        "verify: this run produced index.html\n"
+        "verify: 4 deliverable(s) from this run\n"
+        "verify: this does not look like it was made for its subject:\n"
+        "  the page keeps 0 of its own 13 promises, needs 5 - the research "
+        "was done and then ignored\n"
+        "  promised but not visible on the page: 'Rs'\n"
+        "  promised but not visible on the page: 'Admin Dashboard'\n"
+    )
+
+    def test_the_headline_finding_is_reported_not_the_last_item(self):
+        summary = completion_report.rejection_reason(self.OUTPUT)
+        self.assertIn("keeps 0 of its own 13 promises", summary)
+        self.assertNotIn("Admin Dashboard", summary)
+
+    def test_a_single_line_finding_is_used_as_is(self):
+        summary = completion_report.rejection_reason(
+            "verify: this does not look like it was made for its subject:\n"
+            "  no image, svg or background-image anywhere\n")
+        self.assertIn("no image", summary)
+
+    def test_output_with_no_finding_falls_back_to_something_true(self):
+        self.assertTrue(completion_report.rejection_reason(
+            "verify: exit 1\n").strip())
+
+    def test_empty_output_does_not_crash_the_card(self):
+        self.assertEqual(completion_report.rejection_reason(""), "")
+
+
+class AttachableTypeTests(unittest.TestCase):
+    """A rejected run's own source is what explains the rejection.
+
+    t_17c5106b run 84 produced BRIEF.md, index.html, app.js and style.css, and
+    only the first two could be attached. app.js was the file that explained
+    everything: 5.9 KB of client-side rendering, which is why the page matched
+    none of its thirteen promises. Withholding it left the operator with a
+    verdict and no way to see the cause.
+    """
+
+    def test_the_stylesheet_and_script_of_a_page_can_be_attached(self):
+        for suffix in (".js", ".css"):
+            self.assertIn(suffix, completion_report.DOCUMENT_SUFFIXES, suffix)
+
+    def test_the_page_and_its_brief_are_still_attachable(self):
+        for suffix in (".html", ".md"):
+            self.assertIn(suffix, completion_report.DOCUMENT_SUFFIXES, suffix)
+
+    def test_an_executable_is_not_attachable(self):
+        """Telegram will carry anything; that is not a reason to send it."""
+        for suffix in (".exe", ".dll", ".ps1", ".bat", ".sh"):
+            self.assertNotIn(suffix, completion_report.DOCUMENT_SUFFIXES, suffix)

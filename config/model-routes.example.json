@@ -1,0 +1,10 @@
+{
+  "version": "model-routes-example-v1",
+  "routes": {
+    "ollama-qwen25-coder": {
+      "model": "qwen2.5-coder:7b",
+      "provider": null,
+      "admitted": false
+    }
+  }
+}

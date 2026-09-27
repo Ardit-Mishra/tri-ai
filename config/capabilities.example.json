@@ -1,0 +1,46 @@
+{
+  "version": "2026-09-21",
+  "purpose": "Operator-approved, local-only capability catalog for Tri-AI agents.",
+  "capability_root": "~/.tri-ai/capabilities/sources",
+  "active": {
+    "portable_skills": [
+      "diagram-design",
+      "design-motion-principles",
+      "scientific-bioinformatics-core",
+      "defensive-security-core",
+      "engineering-lifecycle",
+      "growth-marketing-core",
+      "taste-skill",
+      "archify"
+    ],
+    "source_repositories": [
+      "K-Dense-AI/scientific-agent-skills",
+      "cathrynlavery/diagram-design",
+      "disconnectuss/anthropic-cybersecurity-skills",
+      "kylezantos/design-motion-principles",
+      "SteveVitali/agent-skills",
+      "coreyhaines31/marketingskills",
+      "irfanfaraaz/taste-skill-plugin",
+      "tt-a1i/archify"
+    ]
+  },
+  "gated": {
+    "browser_use": "Requires an explicit browser allowlist and an operator-provided model credential. Never reuse interactive browser cookies automatically.",
+    "agentmemory": "Requires Windows runtime setup plus an operator decision on lifecycle hooks and retention before it may observe sessions.",
+    "codebase_memory_mcp": "Installable local binary. Add to an agent MCP configuration only after reviewing its generated config diff.",
+    "graft": "Install only as a separately reviewed MCP/context governor; do not let it override Tri-AI worktree or verification policy.",
+    "agency_agents": "Persona library only. A task selects a role explicitly; roles do not grant tools or authority.",
+    "voicebox_and_voicestudio": "Need microphone, model-download, and voice-data-retention consent before activation.",
+    "freellmapi": "Runs loopback-only. It remains unusable until the operator creates a dashboard account, creates a unified API key, and configures provider credentials."
+  },
+  "not_embedded": {
+    "openviking": "AGPL-3.0; do not link into a commercial Tri-AI runtime without a separate licensing decision.",
+    "openmontage": "AGPL-3.0 and media-production workload; keep as an external tool, not an embedded runtime dependency.",
+    "voicestudio": "AGPL-3.0 and GPU/model-heavy; keep external until licensing and retention are resolved.",
+    "openhands_and_agent_canvas": "A second agent platform, not a library Tri-AI should secretly run inside itself.",
+    "openmaic": "Education product, not a Tri-AI execution capability.",
+    "minimind": "Model-training learning project, not a dependable production inference lane.",
+    "remotion_agent_skills": "No declared license at the reviewed revision; do not distribute or activate until licensing is clear.",
+    "harness_engineering_template": "No declared license at the reviewed revision; use as research, not imported code."
+  }
+}

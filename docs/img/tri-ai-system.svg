@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-label="Tri-AI routes an operator request through research, planning, building, verification, retained evidence, and a human release gate.">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#4e9cff"/></marker>
+    <marker id="warmArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#f0b44d"/></marker>
+    <linearGradient id="panel" x1="0" x2="1"><stop stop-color="#101723"/><stop offset="1" stop-color="#0a1019"/></linearGradient>
+  </defs>
+  <rect width="1200" height="420" rx="18" fill="#070b12"/>
+  <path d="M0 52H1200M0 370H1200" stroke="#203043"/>
+  <text x="52" y="46" fill="#90a4bd" font-family="ui-monospace,monospace" font-size="15" letter-spacing="2">TRI-AI // GOVERNED DELIVERY LOOP</text>
+  <g fill="url(#panel)" stroke="#2d4967" stroke-width="2">
+    <rect x="48" y="155" width="155" height="104" rx="12"/><rect x="275" y="104" width="155" height="104" rx="12"/><rect x="275" y="254" width="155" height="104" rx="12"/>
+    <rect x="502" y="104" width="155" height="104" rx="12"/><rect x="502" y="254" width="155" height="104" rx="12"/><rect x="729" y="155" width="155" height="104" rx="12"/><rect x="1000" y="155" width="155" height="104" rx="12"/>
+  </g>
+  <g font-family="ui-sans-serif,system-ui,sans-serif" fill="#e6f2ff" text-anchor="middle">
+    <text x="125" y="194" font-size="20" font-weight="700">Operator brief</text><text x="125" y="221" font-size="14" fill="#90a4bd">scope + constraints</text>
+    <text x="352" y="143" font-size="20" font-weight="700">Research</text><text x="352" y="170" font-size="14" fill="#90a4bd">sources + context</text>
+    <text x="352" y="293" font-size="20" font-weight="700">Planner</text><text x="352" y="320" font-size="14" fill="#90a4bd">contract + checks</text>
+    <text x="579" y="143" font-size="20" font-weight="700">Builder</text><text x="579" y="170" font-size="14" fill="#90a4bd">isolated candidate</text>
+    <text x="579" y="293" font-size="20" font-weight="700">Brain</text><text x="579" y="320" font-size="14" fill="#90a4bd">evidence + trust</text>
+    <text x="806" y="194" font-size="20" font-weight="700">Verifier</text><text x="806" y="221" font-size="14" fill="#90a4bd">exit code decides</text>
+    <text x="1077" y="194" font-size="20" font-weight="700">Human gate</text><text x="1077" y="221" font-size="14" fill="#90a4bd">review before release</text>
+  </g>
+  <g fill="none" stroke="#4e9cff" stroke-width="3" marker-end="url(#arrow)"><path d="M203 181H263Q275 181 275 169"/><path d="M203 234H263Q275 234 275 294"/><path d="M430 156H490Q502 156 502 156"/><path d="M430 306H490Q502 306 502 306"/><path d="M657 156H717Q729 156 729 181"/><path d="M657 306H705Q729 306 729 233"/></g>
+  <path d="M884 207H988" fill="none" stroke="#f0b44d" stroke-width="3" marker-end="url(#warmArrow)"/>
+  <circle cx="704" cy="282" r="5" fill="#69e8db"/><circle cx="718" cy="296" r="4" fill="#69e8db"/><circle cx="697" cy="306" r="3" fill="#69e8db"/>
+  <text x="52" y="402" fill="#90a4bd" font-family="ui-monospace,monospace" font-size="13">A model report is never acceptance evidence. The verifier and human release decision remain visible.</text>
+</svg>

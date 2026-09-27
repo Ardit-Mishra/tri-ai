@@ -1,0 +1,14 @@
+{
+  "verify_profiles": {
+    "python-unittest": {
+      "command": "python -m unittest",
+      "timeout": 60
+    }
+  },
+  "workspaces": {
+    "example-repo": {
+      "path": "C:\\replace\\with\\a\\clean\\git\\workspace",
+      "profile": "python-unittest"
+    }
+  }
+}

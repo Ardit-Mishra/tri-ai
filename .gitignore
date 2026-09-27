@@ -1,0 +1,42 @@
+# Never commit the live ledger or queue: they carry absolute local paths.
+# The redacted ledger in evidence/ is committed deliberately - see evidence/README.md.
+ledger.jsonl
+queue.jsonl
+!evidence/ledger.jsonl
+__pycache__/
+*.pyc
+
+# Phase 2 worker/ledger runtime state (worker.py / ledger.py):
+# per-attempt output trees (runs/<task_id>/<run_id>/{agent,verify,usage}) and
+# a repo-local ledger, when TRIAI_RUNS_DIR / TRIAI_LEDGER point inside the repo.
+triai-runs/
+triai-ledger.jsonl
+
+# Runtime board artifacts created when HERMES_KANBAN_DB resolves inside the
+# repo (an entry point that skipped board.kanban()). The authoritative board
+# lives at ~/.tri-ai/board.db and is never version controlled.
+.planning/board.db
+.planning/board.db.init.lock
+
+# Internal planning captures contain local machine, network, and operational
+# context. Keep the entire planning workspace out of the public repository.
+.planning/
+
+# These are operator handoffs and local capability reviews, not public docs.
+docs/HANDOFF_*.md
+docs/CONTINUITY.md
+docs/CAPABILITY_REVIEW_*.md
+
+# Ad-hoc deliverables produced by Telegram tasks that ran in this repo before
+# the sandbox workspace existed. A task's output must never dirty the tree the
+# next task's clean-tree precheck refuses - new ad-hoc work targets the
+# `sandbox` workspace instead of the kernel repo.
+/celestial.html
+/diwali.html
+/evidence/celestial-check.py
+/evidence/celestial-preview.png
+/sf-la-roadtrip.html
+
+# Activated capability links are local junctions into ~/.tri-ai/capabilities.
+# Their reproducible source mapping lives in config/capabilities.example.json.
+/.agents/

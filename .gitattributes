@@ -1,0 +1,14 @@
+# Normalise line endings so a clone on Linux or macOS does not show every file
+# as modified. Without this, committing from Windows warns "LF will be replaced
+# by CRLF" on every text file and contributors get spurious whole-file diffs.
+* text=auto eol=lf
+
+# Windows-only entry points must keep CRLF or PowerShell can mis-parse them.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Never normalise these.
+*.png binary
+*.jpg binary
+*.tar binary
