@@ -6,6 +6,7 @@ import ast
 import json
 import sys
 import threading
+import tempfile
 import unittest
 from pathlib import Path
 from urllib import request
@@ -204,6 +205,66 @@ class WebSerializationTests(unittest.TestCase):
         scene = web._private_file_graph_scene(graph)
 
         self.assertEqual(scene["clusters"][0]["state"], "pending")
+
+    def test_registered_private_sources_remain_visible_before_an_index_arrives(self):
+        graph = {
+            "status": "partial", "synthetic": False, "item_count": 0,
+            "sources": [{"id": "desktop", "label": "Desktop", "node_count": 0, "authorized": True}],
+            "items": [], "diagnostic": "Awaiting index", "revision": "revision-1",
+        }
+
+        scene = web._private_file_graph_scene(graph)
+
+        self.assertEqual(scene["clusters"][0]["label"], "Desktop")
+        self.assertEqual(scene["clusters"][0]["state"], "pending")
+        self.assertEqual(scene["ambient"]["node_count"], 0)
+
+    def test_source_registry_adds_pending_sources_without_exposing_configuration_labels(self):
+        sources = web._merge_declared_sources(
+            [{"id": "drive", "label": "untrusted local account label", "node_count": 4, "authorized": True}],
+            ["desktop", "drive", "phone"],
+        )
+
+        self.assertEqual(
+            sources,
+            [
+                {"id": "drive", "label": "Google Drive", "node_count": 4, "authorized": True},
+                {"id": "desktop", "label": "Desktop", "node_count": 0, "authorized": True},
+                {"id": "phone", "label": "Phone", "node_count": 0, "authorized": True},
+            ],
+        )
+        self.assertNotIn("untrusted local account label", json.dumps(sources))
+
+    def test_source_registry_groups_multiple_laptop_roots_into_one_visual_region(self):
+        sources = web._merge_declared_sources(
+            [
+                {"id": "laptop-desktop", "label": "Desktop", "node_count": 4, "authorized": True},
+                {"id": "laptop-documents", "label": "Documents", "node_count": 9, "authorized": True},
+            ],
+            ["laptop"],
+        )
+
+        self.assertEqual(sources, [{
+            "id": "laptop", "label": "Laptop", "node_count": 13, "authorized": True,
+        }])
+
+    def test_private_graph_refreshes_when_the_registry_changes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source_root = Path(temporary)
+            registry = source_root / "sources.json"
+            registry.write_text('{"sources":["desktop"]}', encoding="utf-8")
+            previous_root, previous_cache = web._PRIVATE_SOURCE_ROOT, web._private_graph_cache
+            try:
+                web._PRIVATE_SOURCE_ROOT = source_root
+                web._private_graph_cache = None
+                first = web._load_private_file_graph()
+                registry.write_text('{"sources":["desktop","phone"]}', encoding="utf-8")
+                second = web._load_private_file_graph()
+            finally:
+                web._PRIVATE_SOURCE_ROOT, web._private_graph_cache = previous_root, previous_cache
+
+        self.assertNotEqual(first["revision"], second["revision"])
+        self.assertEqual([source["id"] for source in second["sources"]], ["desktop", "phone"])
 
     def test_server_is_loopback_only_and_serves_html_json_and_sse(self):
         # Non-loopback is refused unless the operator asks for it by name: a

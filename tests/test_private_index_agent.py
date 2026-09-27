@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -45,6 +46,27 @@ class PrivateIndexAgentTests(unittest.TestCase):
             private_index_agent.main(["--output", str(output), "--root", "missing-separator"])
 
         self.assertFalse(output.exists())
+
+    def test_watch_mode_reindexes_after_each_requested_interval(self):
+        output = self.root / "private" / "index.json"
+        source = self.root / "source"
+        source.mkdir()
+        write_calls: list[Path] = []
+
+        def write_once(path, payload):
+            write_calls.append(Path(path))
+            if len(write_calls) == 2:
+                raise KeyboardInterrupt
+
+        with mock.patch.object(private_index_agent.private_index, "write_private_index_atomic", side_effect=write_once), \
+             mock.patch.object(private_index_agent.time, "sleep") as sleep:
+            with self.assertRaises(KeyboardInterrupt):
+                private_index_agent.main([
+                    "--output", str(output), "--root", f"Desktop={source}", "--watch-seconds", "15",
+                ])
+
+        self.assertEqual(write_calls, [output, output])
+        sleep.assert_called_once_with(15)
 
 
 if __name__ == "__main__":

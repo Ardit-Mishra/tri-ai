@@ -6,39 +6,42 @@
 # aligned. The URL handed to a private-network client is derived from the same
 # parameters as the bind rather than copied from an operator's machine.
 #
-# Non-loopback binding is deliberate and is what --allow-non-loopback exists to
-# make an explicit choice: the dashboard stays strictly read-only - SQLite in
-# mode=ro with PRAGMA query_only, and no route that mutates anything - but task
-# titles, workspace paths and live log tails become readable by anything on the
-# bound network. Here that network is Tailscale, which is how the phone reaches
-# it, and loopback, which is how this machine does.
+# A non-loopback binding can expose task titles, workspace paths, and log tails
+# to another device. It is therefore opt-in, even for a Tailscale address.
 
 [CmdletBinding()]
 param(
     [string]$Python = "python",
     [int]$Port = 8081,
     [string]$TailscaleAddress,
+    [switch]$AllowTailnetBinding,
     [switch]$WhatIf
 )
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
-if (-not $TailscaleAddress) {
+if ($AllowTailnetBinding -and -not $TailscaleAddress) {
     $TailscaleAddress = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
         Where-Object { $_.IPAddress -like "100.*" } |
         Select-Object -First 1).IPAddress
 }
 
+$HostAddress = "127.0.0.1"
+if ($AllowTailnetBinding) {
+    if (-not $TailscaleAddress) {
+        throw "No Tailscale address found. Provide -TailscaleAddress explicitly or use loopback only."
+    }
+    $HostAddress = $TailscaleAddress
+}
+
 $Arguments = @(
     "-m", "dashboard.kaya_web",
     "--port", $Port,
-    "--host", "127.0.0.1"
+    "--host", $HostAddress
 )
-if ($TailscaleAddress) {
-    $Arguments += @("--host", $TailscaleAddress, "--allow-non-loopback")
-} else {
-    Write-Warning "run_dashboard: no 100.x address found - serving loopback only"
+if ($AllowTailnetBinding) {
+    $Arguments += "--allow-non-loopback"
 }
 
 if ($WhatIf) {

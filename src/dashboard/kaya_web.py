@@ -1534,6 +1534,7 @@ HTML = _HTML_TEMPLATE.replace("KAYA", PRODUCT_NAME)
 _PRIVATE_SOURCE_ROOT = Path(
     os.environ.get("TRI_AI_PRIVATE_SOURCE_DIR", Path.home() / ".tri-ai" / "private-sources")
 )
+_SOURCE_REGISTRY_FILENAME = "sources.json"
 _private_graph_cache: tuple[tuple[tuple[str, int, int], ...], dict[str, object]] | None = None
 
 
@@ -1545,7 +1546,11 @@ def _load_private_file_graph() -> dict[str, object]:
     graph is fetched once and refreshed only when an index actually changes.
     """
     global _private_graph_cache
-    paths = sorted(_PRIVATE_SOURCE_ROOT.glob("*.json"))
+    registry_path = _PRIVATE_SOURCE_ROOT / _SOURCE_REGISTRY_FILENAME
+    paths = sorted(
+        path for path in _PRIVATE_SOURCE_ROOT.glob("*.json")
+        if path.name != _SOURCE_REGISTRY_FILENAME
+    )
     signature_parts: list[tuple[str, int, int]] = []
     for path in paths:
         try:
@@ -1553,10 +1558,17 @@ def _load_private_file_graph() -> dict[str, object]:
         except OSError:
             continue
         signature_parts.append((path.name, metadata.st_mtime_ns, metadata.st_size))
+    try:
+        registry_metadata = registry_path.stat()
+    except OSError:
+        registry_metadata = None
+    if registry_metadata is not None:
+        signature_parts.append((registry_path.name, registry_metadata.st_mtime_ns, registry_metadata.st_size))
     signature = tuple(signature_parts)
     if _private_graph_cache is not None and _private_graph_cache[0] == signature:
         return _private_graph_cache[1]
 
+    declared_source_ids, registry_diagnostic = _load_declared_source_ids(registry_path)
     sources: list[dict[str, object]] = []
     items: list[dict[str, object]] = []
     diagnostics: list[str] = []
@@ -1587,9 +1599,20 @@ def _load_private_file_graph() -> dict[str, object]:
             # local absolute path or file body.
             items.append(item)
 
+    indexed_region_ids = {_source_region_id(source_id) for source_id in source_ids}
+    sources = _merge_declared_sources(sources, declared_source_ids)
+    missing_sources = [
+        source_id for source_id in declared_source_ids
+        if _source_region_id(source_id) not in indexed_region_ids
+    ]
+    if registry_diagnostic:
+        diagnostics.append(registry_diagnostic)
+    if missing_sources:
+        diagnostics.append(f"Awaiting metadata index from {len(missing_sources)} authorized source(s).")
+
     if not items:
         status = "unavailable"
-    elif diagnostics and ("partial" in statuses or len(statuses) != len(paths)):
+    elif missing_sources or (diagnostics and ("partial" in statuses or len(statuses) != len(paths))):
         status = "partial"
     else:
         status = "indexed"
@@ -1610,7 +1633,9 @@ def _load_private_file_graph() -> dict[str, object]:
 _SAFE_SOURCE_LABELS = {
     "desktop": "Desktop",
     "drive": "Google Drive",
+    "google-drive": "Google Drive",
     "github": "GitHub",
+    "laptop": "Laptop",
     "laptop-desktop": "Laptop Desktop",
     "laptop-documents": "Laptop Documents",
     "laptop-downloads": "Laptop Downloads",
@@ -1620,7 +1645,90 @@ _SAFE_SOURCE_LABELS = {
     "obsidian": "Obsidian",
     "phone": "Phone",
     "sessions": "Claude and Codex",
+    "claude-codex": "Claude and Codex",
+    "vercel-render": "Vercel and Render",
+    "ollama": "Local Ollama",
+    "omniroute": "OmniRoute",
+    "freellmapi": "FreeLLMAPI",
 }
+
+
+def _safe_source_label(source_id: str) -> str:
+    """Return a generic source label rather than operator-supplied metadata."""
+    return _SAFE_SOURCE_LABELS.get(source_id, "Authorized source")
+
+
+def _source_region_id(source_id: str) -> str:
+    """Fold technical root identifiers into the operator's source regions."""
+    if source_id == "google-drive":
+        return "drive"
+    if source_id.startswith("laptop-"):
+        return "laptop"
+    return source_id
+
+
+def _load_declared_source_ids(path: Path) -> tuple[list[str], str | None]:
+    """Load the optional private source registry without accepting labels/paths.
+
+    The registry only declares source identifiers. It deliberately has no root
+    paths, account labels, or credentials, so a source can appear in Cortex as
+    pending before its device-side metadata index arrives.
+    """
+    if not path.exists():
+        return [], None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return [], "Private source registry could not be read."
+    if not isinstance(payload, dict) or not isinstance(payload.get("sources"), list):
+        return [], "Private source registry has an invalid format."
+
+    source_ids: list[str] = []
+    for entry in payload["sources"]:
+        source_id = entry if isinstance(entry, str) else entry.get("id") if isinstance(entry, dict) else None
+        if not isinstance(source_id, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", source_id):
+            return [], "Private source registry has an invalid source identifier."
+        if source_id not in source_ids:
+            source_ids.append(source_id)
+    return source_ids, None
+
+
+def _merge_declared_sources(
+    indexed_sources: list[dict[str, object]], declared_source_ids: list[str],
+) -> list[dict[str, object]]:
+    """Preserve indexed counts while making authorized pending sources visible."""
+    merged: list[dict[str, object]] = []
+    positions: dict[str, int] = {}
+    for source in indexed_sources:
+        source_id = source.get("id")
+        node_count = source.get("node_count")
+        if not isinstance(source_id, str) or type(node_count) is not int:
+            continue
+        region_id = _source_region_id(source_id)
+        existing_position = positions.get(region_id)
+        if existing_position is None:
+            positions[region_id] = len(merged)
+            merged.append({
+                "id": region_id,
+                "label": _safe_source_label(region_id),
+                "node_count": node_count,
+                "authorized": source.get("authorized") is True,
+            })
+        else:
+            existing = merged[existing_position]
+            existing["node_count"] = int(existing["node_count"]) + node_count
+            existing["authorized"] = bool(existing["authorized"]) or source.get("authorized") is True
+    for source_id in declared_source_ids:
+        region_id = _source_region_id(source_id)
+        if region_id not in positions:
+            positions[region_id] = len(merged)
+            merged.append({
+                "id": region_id,
+                "label": _safe_source_label(region_id),
+                "node_count": 0,
+                "authorized": True,
+            })
+    return merged
 
 
 def _safe_scene_sources(graph: dict[str, object]) -> list[dict[str, object]]:
@@ -1634,12 +1742,12 @@ def _safe_scene_sources(graph: dict[str, object]) -> list[dict[str, object]]:
         if not isinstance(source_id, str) or type(node_count) is not int:
             continue
         safe_sources.append({
-            "id": source_id,
-            "label": _SAFE_SOURCE_LABELS.get(source_id, "Authorized source"),
+            "id": _source_region_id(source_id),
+            "label": _safe_source_label(_source_region_id(source_id)),
             "node_count": node_count,
             "authorized": source.get("authorized") is True,
         })
-    return safe_sources
+    return _merge_declared_sources(safe_sources, [])
 
 
 def _private_file_graph_summary(graph: dict[str, object]) -> dict[str, object]:
@@ -1671,7 +1779,8 @@ def _private_file_graph_scene(graph: dict[str, object]) -> dict[str, object]:
         if isinstance(item, dict) and item.get("kind") == "folder":
             source = item.get("source")
             if isinstance(source, str):
-                folder_counts[source] = folder_counts.get(source, 0) + 1
+                region_id = _source_region_id(source)
+                folder_counts[region_id] = folder_counts.get(region_id, 0) + 1
 
     clusters: list[dict[str, object]] = []
     ambient_sources: list[dict[str, object]] = []
