@@ -918,13 +918,13 @@ _HTML_TEMPLATE = r"""<!doctype html>
         const lane=observed.get(key)||{model:telemetry.model,provider:telemetry.provider||'provider not recorded',count:0,running:0};
         lane.count+=1; if(task.status==='running')lane.running+=1; observed.set(key,lane);
       });
-      const lanes=[...observed.values()].slice(0,4);
-      if(!lanes.length){
+      const observedLanes=[...observed.values()].slice(0,4);
+      if(!observedLanes.length){
         const lane=make('div','','model-lane');
         lane.append(make('span','Observed model lane','lane-kind'),make('strong','No routed run recorded'));
         root.append(lane); return;
       }
-      lanes.forEach(lane=>{
+      observedLanes.forEach(lane=>{
         const card=make('div','','model-lane');
         card.append(make('span',lane.provider,'lane-kind'),make('strong',lane.model),make('b',lane.running?`${lane.running} active`: `${lane.count} retained run${lane.count===1?'':'s'}`));
         root.append(card);
@@ -1483,10 +1483,11 @@ _HTML_TEMPLATE = r"""<!doctype html>
     let privateFileGraphRequest=null;
     async function hydrateFileGraph(data) {
       const summary=data.file_graph||{};
-      if(data.demo||!summary.index_url)return data;
+      const sceneUrl=summary.scene_url||summary.index_url;
+      if(data.demo||!sceneUrl)return data;
       if(privateFileGraph&&privateFileGraph.revision===summary.revision){data.file_graph=privateFileGraph;return data;}
       if(!privateFileGraphRequest){
-        privateFileGraphRequest=fetch(summary.index_url,{cache:'no-store'})
+        privateFileGraphRequest=fetch(sceneUrl,{cache:'no-store'})
           .then(response=>{if(!response.ok)throw new Error(`private index ${response.status}`);return response.json();})
           .then(graph=>{privateFileGraph=graph;return graph;})
           .finally(()=>{privateFileGraphRequest=null;});
@@ -1606,16 +1607,104 @@ def _load_private_file_graph() -> dict[str, object]:
     return result
 
 
+_SAFE_SOURCE_LABELS = {
+    "desktop": "Desktop",
+    "drive": "Google Drive",
+    "github": "GitHub",
+    "laptop-desktop": "Laptop Desktop",
+    "laptop-documents": "Laptop Documents",
+    "laptop-downloads": "Laptop Downloads",
+    "laptop-music": "Laptop Music",
+    "laptop-pictures": "Laptop Pictures",
+    "laptop-videos": "Laptop Videos",
+    "obsidian": "Obsidian",
+    "phone": "Phone",
+    "sessions": "Claude and Codex",
+}
+
+
+def _safe_scene_sources(graph: dict[str, object]) -> list[dict[str, object]]:
+    """Expose source aliases only; configured labels may contain device names."""
+    safe_sources: list[dict[str, object]] = []
+    for source in graph.get("sources", []):
+        if not isinstance(source, dict):
+            continue
+        source_id = source.get("id")
+        node_count = source.get("node_count")
+        if not isinstance(source_id, str) or type(node_count) is not int:
+            continue
+        safe_sources.append({
+            "id": source_id,
+            "label": _SAFE_SOURCE_LABELS.get(source_id, "Authorized source"),
+            "node_count": node_count,
+            "authorized": source.get("authorized") is True,
+        })
+    return safe_sources
+
+
 def _private_file_graph_summary(graph: dict[str, object]) -> dict[str, object]:
     return {
         "status": graph["status"],
         "synthetic": False,
         "item_count": graph["item_count"],
-        "sources": graph["sources"],
+        "sources": _safe_scene_sources(graph),
         "items": [],
         "diagnostic": graph["diagnostic"],
         "revision": graph.get("revision"),
-        "index_url": "/api/file-graph",
+        "scene_url": "/api/file-graph/scene",
+    }
+
+
+def _private_file_graph_scene(graph: dict[str, object]) -> dict[str, object]:
+    """Return a bounded visual contract without shipping private file metadata.
+
+    The dense Cortex field is generated procedurally in the browser from exact
+    per-source counts. Names, paths, IDs, and parent relationships stay in
+    the local index until a future authenticated source-expansion action asks
+    for one bounded branch. This avoids both metadata overexposure and a
+    multi-hundred-megabyte page load.
+    """
+    sources = _safe_scene_sources(graph)
+    items = graph.get("items", [])
+    folder_counts: dict[str, int] = {}
+    for item in items:
+        if isinstance(item, dict) and item.get("kind") == "folder":
+            source = item.get("source")
+            if isinstance(source, str):
+                folder_counts[source] = folder_counts.get(source, 0) + 1
+
+    clusters: list[dict[str, object]] = []
+    ambient_sources: list[dict[str, object]] = []
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        source_id = source.get("id")
+        label = source.get("label")
+        node_count = source.get("node_count")
+        if not isinstance(source_id, str) or not isinstance(label, str) or type(node_count) is not int:
+            continue
+        folder_count = folder_counts.get(source_id, 0)
+        clusters.append({
+            "id": f"cluster:{source_id}", "source": source_id, "label": label,
+            "node_count": node_count, "folder_count": folder_count,
+        })
+        ambient_sources.append({
+            "source": source_id, "node_count": node_count, "folder_count": folder_count,
+        })
+
+    return {
+        "status": graph.get("status"),
+        "synthetic": False,
+        "item_count": graph.get("item_count"),
+        "sources": sources,
+        "clusters": clusters,
+        "ambient": {
+            "mode": "procedural-source-density",
+            "node_count": graph.get("item_count"),
+            "sources": ambient_sources,
+        },
+        "diagnostic": graph.get("diagnostic"),
+        "revision": graph.get("revision"),
     }
 
 
@@ -2038,11 +2127,11 @@ def _handler(
             if self.path in {"/api/snapshot", "/api/snapshot?demo=1"}:
                 self._json(self._snapshot(demo=self._demo_request()))
                 return
-            if self.path == "/api/file-graph":
+            if self.path == "/api/file-graph/scene":
                 if force_demo:
                     self.send_error(404, "not found")
                     return
-                self._json(private_graph_fn())
+                self._json(_private_file_graph_scene(private_graph_fn()))
                 return
             if self.path in STATIC_ASSETS:
                 self._serve_static(*STATIC_ASSETS[self.path])

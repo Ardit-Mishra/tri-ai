@@ -198,9 +198,13 @@ class NetworkBindingTests(unittest.TestCase):
             web.create_server(host="::", port=0, snapshot_fn=fixture_snapshot)
 
     def test_an_explicitly_allowed_host_binds_and_still_serves_read_only(self):
+        private_graph = lambda: {
+            "status": "unavailable", "synthetic": False, "item_count": 0,
+            "sources": [], "items": [], "diagnostic": "fixture", "revision": "fixture",
+        }
         server = web.create_server(
             host="0.0.0.0", port=0, snapshot_fn=fixture_snapshot,
-            event_interval=0.01, allow_non_loopback=True,
+            private_graph_fn=private_graph, event_interval=0.01, allow_non_loopback=True,
         )
         self.addCleanup(server.server_close)
         self.assertEqual(server.server_address[0], "0.0.0.0")

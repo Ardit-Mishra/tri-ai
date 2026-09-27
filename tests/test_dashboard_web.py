@@ -144,9 +144,55 @@ class WebSerializationTests(unittest.TestCase):
             summary = json.loads(response.read().decode("utf-8"))["file_graph"]
         self.assertEqual(summary["item_count"], 1)
         self.assertEqual(summary["items"], [])
-        self.assertEqual(summary["index_url"], "/api/file-graph")
-        with request.urlopen(base + "/api/file-graph", timeout=2) as response:
-            self.assertEqual(json.loads(response.read().decode("utf-8")), graph)
+        self.assertEqual(summary["scene_url"], "/api/file-graph/scene")
+        with self.assertRaisesRegex(Exception, "HTTP Error 404"):
+            request.urlopen(base + "/api/file-graph", timeout=2)
+
+    def test_private_scene_keeps_the_dense_field_without_shipping_file_metadata(self):
+        graph = {
+            "status": "indexed", "synthetic": False, "item_count": 3,
+            "sources": [{"id": "desktop", "label": "Desktop", "node_count": 3, "authorized": True}],
+            "items": [
+                {"id": "private:root", "label": "Desktop", "kind": "folder", "source": "desktop", "parent_id": None},
+                {"id": "private:folder", "label": "private-plans", "kind": "folder", "source": "desktop", "parent_id": "private:root"},
+                {"id": "private:file", "label": "classified-notes.txt", "kind": "file", "source": "desktop", "parent_id": "private:folder"},
+            ],
+            "diagnostic": "metadata only", "revision": "revision-1",
+        }
+        server = web.create_server(
+            host="127.0.0.1", port=0, snapshot_fn=fixture_snapshot,
+            private_graph_fn=lambda: graph,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(lambda: server.shutdown())
+
+        with request.urlopen(f"http://127.0.0.1:{server.server_port}/api/file-graph/scene", timeout=2) as response:
+            scene = json.loads(response.read().decode("utf-8"))
+
+        self.assertEqual(scene["item_count"], 3)
+        self.assertEqual(scene["ambient"]["node_count"], 3)
+        self.assertEqual(scene["clusters"], [{
+            "id": "cluster:desktop", "source": "desktop", "label": "Desktop",
+            "node_count": 3, "folder_count": 2,
+        }])
+        self.assertNotIn("items", scene)
+        self.assertNotIn("classified-notes.txt", json.dumps(scene))
+        self.assertNotIn("private-plans", json.dumps(scene))
+
+    def test_private_scene_sanitizes_configured_source_labels(self):
+        graph = {
+            "status": "indexed", "synthetic": False, "item_count": 1,
+            "sources": [{"id": "desktop", "label": "Desktop (private-machine-name)", "node_count": 1, "authorized": True}],
+            "items": [{"id": "private:root", "label": "Desktop", "kind": "folder", "source": "desktop", "parent_id": None}],
+            "diagnostic": "metadata only", "revision": "revision-1",
+        }
+
+        scene = web._private_file_graph_scene(graph)
+
+        self.assertEqual(scene["sources"][0]["label"], "Desktop")
+        self.assertNotIn("private-machine-name", json.dumps(scene))
 
     def test_server_is_loopback_only_and_serves_html_json_and_sse(self):
         # Non-loopback is refused unless the operator asks for it by name: a
@@ -154,7 +200,14 @@ class WebSerializationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "loopback"):
             web.create_server(host="0.0.0.0", port=0, snapshot_fn=fixture_snapshot)
 
-        server = web.create_server(host="127.0.0.1", port=0, snapshot_fn=fixture_snapshot, event_interval=0.01)
+        private_graph = lambda: {
+            "status": "unavailable", "synthetic": False, "item_count": 0,
+            "sources": [], "items": [], "diagnostic": "fixture", "revision": "fixture",
+        }
+        server = web.create_server(
+            host="127.0.0.1", port=0, snapshot_fn=fixture_snapshot,
+            private_graph_fn=private_graph, event_interval=0.01,
+        )
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         self.addCleanup(server.server_close)

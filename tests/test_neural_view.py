@@ -110,6 +110,13 @@ class FiringTest(_Source):
 
 
 class ArchitectureTopologyTest(_Source):
+    def test_private_scene_generates_dense_points_from_counts_without_file_metadata(self):
+        """A large private index must not be downloaded to render its density."""
+        self.assertIn("procedural-source-density", self.source)
+        self.assertIn("function proceduralAmbientItems", self.source)
+        self.assertIn("function buildFileClusters", self.source)
+        self.assertIn("if (visualItems) filePositions.set", self.source)
+
     def test_every_authorized_file_is_rendered_as_a_real_three_d_point(self):
         self.assertIn("function buildFileUniverse(fileGraph)", self.source)
         self.assertIn("fileItems.forEach", self.source)

@@ -138,6 +138,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     let signalState = [];
     let fileCloud = null;
     let fileItems = [];
+    let visualFileNodeCount = 0;
     let filePositions = new Map();
     let lastRenderSignature = null;
     let yaw = 0.42;
@@ -272,6 +273,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       signalState = [];
       fileCloud = null;
       fileItems = [];
+      visualFileNodeCount = 0;
       filePositions = new Map();
     }
 
@@ -389,31 +391,82 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       return brainShape(unit).multiplyScalar(depth);
     }
 
-    /* One point per authorized file or folder. A private index may contain
-     * thousands; the public build receives an explicitly synthetic graph.
-     * Points keep that cardinality GPU-cheap while parent lines make folders
-     * read as dendritic branches instead of an undifferentiated star field. */
+    function proceduralAmbientItems(fileGraph) {
+      if (fileGraph?.ambient?.mode !== "procedural-source-density") return null;
+      return Array.isArray(fileGraph.ambient.sources) ? fileGraph.ambient.sources : [];
+    }
+
+    function buildFileClusters(fileGraph, sourceOrder) {
+      const clusters = Array.isArray(fileGraph?.clusters) ? fileGraph.clusters : [];
+      clusters.forEach((cluster, index) => {
+        const angle = (index / Math.max(1, clusters.length)) * Math.PI * 2;
+        const unit = new THREE.Vector3(Math.cos(angle), 0.18 + (index % 2) * 0.14, Math.sin(angle)).normalize();
+        const node = fileNode({
+          id: cluster.id, label: cluster.label, kind: "cluster", source: cluster.source,
+          node_count: cluster.node_count, folder_count: cluster.folder_count,
+        });
+        if (!node) return;
+        const material = new THREE.MeshStandardMaterial({
+          color: nodeColor({ kind: "brain" }), emissive: 0x63d9b6, emissiveIntensity: 0.9,
+          metalness: 0.12, roughness: 0.32, transparent: true, opacity: 0.98,
+        });
+        const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.23, 2), material);
+        mesh.position.copy(brainShape(unit).multiplyScalar(6.15));
+        mesh.userData = node;
+        mesh.renderOrder = 4;
+        topology.add(mesh);
+        meshes.push(mesh);
+        dynamicMaterials.push({ mesh, material, baseScale: 1 });
+        synapseSegments.push([mesh.position.clone(), new THREE.Vector3()]);
+      });
+    }
+
+    /* The public demonstration uses explicit synthetic records. A live private
+     * scene uses procedural-source-density: exact counts become GPU points,
+     * but file names and paths never cross the initial browser boundary. */
     function buildFileUniverse(fileGraph) {
-      fileItems = Array.isArray(fileGraph?.items) ? fileGraph.items : [];
-      if (!fileItems.length) return;
+      const ambientSources = proceduralAmbientItems(fileGraph);
+      fileItems = ambientSources ? [] : (Array.isArray(fileGraph?.items) ? fileGraph.items : []);
+      const visualItems = ambientSources ? null : fileItems;
+      const total = ambientSources
+        ? ambientSources.reduce((sum, source) => sum + Math.max(0, Number(source.node_count) || 0), 0)
+        : visualItems.length;
+      visualFileNodeCount = total;
+      if (!total) return;
       const sourceOrder = (fileGraph.sources || []).map((source) => source.id);
-      const positions = new Float32Array(fileItems.length * 3);
-      const colors = new Float32Array(fileItems.length * 3);
+      const positions = new Float32Array(total * 3);
+      const colors = new Float32Array(total * 3);
       const sourceColors = [0x54d7ae, 0x7ce8c5, 0x48b996, 0x9af3d5, 0x3f9f83, 0x6cd9b8, 0xb1f7df];
       const folder = new THREE.Color(0xe7f8ef);
-      fileItems.forEach((item, index) => {
-        const position = filePosition(item, index, fileItems.length, sourceOrder);
-        filePositions.set(item.id, position);
+      const sourceRanges = [];
+      let rangeEnd = 0;
+      (ambientSources || []).forEach((source) => {
+        rangeEnd += Math.max(0, Number(source.node_count) || 0);
+        sourceRanges.push({ ...source, end: rangeEnd });
+      });
+      let sourceRangeIndex = 0;
+      for (let index = 0; index < total; index += 1) {
+        while (ambientSources && index >= sourceRanges[sourceRangeIndex].end) sourceRangeIndex += 1;
+        const source = ambientSources ? sourceRanges[sourceRangeIndex] : null;
+        const sourceStart = source ? source.end - source.node_count : 0;
+        const item = visualItems ? visualItems[index] : {
+          id: `ambient:${source.source}:${index - sourceStart}`,
+          source: source.source,
+          kind: index - sourceStart < source.folder_count ? "folder" : "file",
+          label: source.source,
+        };
+        const position = filePosition(item, index, total, sourceOrder);
+        if (visualItems) filePositions.set(item.id, position);
         positions.set([position.x, position.y, position.z], index * 3);
         const sourceIndex = Math.max(0, sourceOrder.indexOf(item.source));
         const color = item.kind === "folder" ? folder : new THREE.Color(sourceColors[sourceIndex % sourceColors.length]);
         colors.set([color.r, color.g, color.b], index * 3);
-      });
+      }
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
       fileCloud = new THREE.Points(geometry, new THREE.PointsMaterial({
-        size: fileItems.length > 7000 ? 1.75 : fileItems.length > 2500 ? 2.15 : 3.1,
+        size: total > 7000 ? 1.75 : total > 2500 ? 2.15 : 3.1,
         sizeAttenuation: false,
         vertexColors: true,
         transparent: true,
@@ -462,11 +515,15 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         })));
       }
 
+      buildFileClusters(fileGraph, sourceOrder);
+
       const state = document.getElementById("brainIndexState");
       const summary = document.getElementById("brainIndexSummary");
       const sourceCount = (fileGraph.sources || []).length;
-      if (state) state.textContent = `${fileItems.length} ${fileGraph.synthetic ? "synthetic" : "authorized"} nodes`;
-      if (summary) summary.textContent = `${fileItems.length} files and folders across ${sourceCount} source clusters. Select any node to inspect its provenance.`;
+      if (state) state.textContent = `${total} ${fileGraph.synthetic ? "synthetic" : "authorized"} nodes`;
+      if (summary) summary.textContent = ambientSources
+        ? `${total} files and folders form a private density field across ${sourceCount} source clusters. Select a cluster to request its bounded detail.`
+        : `${total} files and folders across ${sourceCount} source clusters. Select any node to inspect its provenance.`;
     }
 
     /* The firing. Each signal walks one synapse and respawns on another. */
@@ -614,8 +671,8 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       data.edges.forEach((edge) => addEdge(`task:${edge.parent_id}`, `task:${edge.child_id}`, 0x00f0ff, 0.36));
       data.rule_task_links.forEach((edge) => addEdge(`rule:${edge.proposal_id}`, `task:${edge.task_id}`, 0xffb703, 0.48));
       (data.brain?.edges || []).forEach((edge) => addEdge(`brain:${edge.source_id}`, `brain:${edge.target_id}`, 0xa78bfa, 0.34));
-      core.scale.setScalar(1 + Math.min(fileItems.length, 800) / 2400);
-      root.dataset.nodes = String(nodes.length + fileItems.length);
+      core.scale.setScalar(1 + Math.min(visualFileNodeCount, 800) / 2400);
+      root.dataset.nodes = String(nodes.length + visualFileNodeCount);
     }
 
     const raycaster = new THREE.Raycaster();
@@ -626,7 +683,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      return raycaster.intersectObjects(fileCloud ? [...meshes, fileCloud] : meshes, false)[0] || null;
+      return raycaster.intersectObjects(fileCloud && fileItems.length ? [...meshes, fileCloud] : meshes, false)[0] || null;
     }
 
     function fileNode(item) {
@@ -638,10 +695,16 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
           detail: {
             system: true,
             group: `${item.source} / ${item.kind}`,
-            description: `${item.label} is represented by one provenance-linked node in the authorized index.`,
-            context: item.relative_path || (item.synthetic ? "Synthetic demonstration metadata" : "Authorized index metadata"),
+            description: item.kind === "cluster"
+              ? `${item.label} is a private source cluster with ${item.node_count} files and folders. Expand is deliberately bounded so the ambient field does not reveal its file list.`
+              : `${item.label} is represented by one provenance-linked node in the authorized index.`,
+            context: item.kind === "cluster"
+              ? `${item.folder_count || 0} folders recorded; source-scoped detail requires an authenticated expansion.`
+              : item.relative_path || (item.synthetic ? "Synthetic demonstration metadata" : "Authorized index metadata"),
             tools: "File graph index and provenance store",
-            evidence: `Source ${item.source}; parent ${item.parent_id || "source root"}`,
+            evidence: item.kind === "cluster"
+              ? `Source ${item.source}; cardinality ${item.node_count}; no file metadata loaded.`
+              : `Source ${item.source}; parent ${item.parent_id || "source root"}`,
             size: item.size,
             modifiedAt: item.modified_at || item.modified,
             url: item.url || null,
