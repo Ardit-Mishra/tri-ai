@@ -143,7 +143,9 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     // The organ is the primary information object, not background decoration.
     // This framing keeps the full cortex visible while letting its firing read
     // at a glance in the desktop dashboard's wide topology panel.
-    let distance = 13.8;
+    // The architecture layer extends beyond the cortical core. Keep its outer
+    // source and release nodes in frame before offering manual zoom.
+    let distance = 15.6;
     let drag = null;
 
     const colors = {
@@ -225,6 +227,17 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       return new THREE.SphereGeometry(0.4, 16, 10);
     }
 
+    function scaleFor(kind) {
+      // The fixed-size beacon is the information signal at console distance.
+      // Physical objects stay deliberately compact so the connected cortex,
+      // not a pile of oversized tokens, remains the visual protagonist.
+      if (kind === "planner" || kind === "approval") return 1.05;
+      if (kind === "model" || kind === "verifier") return 0.92;
+      if (kind === "specialist") return 0.82;
+      if (kind === "source" || kind === "ingress") return 0.76;
+      return 1;
+    }
+
     function nodeColor(node) {
       if (node.kind === "task") {
         if (node.detail.status === "done") return colors.done;
@@ -258,7 +271,19 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
 
     function architectureNodes() {
       const activeLane = root.dataset.activeLane || "claude";
-      const node = (id, kind, label, anchor, detail) => ({ id, kind, label, anchor: new THREE.Vector3(...anchor), detail: { system: true, ...detail } });
+      // The console camera intentionally holds the whole decision path in one
+      // view. Keep source, routing, and approval nodes inside that shared
+      // field rather than sending the outermost systems beyond its edges.
+      const node = (id, kind, label, anchor, detail) => {
+        const [x, y, z] = anchor;
+        return {
+          id,
+          kind,
+          label,
+          anchor: new THREE.Vector3(x * 0.64, y * 0.72, z * 0.72),
+          detail: { system: true, ...detail },
+        };
+      };
       return [
         node("system:ingress", "ingress", "Telegram / voice", [-8.5, -4.2, 1.8], { group: "Ingress", description: "A Telegram or voice request becomes a bounded brief before it reaches a planner.", context: "Request text or voice transcript", tools: "Telegram, voice interface", evidence: "Bounded brief with operator scope" }),
         node("system:obsidian", "source", "Obsidian", [-9.6, 3.8, 1.8], { group: "Authorized world", description: "An opt-in local note source. Raw content remains private and memories retain source provenance.", context: "User-authorized notes", tools: "Local Obsidian adapter", evidence: "Source reference and retrieval record" }),
@@ -356,13 +381,52 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       signals = new THREE.Points(geometry, new THREE.PointsMaterial({
         color: 0x7ef9ff,
-        size: 0.34,
+        // These are the moving evidence packets. Keep them readable at the
+        // console camera distance so a paused topology and a firing topology
+        // are visibly different states.
+        size: 4,
+        sizeAttenuation: false,
         transparent: true,
         opacity: 0.95,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }));
       topology.add(signals);
+    }
+
+    // System nodes are individually selectable meshes. This companion point
+    // cloud gives those same nodes a readable, video-like constellation at a
+    // distance without inventing decorative data between them.
+    function buildArchitectureBeacons() {
+      const architecture = meshes.filter((mesh) => mesh.userData.detail?.system);
+      if (!architecture.length) return;
+      const positions = new Float32Array(architecture.length * 3);
+      const palette = new Float32Array(architecture.length * 3);
+      const color = new THREE.Color();
+      architecture.forEach((mesh, index) => {
+        positions.set([mesh.position.x, mesh.position.y, mesh.position.z], index * 3);
+        color.setHex(nodeColor(mesh.userData));
+        palette.set([color.r, color.g, color.b], index * 3);
+      });
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute("color", new THREE.BufferAttribute(palette, 3));
+      const beacons = new THREE.Points(geometry, new THREE.PointsMaterial({
+        // These are screen-space beacons for the real selectable node meshes.
+        // Perspective scaling made the source and model lanes read as dust at
+        // the wide console distance; a fixed 9px signal keeps the topology
+        // legible without inflating the physical graph geometry.
+        size: 9,
+        sizeAttenuation: false,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.96,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+        depthWrite: false,
+      }));
+      beacons.renderOrder = 5;
+      topology.add(beacons);
     }
 
     function spawnSignal() {
@@ -396,23 +460,30 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       nodes.forEach((node, index) => {
         const running = node.kind === "task" && node.detail.status === "running";
         const selectedLane = Boolean(node.detail.active);
+        const architectureNode = Boolean(node.detail.system);
         const material = new THREE.MeshStandardMaterial({
           color: nodeColor(node),
           emissive: nodeColor(node),
-          emissiveIntensity: running || selectedLane ? 1.15 : 0.34,
+          emissiveIntensity: running || selectedLane ? 1.15 : architectureNode ? 0.72 : 0.34,
           metalness: 0.15,
           roughness: 0.38,
           transparent: true,
           opacity: node.kind === "radar" ? 0.74 : 0.94,
+          depthTest: !architectureNode,
+          depthWrite: !architectureNode,
         });
         const mesh = new THREE.Mesh(geometryFor(node.kind), material);
         mesh.position.copy(positionFor(node, index, nodes.length));
         mesh.userData = node;
+        const baseScale = scaleFor(node.kind);
+        mesh.scale.setScalar(baseScale);
+        if (architectureNode) mesh.renderOrder = 4;
         topology.add(mesh);
         meshes.push(mesh);
         meshById.set(node.id, mesh);
-        if (running || selectedLane) dynamicMaterials.push({ mesh, material });
+        if (running || selectedLane || architectureNode) dynamicMaterials.push({ mesh, material, baseScale });
       });
+      buildArchitectureBeacons();
       buildSynapses();
       buildSignals();
       const route = (source, target, color = 0x63d9b6, opacity = 0.5) => addEdge(source, target, color, opacity);
@@ -547,7 +618,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const elapsed = clock.getElapsedTime();
       for (const entry of dynamicMaterials) {
         const pulse = motionPaused ? 1 : 1 + Math.sin(elapsed * 4) * 0.12;
-        entry.mesh.scale.setScalar(pulse);
+        entry.mesh.scale.setScalar(entry.baseScale * pulse);
         entry.material.emissiveIntensity = motionPaused ? 0.9 : 1.05 + Math.sin(elapsed * 4) * 0.3;
       }
       advanceSignals(delta);

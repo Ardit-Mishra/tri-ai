@@ -392,13 +392,62 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .orchestration-foot { display:flex; flex-wrap:wrap; gap:12px 26px; margin-top:13px; }
     .orchestration-foot span { color:var(--muted); font-size:10px; line-height:1.4; }
     .orchestration-foot b { color:var(--text); font-weight:650; }
+    /* Cortex Theater is intentionally a new visual system: one large live
+       topology with sparse, inspectable edges instead of dashboard tiles. */
+    .cortex-theater { border-bottom:1px solid var(--line); display:grid; gap:0; grid-template-columns:210px minmax(0,1fr) 270px; grid-template-rows:minmax(620px,calc(100vh - 112px)) auto; margin-top:18px; min-height:660px; }
+    .theater-rail { border-top:1px solid var(--line); color:var(--muted); min-width:0; padding:22px 16px; position:relative; }
+    .theater-sources { border-right:1px solid var(--line); }
+    .theater-control { border-left:1px solid var(--line); }
+    .rail-head { align-items:center; display:flex; font-size:9px; font-weight:720; justify-content:space-between; letter-spacing:.1em; text-transform:uppercase; }
+    .rail-head b { color:var(--cyan); font-size:8px; font-weight:720; }
+    .source-cluster { align-items:flex-start; display:flex; gap:9px; margin-top:19px; }
+    .source-dot { background:var(--cyan); box-shadow:0 0 0 4px color-mix(in srgb,var(--cyan) 10%,transparent); flex:0 0 auto; height:6px; margin-top:5px; width:6px; }
+    .source-cluster b { color:var(--text); display:block; font-size:11px; font-weight:680; line-height:1.2; }
+    .source-cluster small { color:var(--muted); display:block; font-size:9px; line-height:1.35; margin-top:3px; }
+    .rail-rule { border-top:1px solid var(--line); margin:24px 0 16px; }
+    .rail-copy { color:var(--muted); font-size:10px; line-height:1.55; margin:11px 0 0; }
+    .rail-copy b { color:var(--text); font-weight:680; }
+    .cortex-core { background:#07100d; border:0; min-height:0; overflow:hidden; padding:0; position:relative; }
+    .cortex-core::before { background:transparent; display:none; }
+    .cortex-core > * { position:absolute; }
+    .core-topline { color:var(--muted); display:flex; font-family:ui-monospace,"Cascadia Code",monospace; font-size:8px; font-weight:700; gap:18px; justify-content:center; left:0; letter-spacing:.11em; padding:16px 20px; right:0; text-transform:uppercase; top:0; z-index:4; }
+    .core-topline span { align-items:center; display:flex; gap:6px; }
+    .core-topline i { background:var(--cyan); border-radius:50%; box-shadow:0 0 12px var(--cyan); display:inline-block; height:5px; width:5px; }
+    .theater-tabs { border:1px solid var(--line); display:flex; flex-direction:row; gap:0; left:50%; margin:0; padding:3px; position:absolute; top:40px; transform:translateX(-50%); width:auto; z-index:5; }
+    .theater-tabs .agent-tab { border:0; font-size:10px; min-height:31px; padding:0 13px; text-align:center; white-space:nowrap; }
+    .theater-tabs .agent-tab[aria-selected="true"] { background:#eef3ee; color:#102319; }
+    .core-title { bottom:42px; display:grid; justify-items:center; left:0; pointer-events:none; right:0; text-align:center; z-index:3; }
+    .core-title span { color:var(--cyan); font-family:ui-monospace,"Cascadia Code",monospace; font-size:9px; font-weight:720; letter-spacing:.18em; }
+    .core-title strong { color:#f3f6f0; font-size:clamp(40px,5vw,78px); font-weight:760; letter-spacing:0; line-height:.95; margin-top:6px; text-transform:uppercase; }
+    .core-title em { color:#b6c8be; font-size:10px; font-style:normal; line-height:1.4; margin-top:8px; max-width:44ch; }
+    .cortex-core #spatialGraph,.cortex-core #neuralGraph { bottom:0; height:100%; left:0; right:0; top:0; width:100%; z-index:1; }
+    .cortex-core .spatial-tooltip { z-index:8; }
+    .core-bottom { align-items:center; bottom:14px; color:var(--muted); display:flex; font-family:ui-monospace,"Cascadia Code",monospace; font-size:8px; justify-content:space-between; left:18px; letter-spacing:.08em; right:18px; text-transform:uppercase; z-index:4; }
+    .core-bottom .view-switch { border-color:var(--line); }
+    .core-bottom .view-switch button { color:var(--muted); font-size:8px; }
+    .core-bottom .view-switch button.active { background:var(--cyan); color:#07100d; }
+    .theater-control h1 { color:var(--text); font-size:19px; font-weight:730; letter-spacing:0; line-height:1.08; margin:11px 0 0; }
+    .theater-control > p { color:var(--muted); font-size:10px; line-height:1.55; margin:10px 0 0; }
+    .theater-control .map-proof-list { gap:12px; margin-top:18px; }
+    .theater-control .map-proof-list b { font-size:10px; }
+    .theater-control .model-lanes { display:block; margin-top:12px; overflow:visible; }
+    .theater-control .model-lane { border-bottom:1px solid var(--line); border-right:0; min-height:0; padding:10px 0; }
+    .theater-control .model-lane:not(:first-child) { padding-left:0; }
+    .theater-footer { border-top:1px solid var(--line); color:var(--muted); display:flex; flex-wrap:wrap; font-size:9px; gap:12px 28px; grid-column:1 / -1; line-height:1.45; padding:10px 16px 13px; }
+    .theater-footer b { color:var(--text); font-weight:680; text-transform:uppercase; }
+    .hud-grid { display:block; margin-top:28px; }
+    .hud-aside { border-left:0; display:grid; gap:20px; grid-template-columns:1.3fr 1fr 1fr 1fr; padding-left:0; }
+    .hud-aside .hud-panel { border-bottom:0; padding:0; }
+    .hud-aside .hud-panel + .hud-panel { border-left:1px solid var(--line); padding:0 0 0 18px; }
+    body[data-theme="light"] .cortex-core { background:#102119; }
+    body[data-theme="light"] .theater-tabs .agent-tab[aria-selected="true"] { background:#163b2d; color:#f3f6f0; }
     body[data-theme="light"] .graph-panel { background:#102119; }
     body[data-theme="light"] .graph-panel .panel-head strong,body[data-theme="light"] .cortex-stage-label strong { color:#f3f6f0; }
     body[data-theme="light"] .cortex-stage-label { background:rgba(5,16,13,.86); }
     body[data-theme="light"] .cortex-stage-label em,body[data-theme="light"] .graph-hint,body[data-theme="light"] .model-lane .lane-kind { color:#c6d7cd; }
     body[data-theme="light"] .model-lane strong { color:#f3f6f0; }
-    @media (max-width:1100px) { .orchestration-grid { grid-template-columns:205px minmax(440px,1fr); } .map-inspector { border-left:0; border-top:1px solid var(--line); grid-column:1 / -1; } .map-proof-list { grid-template-columns:repeat(3,minmax(0,1fr)); } .hud-grid { grid-template-columns:1fr; } .hud-aside { border-left:0; border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:18px 0 0; } .hud-aside .hud-panel { padding-right:14px; } }
-    @media (max-width:700px) { .shell { padding:14px; } header { align-items:flex-start; } .header-right { align-items:flex-end; flex-wrap:wrap; justify-content:flex-end; } .services { display:none; } .orchestration-head { align-items:start; flex-direction:column; gap:14px; } .orchestration-grid { display:block; } .agent-lens { border-bottom:1px solid var(--line); border-right:0; } .agent-tabs { flex-direction:row; } .agent-tab { flex:1; min-height:36px; padding:0 7px; } .agent-context { display:none; } .world-map-wrap { overflow-x:auto; padding:12px 0; } .world-map { min-width:610px; } .map-inspector { padding:16px; } .map-proof-list { grid-template-columns:1fr; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } .graph-panel { min-height:480px; padding:14px; } #spatialGraph,#neuralGraph { height:370px; } .cortex-stage-label { left:22px; top:56px; } .hud-aside { display:block; } .hud-aside .hud-panel { padding-right:0; } }
+    @media (max-width:1100px) { .cortex-theater { grid-template-columns:180px minmax(0,1fr); grid-template-rows:minmax(590px,calc(100vh - 112px)) auto auto; } .theater-control { border-left:0; border-top:1px solid var(--line); grid-column:1 / -1; } .theater-control .map-proof-list { grid-template-columns:repeat(3,minmax(0,1fr)); } .theater-control .model-lanes { display:flex; } .theater-control .model-lane { border-bottom:0; border-right:1px solid var(--line); padding:0 10px 0 0; } .theater-control .model-lane:not(:first-child) { padding-left:10px; } .hud-aside { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:700px) { .shell { padding:12px; } header { align-items:flex-start; } .header-right { align-items:flex-end; flex-wrap:wrap; justify-content:flex-end; } .services { display:none; } .cortex-theater { display:flex; flex-direction:column; margin-left:-12px; margin-right:-12px; } .cortex-core { min-height:560px; order:-1; } .theater-sources,.theater-control { border-left:0; border-right:0; padding:16px 14px; } .theater-sources { display:grid; gap:8px; grid-template-columns:repeat(2,minmax(0,1fr)); } .theater-sources .rail-head,.theater-sources .rail-rule,.theater-sources .rail-copy { grid-column:1 / -1; } .source-cluster { margin-top:0; } .core-topline { font-size:7px; gap:8px; padding:12px 8px; } .core-topline span:nth-child(2) { display:none; } .theater-tabs { top:36px; width:calc(100% - 32px); } .theater-tabs .agent-tab { font-size:9px; padding:0 7px; } .core-title { bottom:49px; } .core-title strong { font-size:42px; } .core-title em { font-size:9px; max-width:30ch; } .core-bottom { bottom:13px; font-size:7px; left:10px; right:10px; } .core-bottom > span:first-child { display:none; } .theater-control .map-proof-list { grid-template-columns:1fr; } .theater-control .model-lanes { display:block; } .theater-control .model-lane { border-bottom:1px solid var(--line); border-right:0; padding:10px 0; } .hud-aside { display:block; } .hud-aside .hud-panel + .hud-panel { border-left:0; border-top:1px solid var(--line); margin-top:18px; padding:18px 0 0; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } }
     </style>
 </head>
 <body data-theme="dark">
@@ -414,64 +463,40 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">Light interface</button>
       </div>
     </header>
-    <section class="orchestration-stage" aria-label="Private operating map">
-      <div class="orchestration-head">
-        <div>
-          <div class="orchestration-eyebrow">Private operating map</div>
-          <h1>One brain. Two linked layers.</h1>
+    <section class="cortex-theater" aria-label="Tri-AI private operator console">
+      <aside class="theater-rail theater-sources" aria-label="Authorized source clusters">
+        <div class="rail-head"><span>System vitals</span><b>private by default</b></div>
+        <div class="source-cluster"><span class="source-dot"></span><div><b>Obsidian vault</b><small>opt-in notes and links</small></div></div>
+        <div class="source-cluster"><span class="source-dot"></span><div><b>Drive archive</b><small>selected folders only</small></div></div>
+        <div class="source-cluster"><span class="source-dot"></span><div><b>GitHub and deploys</b><small>repos, Vercel, Render</small></div></div>
+        <div class="source-cluster"><span class="source-dot"></span><div><b>Session exports</b><small>Claude and Codex handoffs</small></div></div>
+        <div class="rail-rule"></div>
+        <div class="rail-head"><span>Ingress</span><b>bounded</b></div>
+        <p class="rail-copy">Telegram and voice requests become a scoped brief before any model receives context.</p>
+      </aside>
+      <section class="cortex-core graph-panel">
+        <div class="core-topline"><span><i></i> core online</span><span>authorized sources only</span><span>motion enabled</span></div>
+        <div class="agent-tabs theater-tabs" role="tablist" aria-label="Choose an execution lane">
+          <button class="agent-tab" id="lensClaude" type="button" role="tab" aria-selected="true" aria-controls="agentContext" data-lane="claude">Claude Code</button>
+          <button class="agent-tab" id="lensCodex" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="codex">Codex</button>
+          <button class="agent-tab" id="lensLocal" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="local">Local + free</button>
         </div>
-        <p>Your authorized world supplies bounded context. Tri-AI turns it into a plan, delegates specialist work, verifies the result, and preserves the evidence behind delivery.</p>
-        <div class="orchestration-proof"><strong>Sealed public demonstration</strong>No connector, chat, credential, artifact, or private workspace is loaded on this surface.</div>
-      </div>
-      <div class="orchestration-grid">
-        <section class="agent-lens" aria-label="Reasoning lane lens">
-          <span class="lens-kicker">Reasoning lens</span>
-          <div class="agent-tabs" role="tablist" aria-label="Choose an execution lane">
-            <button class="agent-tab" id="lensClaude" type="button" role="tab" aria-selected="true" aria-controls="agentContext" data-lane="claude">Claude Code</button>
-            <button class="agent-tab" id="lensCodex" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="codex">Codex</button>
-            <button class="agent-tab" id="lensLocal" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="local">Local + free</button>
-          </div>
-          <div class="agent-context" id="agentContext" role="tabpanel" aria-live="polite"></div>
-        </section>
-        <div class="world-map-wrap">
-          <svg class="world-map" id="worldMap" viewBox="0 0 760 420" role="img" aria-label="Authorized world graph and Tri-AI execution graph">
-            <text class="group-label" x="22" y="24">01 / AUTHORIZED WORLD</text>
-            <text class="group-label" x="286" y="24">02 / TRI-AI CONTROL PLANE</text>
-            <text class="group-label" x="589" y="24">03 / DELIVERY EVIDENCE</text>
-            <path class="guide" d="M252 38V396 M560 38V396" />
-            <path class="route muted" d="M130 87 C196 87 201 150 292 176" />
-            <path class="route muted" d="M130 152 C204 152 213 172 292 176" />
-            <path class="route muted" d="M130 217 C208 217 221 195 292 176" />
-            <path class="route muted" d="M130 282 C198 282 211 204 292 176" />
-            <path class="route muted" d="M130 347 C194 347 213 223 292 176" />
-            <path class="route signal" d="M340 176 C387 176 391 176 425 176" />
-            <path class="route warm signal" d="M472 176 C518 176 523 176 579 176" />
-            <path class="route signal" d="M626 176 C661 176 674 176 712 176" />
-            <path class="route muted" d="M440 205 C440 252 440 278 440 316" />
-            <path class="route warm" d="M440 316 C506 316 536 274 592 243" />
-            <path class="route signal" d="M608 243 C655 243 669 220 712 198" />
-            <g><circle class="node node-world" cx="92" cy="87" r="37"/><text class="node-title" x="92" y="84" text-anchor="middle">Obsidian</text><text class="node-detail" x="92" y="98" text-anchor="middle">NOTES</text></g>
-            <g><circle class="node node-world" cx="92" cy="152" r="37"/><text class="node-title" x="92" y="149" text-anchor="middle">Drive</text><text class="node-detail" x="92" y="163" text-anchor="middle">FILES</text></g>
-            <g><circle class="node node-world" cx="92" cy="217" r="37"/><text class="node-title" x="92" y="214" text-anchor="middle">GitHub</text><text class="node-detail" x="92" y="228" text-anchor="middle">CODE</text></g>
-            <g><circle class="node node-world" cx="92" cy="282" r="37"/><text class="node-title" x="92" y="279" text-anchor="middle">Deploys</text><text class="node-detail" x="92" y="293" text-anchor="middle">VERCEL / RENDER</text></g>
-            <g><circle class="node node-world" cx="92" cy="347" r="37"/><text class="node-title" x="92" y="344" text-anchor="middle">Sessions</text><text class="node-detail" x="92" y="358" text-anchor="middle">CLAUDE / CODEX</text></g>
-            <g class="pulse"><circle class="node node-brain" cx="316" cy="176" r="28"/><text class="node-title" x="316" y="173" text-anchor="middle">TRI-AI</text><text class="node-detail" x="316" y="187" text-anchor="middle">PLANNER</text></g>
-            <g class="pulse"><circle class="node node-brain" cx="449" cy="176" r="28"/><text class="node-title" id="activeLaneLabel" x="449" y="173" text-anchor="middle">CLAUDE</text><text class="node-detail" x="449" y="187" text-anchor="middle">MODEL LANE</text></g>
-            <g><rect class="node node-execute" x="579" y="146" width="48" height="60" rx="0"/><text class="node-title" x="603" y="170" text-anchor="middle">WORK</text><text class="node-detail" x="603" y="185" text-anchor="middle">SPECIALISTS</text></g>
-            <g><circle class="node node-gate pulse" cx="603" cy="243" r="28"/><text class="node-title" x="603" y="240" text-anchor="middle">VERIFY</text><text class="node-detail" x="603" y="254" text-anchor="middle">EVIDENCE</text></g>
-            <g><circle class="node node-brain" cx="440" cy="344" r="34"/><text class="node-title" x="440" y="341" text-anchor="middle">BRAIN</text><text class="node-detail" x="440" y="355" text-anchor="middle">MEMORY + LINKS</text></g>
-            <g><circle class="node node-gate" cx="724" cy="187" r="32"/><text class="node-title" x="724" y="184" text-anchor="middle">HUMAN</text><text class="node-detail" x="724" y="198" text-anchor="middle">APPROVAL</text></g>
-            <text class="node-detail" x="287" y="214">BOUNDED CONTEXT</text><text class="node-detail" x="506" y="164">TOOL PERMISSIONS</text><text class="node-detail" x="641" y="288">RETAINED PROOF</text>
-          </svg>
-        </div>
-        <aside class="map-inspector" aria-label="Selected model lane details">
-          <label id="mapPhase">Claude lane</label>
-          <h2 id="mapAgentTitle">Research and planning</h2>
-          <p id="mapAgentSummary">The selected lane receives a bounded brief and returns a reviewable plan, source record, and acceptance checks.</p>
-          <div class="map-proof-list" id="mapProofList"></div>
-        </aside>
-      </div>
-      <div class="orchestration-foot"><span><b>Ingress:</b> Telegram or voice request enters as a bounded brief.</span><span><b>Routing:</b> Claude and Codex subscription lanes, Ollama local models, and policy-gated OmniRoute and FreeLLMAPI free routes are distinct nodes.</span><span><b>Privacy:</b> source ingestion is opt-in and provenance stays attached.</span><span><b>Delivery:</b> publish, deploy, and DNS remain behind an explicit approval gate.</span></div>
+        <div class="core-title"><span>TRI-AI CORTEX</span><strong id="activeLaneLabel">CLAUDE</strong><em>Living map of context, delegation, verification, and retained evidence.</em></div>
+        <div id="spatialGraph" role="img" aria-label="Interactive three-dimensional Tri-AI system topology"><div class="spatial-tooltip" id="spatialTooltip"></div></div>
+        <canvas id="neuralGraph" role="img" aria-label="Interactive task, memory, capability, and technology-radar graph"></canvas>
+        <div class="core-bottom"><span id="graphSummary">Awaiting evidence</span><span class="view-switch" aria-label="Topology view"><button id="graph3d" type="button" disabled>3D</button><button id="graph2d" type="button" class="active">2D</button><button id="motionToggle" type="button" aria-pressed="false">Pause</button></span><span>drag to inspect a node</span></div>
+      </section>
+      <aside class="theater-rail theater-control" aria-label="Execution lane details">
+        <div class="rail-head"><span id="mapPhase">Claude lane</span><b>active</b></div>
+        <h1 id="mapAgentTitle">Research and planning</h1>
+        <p id="mapAgentSummary">Claude receives an approved brief, source boundaries, and the project constraints.</p>
+        <div class="map-proof-list" id="mapProofList"></div>
+        <div class="rail-rule"></div>
+        <div class="rail-head"><span>Observed routes</span><b>recorded</b></div>
+        <div class="model-lanes" id="modelLanes" aria-label="Observed model lanes"></div>
+        <p class="rail-copy"><b>Free routing:</b> Ollama is local. OmniRoute and FreeLLMAPI are policy-gated free routes that must retain requested and resolved model evidence.</p>
+      </aside>
+      <footer class="theater-footer"><span><b>sealed demonstration</b> no private source, credential, chat, artifact, or workspace is loaded here</span><span><b>human gate</b> publishing, deployment, DNS, and paid actions require approval</span></footer>
     </section>
     <section class="cortex-intent" aria-label="Current operating intent">
       <section class="now" id="now" aria-live="polite">
@@ -496,15 +521,6 @@ _HTML_TEMPLATE = r"""<!doctype html>
       <div class="metric"><label>Radar candidates</label><strong id="radarCount">-</strong></div>
     </section>
     <section class="hud-grid" aria-label="Neural task and memory map">
-      <section class="hud-panel graph-panel">
-        <div class="panel-head"><strong>Execution topology</strong><span class="graph-head-tools"><span id="graphSummary">Awaiting evidence</span><span class="view-switch" aria-label="Topology view"><button id="graph3d" type="button" disabled>3D</button><button id="graph2d" type="button" class="active">2D</button><button id="motionToggle" type="button" aria-pressed="false">Pause</button></span></span></div>
-        <div class="cortex-stage-label"><span>Tri-AI Cortex</span><strong>Work with a visible mind.</strong><em>Models, memory, and evidence remain connected to the task they serve.</em></div>
-        <div id="spatialGraph" role="img" aria-label="Interactive three-dimensional Tri-AI execution and capability topology"><div class="spatial-tooltip" id="spatialTooltip"></div></div>
-        <canvas id="neuralGraph" role="img" aria-label="Interactive task, memory, capability, and technology-radar graph"></canvas>
-        <div class="graph-hint">Drag canvas to pan // double-tap or wheel to zoom // tap a node to inspect</div>
-        <div class="graph-legend"><span><i class="legend-dot" style="background:#00f0ff"></i>task</span><span><i class="legend-dot" style="background:#00ff9d"></i>done</span><span><i class="legend-dot" style="background:#ff4d6d"></i>failed/cancelled</span><span><i class="legend-dot" style="background:#ffb703"></i>accepted rule</span><span><i class="legend-dot" style="background:#a78bfa"></i>brain memory</span><span><i class="legend-dot" style="background:#38bdf8"></i>capability</span><span><i class="legend-dot" style="background:#f472b6"></i>radar</span></div>
-        <div class="model-lanes" id="modelLanes" aria-label="Observed model lanes"></div>
-      </section>
       <aside class="hud-aside" id="hudAside">
         <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Toggle inspector sheet"><span></span><em id="sheetLabel">Inspector</em></div>
         <section class="hud-panel"><div class="panel-head"><strong>Details</strong><span>read only</span></div><div id="inspector" class="inspector-empty">Select a task or accepted rule.</div></section>

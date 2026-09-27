@@ -2,26 +2,27 @@
 
 ## Visual World
 
-**Cortex Chamber** is a private intelligence workspace, not a sci-fi command
-center. The neural core is the primary visual object; surrounding information
-is quieter, evidence-led instrumentation.
+**Cortex Theater** is a private intelligence workspace, not a sci-fi command
+center. It is a single full-width operating field: an animated three-dimensional
+topology at the center, with quiet source and execution rails at its edges.
 
 ## Surface Strategy
 
-The first viewport is a linked two-layer map: the user-authorized world on the
-left and Tri-AI's reasoning and execution route on the right. A Claude, Codex,
-or Local lens answers what the selected lane receives, which tools it may use,
-and what evidence it must return. The cortex remains visible below as the
-retained-memory topology while detail moves into a right-side inspection dock.
+The first viewport is a connected system map. The user-authorized world enters
+from the left, the Tri-AI planner routes work through Claude, Codex, or
+local/free lanes in the central topology, and specialist work crosses a
+verifier and retained brain before reaching an approval gate. A selected lens
+answers what that lane receives, which tools it may use, and what evidence it
+must return without replacing the active topology.
 
 ## Composition
 
 - A thin identity bar frames the system and contains the theme control.
-- A visible world graph connects authorized notes, files, repositories,
-  deployments, and session exports to a bounded Tri-AI planner.
-- The animated route runs from ingress through a model lane, specialist work,
-  verification, retained evidence, and a human approval gate.
-- The animated 3D graph shows the retained-memory topology beneath that route.
+- A source rail names authorized notes, files, repositories, deployments, and
+  session exports without displaying their private contents.
+- The animated central topology contains the live conceptual route: ingress,
+  planner, model lanes, specialist work, verification, retained evidence, and
+  a human approval gate are individually selectable Three.js nodes.
 - Model lanes, evidence counts, and source status form compact supporting
   telemetry rather than a wall of equal cards.
 - Detail is a deliberate inspection dock, not competing dashboard chrome.

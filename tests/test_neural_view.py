@@ -133,6 +133,17 @@ class ArchitectureTopologyTest(_Source):
     def test_clicking_a_system_node_emits_its_inspection_event(self):
         self.assertIn('"tri-ai:system-select"', self.source)
 
+    def test_architecture_nodes_have_a_legible_distance_layer(self):
+        """The source and routing nodes remain visible in the wide console."""
+        self.assertIn("function buildArchitectureBeacons", self.source)
+        self.assertIn("sizeAttenuation: false", self.source)
+
+    def test_physical_architecture_nodes_do_not_obscure_the_cortex(self):
+        self.assertIn("Physical objects stay deliberately compact", self.source)
+
+    def test_firing_evidence_packets_remain_visible_at_console_distance(self):
+        self.assertIn("moving evidence packets", self.source)
+
 
 class BudgetTest(_Source):
     def test_the_signal_count_is_bounded(self):
