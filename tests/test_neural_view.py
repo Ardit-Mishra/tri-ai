@@ -110,6 +110,17 @@ class FiringTest(_Source):
 
 
 class ArchitectureTopologyTest(_Source):
+    def test_every_authorized_file_is_rendered_as_a_real_three_d_point(self):
+        self.assertIn("function buildFileUniverse(fileGraph)", self.source)
+        self.assertIn("fileItems.forEach", self.source)
+        self.assertIn("fileCloud = new THREE.Points", self.source)
+        self.assertIn("one provenance-linked node", self.source)
+
+    def test_file_nodes_are_selectable_and_expose_provenance(self):
+        self.assertIn("raycaster.params.Points.threshold", self.source)
+        self.assertIn("function nodeFromHit", self.source)
+        self.assertIn("File graph index and provenance store", self.source)
+
     def test_authorized_world_and_execution_routes_are_real_three_d_nodes(self):
         """These names belong in the rendered topology, not in a separate
         decorative diagram that can drift away from the interactive view."""
@@ -140,7 +151,7 @@ class ArchitectureTopologyTest(_Source):
 
     def test_physical_architecture_nodes_do_not_obscure_the_cortex(self):
         self.assertIn("Physical objects stay deliberately compact", self.source)
-        self.assertIn('if (kind === "model" || kind === "verifier") return 0.61', self.source)
+        self.assertIn('if (kind === "model" || kind === "verifier") return 0.15', self.source)
 
     def test_firing_evidence_packets_remain_visible_at_console_distance(self):
         self.assertIn("moving evidence packets", self.source)

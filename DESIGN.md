@@ -2,27 +2,31 @@
 
 ## Visual World
 
-**Cortex Theater** is a private intelligence workspace, not a sci-fi command
-center. It is a single full-width operating field: an animated three-dimensional
-topology at the center, with quiet source and execution rails at its edges.
+**Cortex Theater** is a private intelligence workspace organized around one
+gigantic living file brain. Every authorized folder and file is represented as
+a provenance-linked neural point; surrounding controls are quiet edge
+instrumentation rather than a competing dashboard.
 
 ## Surface Strategy
 
-The first viewport is a connected system map. The user-authorized world enters
-from the left, the Tri-AI planner routes work through Claude, Codex, or
-local/free lanes in the central topology, and specialist work crosses a
-verifier and retained brain before reaching an approval gate. A selected lens
-answers what that lane receives, which tools it may use, and what evidence it
-must return without replacing the active topology.
+The first viewport is the brain itself. Desktop, laptop, Google Drive,
+Obsidian, GitHub, deployments, and authorized Claude or Codex exports form
+source clusters inside a single three-dimensional organ. Claude, Codex,
+Ollama, OmniRoute, FreeLLMAPI, specialist workers, verification, memory, and
+approval appear as small junctions within that same graph. A selected lens
+answers what a lane receives, which tools it may use, and what evidence it must
+return without replacing the brain.
 
 ## Composition
 
 - A thin identity bar frames the system and contains the theme control.
 - A source rail names authorized notes, files, repositories, deployments, and
   session exports without displaying their private contents.
-- The animated central topology contains the live conceptual route: ingress,
-  planner, model lanes, specialist work, verification, retained evidence, and
-  a human approval gate are individually selectable Three.js nodes.
+- The animated central topology renders one GPU-efficient point per indexed
+  file or folder and a dendritic branch for its parent relationship.
+- Ingress, planner, model lanes, specialist work, verification, retained
+  evidence, and the human approval gate are compact selectable junctions
+  embedded in the file brain.
 - Model lanes, evidence counts, and source status form compact supporting
   telemetry rather than a wall of equal cards.
 - Detail is a deliberate inspection dock, not competing dashboard chrome.
@@ -38,13 +42,16 @@ must return without replacing the active topology.
 
 ## Motion
 
-The cortex rotates slowly and its signals travel only when motion is enabled.
-Model lane pulses and status changes use short, restrained transitions. Motion
-stops with the existing pause control and under `prefers-reduced-motion`.
+The file brain rotates slowly and evidence packets travel its real parent and
+execution edges only when motion is enabled. Model lane pulses and status
+changes use short, restrained transitions. Motion stops with the existing
+pause control and under `prefers-reduced-motion`.
 
 ## Hard Boundaries
 
 - No generic grid wallpaper, neon borders, or decorative HUD corner marks.
 - No fictitious source data, model access, or live private graph in the public
   demonstration.
+- The public brain is explicitly synthetic. Live mode renders no file universe
+  until an authorized index is attached.
 - No unlabeled animation implying an active operation where none exists.

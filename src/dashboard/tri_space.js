@@ -98,8 +98,8 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     }
 
     const core = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(1.04, 2),
-      new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true, transparent: true, opacity: 0.42 }),
+      new THREE.IcosahedronGeometry(0.16, 1),
+      new THREE.MeshBasicMaterial({ color: 0x73e6c5, wireframe: true, transparent: true, opacity: 0.32 }),
     );
     topology.add(core);
 
@@ -118,7 +118,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       position.needsUpdate = true;
       geometry.computeVertexNormals();
       const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-        color: 0x1d7f9c, wireframe: true, transparent: true, opacity: 0.11,
+        color: 0x1d7f9c, wireframe: true, transparent: true, opacity: 0.035,
       }));
       // Survives a rebuild. The shell is the form itself, not contents, and
       // recomputing 1,280 deformed vertices on every snapshot would be waste.
@@ -138,6 +138,9 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     let synapseSegments = [];
     let signals = null;
     let signalState = [];
+    let fileCloud = null;
+    let fileItems = [];
+    let filePositions = new Map();
     let yaw = 0.42;
     let pitch = 0.18;
     // The organ is the primary information object, not background decoration.
@@ -231,12 +234,12 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       // The fixed-size beacon is the information signal at console distance.
       // Physical objects stay deliberately compact so the connected cortex,
       // not a pile of oversized tokens, remains the visual protagonist.
-      if (kind === "planner" || kind === "approval") return 0.72;
-      if (kind === "model" || kind === "verifier") return 0.61;
-      if (kind === "specialist") return 0.54;
-      if (kind === "source" || kind === "ingress") return 0.5;
-      if (kind === "brain") return 0.48;
-      return 0.42;
+      if (kind === "planner" || kind === "approval") return 0.18;
+      if (kind === "model" || kind === "verifier") return 0.15;
+      if (kind === "specialist") return 0.14;
+      if (kind === "source" || kind === "ingress") return 0.13;
+      if (kind === "brain") return 0.13;
+      return 0.12;
     }
 
     function nodeColor(node) {
@@ -268,6 +271,9 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       synapseSegments = [];
       signals = null;
       signalState = [];
+      fileCloud = null;
+      fileItems = [];
+      filePositions = new Map();
     }
 
     function architectureNodes() {
@@ -367,6 +373,78 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         color: 0x2de2e6, transparent: true, opacity: 0.22,
       }));
       topology.add(synapses);
+    }
+
+    function filePosition(item, index, total, sourceOrder) {
+      const sourceIndex = Math.max(0, sourceOrder.indexOf(item.source));
+      const sourceCount = Math.max(1, sourceOrder.length);
+      const sourceAngle = (sourceIndex / sourceCount) * Math.PI * 2;
+      const seed = hashUnit(item.id);
+      const secondary = hashUnit(`${item.source}:${item.label}`);
+      const angle = sourceAngle + (seed - 0.5) * 1.05;
+      const y = Math.max(-0.92, Math.min(0.92, (secondary - 0.5) * 1.9));
+      const radial = Math.sqrt(Math.max(0.12, 1 - y * y));
+      const unit = new THREE.Vector3(Math.cos(angle) * radial, y, Math.sin(angle) * radial);
+      const depth = item.kind === "folder" ? 6.25 : 2.4 + hashUnit(`${item.id}:depth`) * 4.25;
+      return brainShape(unit).multiplyScalar(depth);
+    }
+
+    /* One point per authorized file or folder. A private index may contain
+     * thousands; the public build receives an explicitly synthetic graph.
+     * Points keep that cardinality GPU-cheap while parent lines make folders
+     * read as dendritic branches instead of an undifferentiated star field. */
+    function buildFileUniverse(fileGraph) {
+      fileItems = Array.isArray(fileGraph?.items) ? fileGraph.items : [];
+      if (!fileItems.length) return;
+      const sourceOrder = (fileGraph.sources || []).map((source) => source.id);
+      const positions = new Float32Array(fileItems.length * 3);
+      const colors = new Float32Array(fileItems.length * 3);
+      const cyan = new THREE.Color(0x73e6c5);
+      const folder = new THREE.Color(0xe7f8ef);
+      fileItems.forEach((item, index) => {
+        const position = filePosition(item, index, fileItems.length, sourceOrder);
+        filePositions.set(item.id, position);
+        positions.set([position.x, position.y, position.z], index * 3);
+        const color = item.kind === "folder" ? folder : cyan;
+        colors.set([color.r, color.g, color.b], index * 3);
+      });
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      fileCloud = new THREE.Points(geometry, new THREE.PointsMaterial({
+        size: 3.2,
+        sizeAttenuation: false,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.88,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }));
+      fileCloud.userData.fileUniverse = true;
+      fileCloud.renderOrder = 3;
+      topology.add(fileCloud);
+
+      const branches = [];
+      fileItems.forEach((item) => {
+        const from = filePositions.get(item.id);
+        const to = filePositions.get(item.parent_id);
+        if (!from || !to) return;
+        branches.push(from.x, from.y, from.z, to.x, to.y, to.z);
+        synapseSegments.push([from.clone(), to.clone()]);
+      });
+      if (branches.length) {
+        const branchGeometry = new THREE.BufferGeometry();
+        branchGeometry.setAttribute("position", new THREE.Float32BufferAttribute(branches, 3));
+        topology.add(new THREE.LineSegments(branchGeometry, new THREE.LineBasicMaterial({
+          color: 0x4a9f87, transparent: true, opacity: 0.12,
+        })));
+      }
+
+      const state = document.getElementById("brainIndexState");
+      const summary = document.getElementById("brainIndexSummary");
+      const sourceCount = (fileGraph.sources || []).length;
+      if (state) state.textContent = `${fileItems.length} ${fileGraph.synthetic ? "synthetic" : "authorized"} nodes`;
+      if (summary) summary.textContent = `${fileItems.length} files and folders across ${sourceCount} source clusters. Select any node to inspect its provenance.`;
     }
 
     /* The firing. Each signal walks one synapse and respawns on another. */
@@ -484,8 +562,9 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         meshById.set(node.id, mesh);
         if (running || selectedLane || architectureNode) dynamicMaterials.push({ mesh, material, baseScale });
       });
-      buildArchitectureBeacons();
       buildSynapses();
+      buildFileUniverse(data.file_graph);
+      buildArchitectureBeacons();
       buildSignals();
       const route = (source, target, color = 0x63d9b6, opacity = 0.5) => addEdge(source, target, color, opacity);
       ["obsidian", "drive", "github", "deploys", "sessions", "ingress"].forEach(source => route(`system:${source}`, "system:planner", 0x3b7f6a, 0.34));
@@ -502,27 +581,50 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       data.edges.forEach((edge) => addEdge(`task:${edge.parent_id}`, `task:${edge.child_id}`, 0x00f0ff, 0.36));
       data.rule_task_links.forEach((edge) => addEdge(`rule:${edge.proposal_id}`, `task:${edge.task_id}`, 0xffb703, 0.48));
       (data.brain?.edges || []).forEach((edge) => addEdge(`brain:${edge.source_id}`, `brain:${edge.target_id}`, 0xa78bfa, 0.34));
-      core.scale.setScalar(1 + Math.min(nodes.length, 80) / 180);
-      root.dataset.nodes = String(nodes.length);
+      core.scale.setScalar(1 + Math.min(fileItems.length, 800) / 2400);
+      root.dataset.nodes = String(nodes.length + fileItems.length);
     }
 
     const raycaster = new THREE.Raycaster();
+    raycaster.params.Points.threshold = 0.22;
     const pointer = new THREE.Vector2();
     function pick(event) {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      return raycaster.intersectObjects(meshes, false)[0]?.object || null;
+      return raycaster.intersectObjects(fileCloud ? [...meshes, fileCloud] : meshes, false)[0] || null;
     }
 
-    function showTooltip(event, mesh) {
-      if (!mesh) {
+    function nodeFromHit(hit) {
+      if (!hit) return null;
+      if (hit.object === fileCloud && Number.isInteger(hit.index)) {
+        const item = fileItems[hit.index];
+        if (!item) return null;
+        return {
+          id: `file:${item.id}`,
+          kind: item.kind,
+          label: item.label,
+          detail: {
+            system: true,
+            group: `${item.source} / ${item.kind}`,
+            description: `${item.label} is represented by one provenance-linked node in the authorized index.`,
+            context: item.synthetic ? "Synthetic demonstration metadata" : "Authorized index metadata",
+            tools: "File graph index and provenance store",
+            evidence: `Source ${item.source}; parent ${item.parent_id || "source root"}`,
+          },
+        };
+      }
+      return hit.object.userData;
+    }
+
+    function showTooltip(event, hit) {
+      const node = nodeFromHit(hit);
+      if (!node) {
         tooltip.style.display = "none";
         renderer.domElement.style.cursor = drag ? "grabbing" : "grab";
         return;
       }
-      const node = mesh.userData;
       tooltip.replaceChildren();
       const title = document.createElement("b");
       title.textContent = node.label || node.id;
@@ -560,11 +662,11 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       drag = null;
       renderer.domElement.releasePointerCapture?.(event.pointerId);
       if (wasDrag) return;
-      const mesh = pick(event);
-      if (!mesh) return;
-      selectedId = mesh.userData.id;
-      if (mesh.userData.detail?.system) {
-        window.dispatchEvent(new CustomEvent("tri-ai:system-select", { detail: mesh.userData }));
+      const node = nodeFromHit(pick(event));
+      if (!node) return;
+      selectedId = node.id;
+      if (node.detail?.system) {
+        window.dispatchEvent(new CustomEvent("tri-ai:system-select", { detail: node }));
       } else {
         window.dispatchEvent(new CustomEvent("tri-ai:select", { detail: { id: selectedId } }));
       }

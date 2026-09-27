@@ -110,6 +110,18 @@ class WebSerializationTests(unittest.TestCase):
         self.assertEqual(payload["metrics"]["active_runs"], 1)
         self.assertGreaterEqual(payload["brain"]["item_count"], 5)
         self.assertIn("No live task", payload["daemons"]["diagnostic"])
+        self.assertTrue(payload["file_graph"]["synthetic"])
+        self.assertGreaterEqual(payload["file_graph"]["item_count"], 400)
+        self.assertEqual(
+            {source["label"] for source in payload["file_graph"]["sources"]},
+            {"Desktop", "Laptop", "Google Drive", "GitHub", "Obsidian", "Claude and Codex", "Vercel and Render"},
+        )
+        self.assertNotIn("C:/", json.dumps(payload["file_graph"]))
+
+    def test_live_snapshot_does_not_invent_or_scan_a_file_graph(self):
+        payload = web.snapshot_payload(fixture_snapshot())
+        self.assertEqual(payload["file_graph"]["status"], "not-indexed")
+        self.assertEqual(payload["file_graph"]["items"], [])
 
     def test_server_is_loopback_only_and_serves_html_json_and_sse(self):
         # Non-loopback is refused unless the operator asks for it by name: a

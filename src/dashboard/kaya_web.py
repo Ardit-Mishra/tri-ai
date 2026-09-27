@@ -394,20 +394,20 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .orchestration-foot b { color:var(--text); font-weight:650; }
     /* Cortex Theater is intentionally a new visual system: one large live
        topology with sparse, inspectable edges instead of dashboard tiles. */
-    .cortex-theater { border-bottom:1px solid var(--line); display:grid; gap:0; grid-template-columns:210px minmax(0,1fr) 270px; grid-template-rows:minmax(620px,calc(100vh - 112px)) auto; margin-top:18px; min-height:660px; }
+    .cortex-theater { border-bottom:1px solid var(--line); display:grid; gap:0; grid-template-columns:190px minmax(0,1fr) 250px; grid-template-rows:minmax(660px,calc(100dvh - 112px)) auto; margin-top:18px; min-height:700px; }
     .theater-rail { border-top:1px solid var(--line); color:var(--muted); min-width:0; padding:22px 16px; position:relative; }
     .theater-sources { border-right:1px solid var(--line); }
     .theater-control { border-left:1px solid var(--line); }
     .rail-head { align-items:center; display:flex; font-size:9px; font-weight:720; justify-content:space-between; letter-spacing:.1em; text-transform:uppercase; }
     .rail-head b { color:var(--cyan); font-size:8px; font-weight:720; }
-    .source-cluster { align-items:flex-start; display:flex; gap:9px; margin-top:19px; }
+    .source-cluster { align-items:flex-start; display:flex; gap:9px; margin-top:15px; }
     .source-dot { background:var(--cyan); box-shadow:0 0 0 4px color-mix(in srgb,var(--cyan) 10%,transparent); flex:0 0 auto; height:6px; margin-top:5px; width:6px; }
     .source-cluster b { color:var(--text); display:block; font-size:11px; font-weight:680; line-height:1.2; }
     .source-cluster small { color:var(--muted); display:block; font-size:9px; line-height:1.35; margin-top:3px; }
     .rail-rule { border-top:1px solid var(--line); margin:24px 0 16px; }
     .rail-copy { color:var(--muted); font-size:10px; line-height:1.55; margin:11px 0 0; }
     .rail-copy b { color:var(--text); font-weight:680; }
-    .cortex-core { background:#07100d; border:0; min-height:0; overflow:hidden; padding:0; position:relative; }
+    .cortex-core { background:#050b09; border:0; min-height:0; overflow:hidden; padding:0; position:relative; }
     .cortex-core::before { background:transparent; display:none; }
     .cortex-core > * { position:absolute; }
     .core-topline { color:var(--muted); display:flex; font-family:ui-monospace,"Cascadia Code",monospace; font-size:8px; font-weight:700; gap:18px; justify-content:center; left:0; letter-spacing:.11em; padding:16px 20px; right:0; text-transform:uppercase; top:0; z-index:4; }
@@ -418,7 +418,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .theater-tabs .agent-tab[aria-selected="true"] { background:#eef3ee; color:#102319; }
     .core-title { bottom:48px; display:grid; justify-items:center; left:0; pointer-events:none; right:0; text-align:center; z-index:3; }
     .core-title span { color:var(--cyan); font-family:ui-monospace,"Cascadia Code",monospace; font-size:9px; font-weight:720; letter-spacing:.18em; }
-    .core-title strong { color:#f3f6f0; font-size:clamp(38px,4vw,58px); font-weight:760; letter-spacing:0; line-height:.95; margin-top:6px; text-transform:uppercase; }
+    .core-title strong { color:#f3f6f0; font-size:clamp(36px,3.4vw,54px); font-weight:760; letter-spacing:0; line-height:.95; margin-top:6px; text-transform:uppercase; }
     .core-title em { color:#b6c8be; font-size:10px; font-style:normal; line-height:1.4; margin-top:8px; max-width:44ch; }
     .cortex-core #spatialGraph,.cortex-core #neuralGraph { bottom:0; height:100%; left:0; right:0; top:0; width:100%; z-index:1; }
     .cortex-core .spatial-tooltip { z-index:8; }
@@ -447,7 +447,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
     body[data-theme="light"] .cortex-stage-label em,body[data-theme="light"] .graph-hint,body[data-theme="light"] .model-lane .lane-kind { color:#c6d7cd; }
     body[data-theme="light"] .model-lane strong { color:#f3f6f0; }
     @media (max-width:1100px) { .cortex-theater { grid-template-columns:180px minmax(0,1fr); grid-template-rows:minmax(590px,calc(100vh - 112px)) auto auto; } .theater-control { border-left:0; border-top:1px solid var(--line); grid-column:1 / -1; } .theater-control .map-proof-list { grid-template-columns:repeat(3,minmax(0,1fr)); } .theater-control .model-lanes { display:flex; } .theater-control .model-lane { border-bottom:0; border-right:1px solid var(--line); padding:0 10px 0 0; } .theater-control .model-lane:not(:first-child) { padding-left:10px; } .hud-aside { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-    @media (max-width:700px) { .shell { padding:12px; } header { align-items:flex-start; } .header-right { align-items:flex-end; flex-wrap:wrap; justify-content:flex-end; } .services { display:none; } .cortex-theater { display:flex; flex-direction:column; margin-left:-12px; margin-right:-12px; } .cortex-core { min-height:560px; order:-1; } .theater-sources,.theater-control { border-left:0; border-right:0; padding:16px 14px; } .theater-sources { display:grid; gap:8px; grid-template-columns:repeat(2,minmax(0,1fr)); } .theater-sources .rail-head,.theater-sources .rail-rule,.theater-sources .rail-copy { grid-column:1 / -1; } .source-cluster { margin-top:0; } .core-topline { font-size:7px; gap:8px; padding:12px 8px; } .core-topline span:nth-child(2) { display:none; } .theater-tabs { top:36px; width:calc(100% - 32px); } .theater-tabs .agent-tab { font-size:9px; padding:0 7px; } .core-title { bottom:49px; } .core-title strong { font-size:42px; } .core-title em { font-size:9px; max-width:30ch; } .core-bottom { bottom:13px; font-size:7px; left:10px; right:10px; } .core-bottom > span:first-child { display:none; } .theater-control .map-proof-list { grid-template-columns:1fr; } .theater-control .model-lanes { display:block; } .theater-control .model-lane { border-bottom:1px solid var(--line); border-right:0; padding:10px 0; } .hud-aside { display:block; } .hud-aside .hud-panel + .hud-panel { border-left:0; border-top:1px solid var(--line); margin-top:18px; padding:18px 0 0; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } }
+    @media (max-width:700px) { .shell { padding:12px; } header { align-items:flex-start; display:grid; gap:14px; grid-template-columns:1fr; } .header-right { align-items:center; display:grid; gap:8px; grid-template-columns:1fr auto; justify-content:stretch; width:100%; } .demo-badge { min-width:0; text-align:center; } .stream-badge { justify-content:center; } .theme-toggle { grid-column:1 / -1; min-height:42px; width:100%; } .services { display:none; } .cortex-theater { display:flex; flex-direction:column; margin-left:-12px; margin-right:-12px; } .cortex-core { min-height:440px; order:-1; } .theater-sources,.theater-control { border-left:0; border-right:0; padding:16px 14px; } .theater-sources { display:grid; gap:8px; grid-template-columns:repeat(2,minmax(0,1fr)); } .theater-sources .rail-head,.theater-sources .rail-rule,.theater-sources .rail-copy { grid-column:1 / -1; } .source-cluster { margin-top:0; } .core-topline { font-size:7px; gap:8px; padding:12px 8px; } .core-topline span:nth-child(2) { display:none; } .theater-tabs { top:36px; width:calc(100% - 32px); } .theater-tabs .agent-tab { font-size:9px; padding:0 7px; } .core-title { bottom:49px; } .core-title strong { font-size:42px; } .core-title em { font-size:9px; max-width:30ch; } .core-bottom { bottom:13px; font-size:7px; left:10px; right:10px; } .core-bottom > span:first-child { display:none; } .theater-control .map-proof-list { grid-template-columns:1fr; } .theater-control .model-lanes { display:block; } .theater-control .model-lane { border-bottom:1px solid var(--line); border-right:0; padding:10px 0; } .hud-aside { display:block; } .hud-aside .hud-panel + .hud-panel { border-left:0; border-top:1px solid var(--line); margin-top:18px; padding:18px 0 0; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } }
     </style>
 </head>
 <body data-theme="dark">
@@ -466,22 +466,24 @@ _HTML_TEMPLATE = r"""<!doctype html>
     <section class="cortex-theater" aria-label="Tri-AI private operator console">
       <aside class="theater-rail theater-sources" aria-label="Authorized source clusters">
         <div class="rail-head"><span>System vitals</span><b>private by default</b></div>
-        <div class="source-cluster"><span class="source-dot"></span><div><b>Obsidian vault</b><small>opt-in notes and links</small></div></div>
-        <div class="source-cluster"><span class="source-dot"></span><div><b>Drive archive</b><small>selected folders only</small></div></div>
-        <div class="source-cluster"><span class="source-dot"></span><div><b>GitHub and deploys</b><small>repos, Vercel, Render</small></div></div>
+        <div class="source-cluster"><span class="source-dot"></span><div><b>Desktop</b><small>authorized folders and files</small></div></div>
+        <div class="source-cluster"><span class="source-dot"></span><div><b>Laptop</b><small>authorized folders and files</small></div></div>
+        <div class="source-cluster"><span class="source-dot"></span><div><b>Google Drive</b><small>selected folders only</small></div></div>
+        <div class="source-cluster"><span class="source-dot"></span><div><b>Obsidian</b><small>notes, links, and graph metadata</small></div></div>
+        <div class="source-cluster"><span class="source-dot"></span><div><b>GitHub and deploys</b><small>repos, Vercel, and Render</small></div></div>
         <div class="source-cluster"><span class="source-dot"></span><div><b>Session exports</b><small>Claude and Codex handoffs</small></div></div>
         <div class="rail-rule"></div>
         <div class="rail-head"><span>Ingress</span><b>bounded</b></div>
         <p class="rail-copy">Telegram and voice requests become a scoped brief before any model receives context.</p>
       </aside>
       <section class="cortex-core graph-panel">
-        <div class="core-topline"><span><i></i> core online</span><span>authorized sources only</span><span>motion enabled</span></div>
+        <div class="core-topline"><span><i></i> cortex online</span><span id="brainIndexState">authorized index awaiting data</span><span>motion enabled</span></div>
         <div class="agent-tabs theater-tabs" role="tablist" aria-label="Choose an execution lane">
           <button class="agent-tab" id="lensClaude" type="button" role="tab" aria-selected="true" aria-controls="agentContext" data-lane="claude">Claude Code</button>
           <button class="agent-tab" id="lensCodex" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="codex">Codex</button>
           <button class="agent-tab" id="lensLocal" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="local">Local + free</button>
         </div>
-        <div class="core-title"><span>TRI-AI CORTEX</span><strong id="activeLaneLabel">CLAUDE</strong><em>Living map of context, delegation, verification, and retained evidence.</em></div>
+        <div class="core-title"><span>TRI-AI FILE BRAIN</span><strong id="activeLaneLabel">CLAUDE</strong><em id="brainIndexSummary">Every authorized file becomes a provenance-linked node.</em></div>
         <div id="spatialGraph" role="img" aria-label="Interactive three-dimensional Tri-AI system topology"><div class="spatial-tooltip" id="spatialTooltip"></div></div>
         <canvas id="neuralGraph" role="img" aria-label="Interactive task, memory, capability, and technology-radar graph"></canvas>
         <div class="core-bottom"><span id="graphSummary">Awaiting evidence</span><span class="view-switch" aria-label="Topology view"><button id="graph3d" type="button" disabled>3D</button><button id="graph2d" type="button" class="active">2D</button><button id="motionToggle" type="button" aria-pressed="false">Pause</button></span><span>drag to inspect a node</span></div>
@@ -1402,12 +1404,68 @@ _HTML_TEMPLATE = r"""<!doctype html>
 HTML = _HTML_TEMPLATE.replace("KAYA", PRODUCT_NAME)
 
 
+def _demo_file_graph() -> dict[str, object]:
+    """Build a dense, explicitly synthetic file universe for the public UI.
+
+    The shape proves the one-node-per-item rendering contract without reading
+    a local machine, cloud account, repository, or conversation export.
+    Labels are generic on purpose; no user path is copied into the demo.
+    """
+    source_specs = (
+        ("desktop", "Desktop", 72),
+        ("laptop", "Laptop", 64),
+        ("drive", "Google Drive", 86),
+        ("github", "GitHub", 118),
+        ("obsidian", "Obsidian", 44),
+        ("sessions", "Claude and Codex", 36),
+        ("deploys", "Vercel and Render", 20),
+    )
+    extensions = ("md", "py", "ts", "tsx", "json", "csv", "pdf", "yaml")
+    items: list[dict[str, object]] = []
+    sources: list[dict[str, object]] = []
+    for source_id, label, total in source_specs:
+        root_id = f"demo:{source_id}:root"
+        folder_count = min(6, max(2, total // 16))
+        sources.append({"id": source_id, "label": label, "node_count": total, "authorized": True})
+        items.append({
+            "id": root_id, "label": label, "kind": "folder", "source": source_id,
+            "parent_id": None, "synthetic": True,
+        })
+        folders = []
+        for folder_index in range(folder_count):
+            folder_id = f"demo:{source_id}:folder:{folder_index + 1}"
+            folders.append(folder_id)
+            items.append({
+                "id": folder_id, "label": f"collection-{folder_index + 1:02d}",
+                "kind": "folder", "source": source_id, "parent_id": root_id,
+                "synthetic": True,
+            })
+        file_total = total - folder_count - 1
+        for file_index in range(file_total):
+            items.append({
+                "id": f"demo:{source_id}:file:{file_index + 1}",
+                "label": f"artifact-{file_index + 1:03d}.{extensions[file_index % len(extensions)]}",
+                "kind": "file", "source": source_id,
+                "parent_id": folders[file_index % len(folders)], "synthetic": True,
+            })
+    return {
+        "status": "synthetic-demonstration", "synthetic": True,
+        "item_count": len(items), "sources": sources, "items": items,
+        "diagnostic": "Synthetic nodes only. No local or cloud source was read.",
+    }
+
+
 def snapshot_payload(
     snapshot: kaya_terminal.DashboardSnapshot, *, demo: bool = False,
 ) -> dict[str, object]:
     """Serialize only evidence already present in a terminal snapshot."""
     return {
         "demo": demo,
+        "file_graph": _demo_file_graph() if demo else {
+            "status": "not-indexed", "synthetic": False, "item_count": 0,
+            "sources": [], "items": [],
+            "diagnostic": "No authorized file index is attached to this snapshot.",
+        },
         "metrics": {
             "total_tasks": len(snapshot.tasks),
             "active_runs": sum(task.status == "running" for task in snapshot.tasks),
