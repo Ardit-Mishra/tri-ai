@@ -154,6 +154,13 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       radar: 0xf472b6,
       done: 0x00ff9d,
       failed: 0xff4d6d,
+      ingress: 0x8de0bf,
+      source: 0x63d9b6,
+      planner: 0x9fe8cf,
+      model: 0x7bbde5,
+      specialist: 0xe9b86d,
+      verifier: 0xedb66f,
+      approval: 0xef9a86,
     };
 
     function applyCamera() {
@@ -189,6 +196,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     const SHELLS = { brain: 3.8, task: 5.2, capability: 5.8, rule: 6.2, radar: 6.6 };
 
     function positionFor(node, index, total) {
+      if (node.anchor) return node.anchor.clone();
       const shell = SHELLS[node.kind] || 5.4;
       const seed = hashUnit(node.id);
       const y = 1 - 2 * ((index + seed) / Math.max(total, 1) % 1);
@@ -207,6 +215,13 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       if (kind === "brain") return new THREE.IcosahedronGeometry(0.38, 1);
       if (kind === "capability") return new THREE.TetrahedronGeometry(0.36, 0);
       if (kind === "radar") return new THREE.OctahedronGeometry(0.33, 0);
+      if (kind === "source") return new THREE.OctahedronGeometry(0.42, 0);
+      if (kind === "ingress") return new THREE.SphereGeometry(0.48, 18, 12);
+      if (kind === "planner") return new THREE.DodecahedronGeometry(0.56, 0);
+      if (kind === "model") return new THREE.IcosahedronGeometry(0.49, 1);
+      if (kind === "specialist") return new THREE.BoxGeometry(0.48, 0.48, 0.48);
+      if (kind === "verifier") return new THREE.CylinderGeometry(0.46, 0.46, 0.2, 6);
+      if (kind === "approval") return new THREE.TorusGeometry(0.42, 0.12, 8, 20);
       return new THREE.SphereGeometry(0.4, 16, 10);
     }
 
@@ -241,11 +256,37 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       signalState = [];
     }
 
+    function architectureNodes() {
+      const activeLane = root.dataset.activeLane || "claude";
+      const node = (id, kind, label, anchor, detail) => ({ id, kind, label, anchor: new THREE.Vector3(...anchor), detail: { system: true, ...detail } });
+      return [
+        node("system:ingress", "ingress", "Telegram / voice", [-8.5, -4.2, 1.8], { group: "Ingress", description: "A Telegram or voice request becomes a bounded brief before it reaches a planner.", context: "Request text or voice transcript", tools: "Telegram, voice interface", evidence: "Bounded brief with operator scope" }),
+        node("system:obsidian", "source", "Obsidian", [-9.6, 3.8, 1.8], { group: "Authorized world", description: "An opt-in local note source. Raw content remains private and memories retain source provenance.", context: "User-authorized notes", tools: "Local Obsidian adapter", evidence: "Source reference and retrieval record" }),
+        node("system:drive", "source", "Drive", [-10.1, 1.8, 2.8], { group: "Authorized world", description: "An opt-in file source. Tri-AI indexes only selected folders and retains the source record.", context: "Approved files and folders", tools: "Drive connector", evidence: "File provenance and retrieval record" }),
+        node("system:github", "source", "GitHub", [-9.8, -0.1, 2.3], { group: "Authorized world", description: "A repository source used for bounded code context, commit history, and produced artifacts.", context: "Approved repositories", tools: "GitHub connector", evidence: "Commit, diff, and repository reference" }),
+        node("system:deploys", "source", "Vercel / Render", [-9.2, -2.0, 1.2], { group: "Authorized world", description: "Deployment context is read only until a human approves an external release action.", context: "Approved deployment metadata", tools: "Vercel and Render adapters", evidence: "Preview, deployment, and rollback record" }),
+        node("system:sessions", "source", "Claude / Codex sessions", [-8.8, 0.6, -2.7], { group: "Authorized world", description: "User-authorized exports or local session records provide handoffs, plans, and artifacts without pretending to read every conversation.", context: "Selected session exports", tools: "Local session importer", evidence: "Conversation or handoff provenance" }),
+        node("system:planner", "planner", "Tri-AI planner", [-5.9, 0.1, 1.1], { group: "Control plane", description: "The planner maps a request to bounded specialist tasks and chooses an appropriate execution lane.", context: "Approved brief, source boundaries, task policy", tools: "Route registry and task board", evidence: "Build contract and specialist task records" }),
+        node("system:model:claude", "model", "Claude Code", [-2.7, 4.3, 1.5], { group: "Reasoning lane", description: "A subscription-backed Claude Code lane for planning, research, and repository work when that lane is selected.", context: "Approved brief and source pack", tools: "Research, files, documentation", evidence: "Plan, citations, and acceptance checks", active: activeLane === "claude" }),
+        node("system:model:codex", "model", "Codex", [0.2, 4.7, 1.6], { group: "Reasoning lane", description: "A Codex lane for implementation, test execution, browser inspection, and reviewable delivery packets.", context: "Build contract and repository scope", tools: "Code, browser checks, test harness", evidence: "Diff, test evidence, and rollback packet", active: activeLane === "codex" }),
+        node("system:model:omniroute", "model", "OmniRoute", [3.0, 3.8, 1.8], { group: "Free routing", description: "The local OmniRoute gateway selects an admitted free model route. It is a router, not a claim that every provider is unlimited.", context: "Bounded task plus route policy", tools: "Local route registry", evidence: "Requested and resolved model record", active: activeLane === "local" }),
+        node("system:model:freellmapi", "model", "FreeLLMAPI", [4.8, 1.8, 2.1], { group: "Free routing", description: "A separate free-token model route used only when its availability and policy allow it. Usage remains visible and bounded.", context: "Bounded task plus token policy", tools: "FreeLLMAPI adapter", evidence: "Provider, model, and usage record", active: activeLane === "local" }),
+        node("system:model:ollama", "model", "Ollama local", [4.9, -1.2, 1.6], { group: "Local execution", description: "Local Ollama models provide offline, zero-marginal-cost execution for eligible subtasks.", context: "Bounded task plus local workspace", tools: "Ollama runtime", evidence: "Local model, transcript, and verifier input", active: activeLane === "local" }),
+        node("system:research", "specialist", "Research worker", [6.6, 4.1, 0.5], { group: "Specialist work", description: "Researches the request, distinguishes sources from claims, and returns citations for review.", context: "Approved research brief", tools: "Search and source analysis", evidence: "Cited research record" }),
+        node("system:design", "specialist", "Design worker", [7.8, 1.9, 0.3], { group: "Specialist work", description: "Creates interface direction, visual references, and testable interaction requirements.", context: "Product brief and design constraints", tools: "Design and browser tools", evidence: "UI specification and visual checks" }),
+        node("system:build", "specialist", "Build worker", [7.8, -0.7, 0.5], { group: "Specialist work", description: "Implements bounded code changes in an isolated workspace and records the resulting diff.", context: "Build contract and repository scope", tools: "Code, tests, and local runtime", evidence: "Diff, tests, and artifact record" }),
+        node("system:verify", "verifier", "Verifier", [8.2, -3.5, 0.3], { group: "Verification", description: "A task is accepted only when the recorded verifier command succeeds, never just because an agent reports success.", context: "Candidate, acceptance checks, and evidence", tools: "Test and review harness", evidence: "Pass or failure record with output" }),
+        node("system:brain", "brain", "Retained brain", [1.0, -4.3, -1.2], { group: "Memory", description: "Retains scoped handoffs, rules, citations, and outcome records with provenance rather than claiming universal memory.", context: "Accepted evidence only", tools: "Memory and graph store", evidence: "Provenance-linked memory nodes" }),
+        node("system:approval", "approval", "Human approval", [10.8, -1.8, 0.1], { group: "Delivery", description: "Deployments, publishing, DNS, credentials, and paid actions remain behind explicit operator approval.", context: "Release proposal, diff, tests, rollback", tools: "Approval gate", evidence: "Decision and release ledger" }),
+      ];
+    }
+
     function modelFrom(data) {
       const brain = data.brain || { items: [] };
       const capabilities = data.capabilities || { items: [] };
       const radar = data.radar || { candidates: [] };
       return [
+        ...architectureNodes(),
         ...data.tasks.map((detail) => ({ id: `task:${detail.id}`, kind: "task", label: detail.prompt || detail.title, detail })),
         ...data.rules.map((detail) => ({ id: `rule:${detail.proposal_id}`, kind: "rule", label: detail.rule_id, detail })),
         ...(brain.items || []).map((detail) => ({ id: `brain:${detail.id}`, kind: "brain", label: detail.title, detail })),
@@ -354,10 +395,11 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const nodes = modelFrom(data);
       nodes.forEach((node, index) => {
         const running = node.kind === "task" && node.detail.status === "running";
+        const selectedLane = Boolean(node.detail.active);
         const material = new THREE.MeshStandardMaterial({
           color: nodeColor(node),
           emissive: nodeColor(node),
-          emissiveIntensity: running ? 1.15 : 0.34,
+          emissiveIntensity: running || selectedLane ? 1.15 : 0.34,
           metalness: 0.15,
           roughness: 0.38,
           transparent: true,
@@ -369,10 +411,22 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         topology.add(mesh);
         meshes.push(mesh);
         meshById.set(node.id, mesh);
-        if (running) dynamicMaterials.push({ mesh, material });
+        if (running || selectedLane) dynamicMaterials.push({ mesh, material });
       });
       buildSynapses();
       buildSignals();
+      const route = (source, target, color = 0x63d9b6, opacity = 0.5) => addEdge(source, target, color, opacity);
+      ["obsidian", "drive", "github", "deploys", "sessions", "ingress"].forEach(source => route(`system:${source}`, "system:planner", 0x3b7f6a, 0.34));
+      ["claude", "codex", "omniroute", "freellmapi", "ollama"].forEach(model => route("system:planner", `system:model:${model}`, 0x63d9b6, 0.42));
+      route("system:model:claude", "system:research", 0x63d9b6, 0.54);
+      route("system:model:codex", "system:design", 0x7bbde5, 0.54);
+      route("system:model:codex", "system:build", 0x7bbde5, 0.54);
+      route("system:model:omniroute", "system:build", 0xe9b86d, 0.48);
+      route("system:model:freellmapi", "system:research", 0xe9b86d, 0.48);
+      route("system:model:ollama", "system:build", 0x8de0bf, 0.48);
+      ["research", "design", "build"].forEach(worker => route(`system:${worker}`, "system:verify", 0xe9b86d, 0.58));
+      route("system:verify", "system:brain", 0x63d9b6, 0.58);
+      route("system:brain", "system:approval", 0xef9a86, 0.6);
       data.edges.forEach((edge) => addEdge(`task:${edge.parent_id}`, `task:${edge.child_id}`, 0x00f0ff, 0.36));
       data.rule_task_links.forEach((edge) => addEdge(`rule:${edge.proposal_id}`, `task:${edge.task_id}`, 0xffb703, 0.48));
       (data.brain?.edges || []).forEach((edge) => addEdge(`brain:${edge.source_id}`, `brain:${edge.target_id}`, 0xa78bfa, 0.34));
@@ -401,7 +455,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const title = document.createElement("b");
       title.textContent = node.label || node.id;
       const detail = document.createElement("span");
-      detail.textContent = `${node.kind} // ${node.detail.status || node.detail.availability || node.detail.disposition || "recorded"}`;
+      detail.textContent = `${node.detail.system ? node.detail.group : node.kind} // ${node.detail.status || node.detail.availability || node.detail.disposition || "recorded"}`;
       tooltip.append(title, detail);
       tooltip.style.display = "block";
       tooltip.style.left = `${Math.min(root.clientWidth - 250, Math.max(8, event.offsetX + 14))}px`;
@@ -437,7 +491,11 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const mesh = pick(event);
       if (!mesh) return;
       selectedId = mesh.userData.id;
-      window.dispatchEvent(new CustomEvent("tri-ai:select", { detail: { id: selectedId } }));
+      if (mesh.userData.detail?.system) {
+        window.dispatchEvent(new CustomEvent("tri-ai:system-select", { detail: mesh.userData }));
+      } else {
+        window.dispatchEvent(new CustomEvent("tri-ai:select", { detail: { id: selectedId } }));
+      }
     });
     renderer.domElement.addEventListener("pointerleave", () => {
       if (!drag) tooltip.style.display = "none";
@@ -472,6 +530,10 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       }
     });
     window.addEventListener("tri-ai:snapshot", (event) => rebuild(event.detail));
+    window.addEventListener("tri-ai:lane", (event) => {
+      root.dataset.activeLane = event.detail?.lane || "claude";
+      if (snapshot) rebuild(snapshot);
+    });
     new ResizeObserver(resize).observe(root);
     applyCamera();
     // Every width, including a phone. See the header: gating this on viewport

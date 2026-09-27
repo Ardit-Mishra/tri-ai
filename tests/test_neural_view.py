@@ -109,6 +109,31 @@ class FiringTest(_Source):
         self.assertIn("motionPaused = true", self.source)
 
 
+class ArchitectureTopologyTest(_Source):
+    def test_authorized_world_and_execution_routes_are_real_three_d_nodes(self):
+        """These names belong in the rendered topology, not in a separate
+        decorative diagram that can drift away from the interactive view."""
+        self.assertIn("function architectureNodes", self.source)
+        for node in (
+            "Obsidian",
+            "Drive",
+            "GitHub",
+            "Vercel / Render",
+            "Claude / Codex sessions",
+            "OmniRoute",
+            "FreeLLMAPI",
+            "Ollama local",
+        ):
+            self.assertIn(node, self.source)
+
+    def test_model_lens_rebuilds_the_three_d_route(self):
+        self.assertIn('window.addEventListener("tri-ai:lane"', self.source)
+        self.assertIn("root.dataset.activeLane", self.source)
+
+    def test_clicking_a_system_node_emits_its_inspection_event(self):
+        self.assertIn('"tri-ai:system-select"', self.source)
+
+
 class BudgetTest(_Source):
     def test_the_signal_count_is_bounded(self):
         """This runs on a phone GPU beside everything else it is doing."""

@@ -429,7 +429,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
           <div class="agent-tabs" role="tablist" aria-label="Choose an execution lane">
             <button class="agent-tab" id="lensClaude" type="button" role="tab" aria-selected="true" aria-controls="agentContext" data-lane="claude">Claude Code</button>
             <button class="agent-tab" id="lensCodex" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="codex">Codex</button>
-            <button class="agent-tab" id="lensLocal" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="local">Local</button>
+            <button class="agent-tab" id="lensLocal" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="local">Local + free</button>
           </div>
           <div class="agent-context" id="agentContext" role="tabpanel" aria-live="polite"></div>
         </section>
@@ -471,7 +471,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
           <div class="map-proof-list" id="mapProofList"></div>
         </aside>
       </div>
-      <div class="orchestration-foot"><span><b>Ingress:</b> Telegram or voice request enters as a bounded brief.</span><span><b>Privacy:</b> source ingestion is opt-in and provenance stays attached.</span><span><b>Delivery:</b> publish, deploy, and DNS remain behind an explicit approval gate.</span></div>
+      <div class="orchestration-foot"><span><b>Ingress:</b> Telegram or voice request enters as a bounded brief.</span><span><b>Routing:</b> Claude and Codex subscription lanes, Ollama local models, and policy-gated OmniRoute and FreeLLMAPI free routes are distinct nodes.</span><span><b>Privacy:</b> source ingestion is opt-in and provenance stays attached.</span><span><b>Delivery:</b> publish, deploy, and DNS remain behind an explicit approval gate.</span></div>
     </section>
     <section class="cortex-intent" aria-label="Current operating intent">
       <section class="now" id="now" aria-live="polite">
@@ -547,7 +547,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
     const AGENT_LENSES={
       claude:{label:'Claude lane',title:'Research and planning',summary:'Claude receives an approved brief, source boundaries, and the project constraints. It returns a plan that can be challenged, cited research, and explicit acceptance checks.',received:'Approved brief + source pack',tools:'Research, files, documentation',returns:'Plan, citations, acceptance checks'},
       codex:{label:'Codex lane',title:'Implementation and verification',summary:'Codex receives a build contract, repository context, and review notes. It returns an inspectable diff, test evidence, and a release packet rather than an unverified claim.',received:'Build contract + repository scope',tools:'Code, browser checks, test harness',returns:'Diff, tests, rollback-ready packet'},
-      local:{label:'Local lane',title:'Private execution',summary:'A local or free-routed model receives only the bounded subtask and approved project context. It returns local output and artifact metadata for the verifier to inspect.',received:'Bounded subtask + approved context',tools:'Ollama, local files, route policy',returns:'Local transcript + verifier input'},
+      local:{label:'Local and free-route lane',title:'Local and free-route execution',summary:'Ollama handles eligible local work with no per-token charge. OmniRoute and FreeLLMAPI are separate policy-gated free routes, each required to retain its requested model, resolved model, provider, and usage evidence.',received:'Bounded subtask + approved context',tools:'Ollama, OmniRoute, FreeLLMAPI, route policy',returns:'Resolved model, usage record, transcript, verifier input'},
     };
     let activeAgentLens='claude';
     function renderAgentLens(lane) {
@@ -564,6 +564,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
       [['Receives',detail.received],['Tool permissions',detail.tools],['Evidence returned',detail.returns]].forEach(([label,value])=>{
         const row=make('div',''); row.append(make('span',label),make('b',value)); proof.append(row);
       });
+      const graph=byId('spatialGraph');
+      if(graph) graph.dataset.activeLane=lane;
+      window.dispatchEvent(new CustomEvent('tri-ai:lane',{detail:{lane}}));
     }
     document.querySelectorAll('.agent-tab').forEach(button=>button.addEventListener('click',()=>renderAgentLens(button.dataset.lane)));
     // Relative time is what an operator glancing at a phone actually reads;
@@ -600,6 +603,17 @@ _HTML_TEMPLATE = r"""<!doctype html>
     const statusColor=status=>status==='done'?'#00ff9d':status==='running'?'#00f0ff':(status==='failed'||status==='cancelled')?'#ff4d6d':'#00f0ff';
     const shortPath=value=>String(value).replace(/\\/g,'/').split('/').slice(-2).join('/');
     const setText=(node,value)=>{ node.textContent=value; return node; };
+    function renderSystemInspection(node) {
+      const detail=node.detail||{};
+      setText(byId('mapPhase'),detail.group||'System node');
+      setText(byId('mapAgentTitle'),node.label||'Tri-AI system node');
+      setText(byId('mapAgentSummary'),detail.description||'No recorded system detail.');
+      const proof=byId('mapProofList'); clear(proof);
+      [['Receives',detail.context||'Not recorded'],['Tool permissions',detail.tools||'Not recorded'],['Evidence returned',detail.evidence||'Not recorded']].forEach(([label,value])=>{
+        const row=make('div',''); row.append(make('span',label),make('b',value)); proof.append(row);
+      });
+    }
+    window.addEventListener('tri-ai:system-select',event=>renderSystemInspection(event.detail));
     renderAgentLens(activeAgentLens);
     const isPhone=()=>window.matchMedia('(max-width:767px)').matches;
     const telemetryOf=node=>(node&&node.kind==='task'&&node.detail.telemetry)||null;
