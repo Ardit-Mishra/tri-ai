@@ -1,5 +1,7 @@
 # Tri-AI Showcase
 
+**Interactive demo:** [tri-ai-demo.onrender.com](https://tri-ai-demo.onrender.com/)
+
 ## What the public demo demonstrates
 
 The hosted dashboard is a **simulation**, not a remote control panel. It makes

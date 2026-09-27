@@ -1478,6 +1478,12 @@ def _handler(
                 return
             match = ARTIFACT_ROUTE.match(self.path)
             if match is not None:
+                # The hosted demonstration is intentionally a sealed scenario.
+                # Do not make its artifact-shaped URLs a back door to an
+                # accidentally supplied runtime reader.
+                if force_demo:
+                    self.send_error(404, "not found")
+                    return
                 self._serve_artifact(match.group(1), int(match.group(2)))
                 return
             if self.path in {"/events", "/events?demo=1"}:
@@ -1535,20 +1541,25 @@ def create_server(
     if event_interval <= 0:
         raise ValueError("event_interval must be positive")
     if snapshot_fn is None:
-        runtime = kaya_terminal.DEFAULT_RUNTIME_ROOT
-        snapshot_fn = lambda: kaya_terminal.read_snapshot(
-            board_path=runtime / "board.db",
-            ledger_path=runtime / "ledger.jsonl",
-            daemon_state_path=runtime / "logs" / "daemons.json",
-            runs_root=runtime / "runs",
-            brain_path=runtime / "brain" / "brain.db",
-            capability_catalog_path=runtime / "capabilities" / "catalog.json",
-            radar_path=runtime / "radar" / "latest.json",
-        )
-        if artifact_fn is None:
-            artifact_fn = lambda task_id: kaya_terminal.read_task_artifacts(
-                runtime / "board.db", task_id,
+        if demo:
+            # A public demo has no reason to construct runtime readers. This
+            # keeps the production host detached even before requests arrive.
+            snapshot_fn = demo_snapshot
+        else:
+            runtime = kaya_terminal.DEFAULT_RUNTIME_ROOT
+            snapshot_fn = lambda: kaya_terminal.read_snapshot(
+                board_path=runtime / "board.db",
+                ledger_path=runtime / "ledger.jsonl",
+                daemon_state_path=runtime / "logs" / "daemons.json",
+                runs_root=runtime / "runs",
+                brain_path=runtime / "brain" / "brain.db",
+                capability_catalog_path=runtime / "capabilities" / "catalog.json",
+                radar_path=runtime / "radar" / "latest.json",
             )
+            if artifact_fn is None:
+                artifact_fn = lambda task_id: kaya_terminal.read_task_artifacts(
+                    runtime / "board.db", task_id,
+                )
     return KayaHTTPServer(
         (host, int(port)), _handler(snapshot_fn, event_interval, artifact_fn, force_demo=demo),
     )
@@ -1621,7 +1632,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     demo=args.demo,
                 )
             )
-            if host != LOOPBACK_HOST:
+            if host != LOOPBACK_HOST and args.demo:
+                print(
+                    f"KAYA demonstration dashboard listening on http://{host}:{servers[-1].server_port} "
+                    "with prebuilt data only",
+                    file=sys.stderr,
+                )
+            elif host != LOOPBACK_HOST:
                 print(
                     f"KAYA dashboard is reachable beyond this machine on {host}:"
                     f"{args.port} - read-only, but it exposes task titles, workspace "

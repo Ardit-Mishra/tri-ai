@@ -14,7 +14,8 @@ A local-first agent execution system for turning a scoped request into a reviewa
 research, plan, build, verify, and prepare the release decision. It routes work to bounded
 specialists, retains evidence, and refuses to accept a delegated result on an agent's word alone.
 
-> **Live visual demo:** The public dashboard is intentionally a labeled simulation. It illustrates
+> **Live visual demo:** [Open the interactive dashboard](https://tri-ai-demo.onrender.com/).
+> It is intentionally a labeled simulation that illustrates
 > the task graph, retained memory, capability routing, verification loop, and human release gate
 > without exposing an operator's live tasks, logs, machines, or credentials. See
 > [the demo guide](docs/SHOWCASE.md).

@@ -178,6 +178,21 @@ class WebSerializationTests(unittest.TestCase):
         self.assertTrue(payload["demo"])
         self.assertEqual(payload["metrics"]["total_tasks"], 4)
 
+    def test_demo_server_refuses_artifacts_even_when_a_reader_is_supplied(self):
+        def unexpected_artifact(_task_id: str):
+            raise AssertionError("public demo must not expose task artifacts")
+
+        server = web.create_server(
+            host="127.0.0.1", port=0, snapshot_fn=fixture_snapshot,
+            artifact_fn=unexpected_artifact, demo=True,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(lambda: server.shutdown())
+        with self.assertRaisesRegex(Exception, "HTTP Error 404"):
+            request.urlopen(f"http://127.0.0.1:{server.server_port}/artifact/t_ready/0", timeout=2)
+
 
 class WebBoundaryTests(unittest.TestCase):
     source = Path(__file__).resolve().parents[1] / "src" / "dashboard" / "kaya_web.py"
