@@ -123,6 +123,31 @@ class WebSerializationTests(unittest.TestCase):
         self.assertEqual(payload["file_graph"]["status"], "not-indexed")
         self.assertEqual(payload["file_graph"]["items"], [])
 
+    def test_private_graph_is_summarized_in_stream_and_fetched_once_from_its_endpoint(self):
+        graph = {
+            "status": "indexed", "synthetic": False, "item_count": 1,
+            "sources": [{"id": "desktop", "label": "Desktop", "node_count": 1, "authorized": True}],
+            "items": [{"id": "private:root", "label": "Desktop", "kind": "folder", "source": "desktop", "parent_id": None}],
+            "diagnostic": "metadata only", "revision": "revision-1",
+        }
+        server = web.create_server(
+            host="127.0.0.1", port=0, snapshot_fn=fixture_snapshot,
+            private_graph_fn=lambda: graph,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(lambda: server.shutdown())
+        base = f"http://127.0.0.1:{server.server_port}"
+
+        with request.urlopen(base + "/api/snapshot", timeout=2) as response:
+            summary = json.loads(response.read().decode("utf-8"))["file_graph"]
+        self.assertEqual(summary["item_count"], 1)
+        self.assertEqual(summary["items"], [])
+        self.assertEqual(summary["index_url"], "/api/file-graph")
+        with request.urlopen(base + "/api/file-graph", timeout=2) as response:
+            self.assertEqual(json.loads(response.read().decode("utf-8")), graph)
+
     def test_server_is_loopback_only_and_serves_html_json_and_sse(self):
         # Non-loopback is refused unless the operator asks for it by name: a
         # typo, a default, or a port argument can never widen the binding.
@@ -191,7 +216,13 @@ class WebSerializationTests(unittest.TestCase):
         def live_snapshot() -> terminal.DashboardSnapshot:
             raise AssertionError("public demo must not read the local runtime")
 
-        server = web.create_server(host="127.0.0.1", port=0, snapshot_fn=live_snapshot, demo=True)
+        def private_graph():
+            raise AssertionError("public demo must not read the private file index")
+
+        server = web.create_server(
+            host="127.0.0.1", port=0, snapshot_fn=live_snapshot,
+            private_graph_fn=private_graph, demo=True,
+        )
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         self.addCleanup(server.server_close)
@@ -200,6 +231,8 @@ class WebSerializationTests(unittest.TestCase):
             payload = json.loads(response.read().decode("utf-8"))
         self.assertTrue(payload["demo"])
         self.assertEqual(payload["metrics"]["total_tasks"], 4)
+        with self.assertRaisesRegex(Exception, "HTTP Error 404"):
+            request.urlopen(f"http://127.0.0.1:{server.server_port}/api/file-graph", timeout=2)
 
     def test_demo_server_refuses_artifacts_even_when_a_reader_is_supplied(self):
         def unexpected_artifact(_task_id: str):

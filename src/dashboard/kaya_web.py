@@ -8,7 +8,9 @@ mutating endpoint at any binding.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import sys
 import threading
@@ -19,9 +21,9 @@ from typing import Callable, Optional, Sequence
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from dashboard import kaya_terminal
+    from dashboard import kaya_terminal, private_index
 else:
-    from . import kaya_terminal
+    from . import kaya_terminal, private_index
 
 
 SnapshotReader = Callable[[], kaya_terminal.DashboardSnapshot]
@@ -433,6 +435,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .theater-control .model-lanes { display:block; margin-top:12px; overflow:visible; }
     .theater-control .model-lane { border-bottom:1px solid var(--line); border-right:0; min-height:0; padding:10px 0; }
     .theater-control .model-lane:not(:first-child) { padding-left:0; }
+    .source-open { border-bottom:1px solid var(--cyan); color:var(--cyan); display:inline-block; font-size:9px; margin-top:13px; padding-bottom:3px; text-decoration:none; text-transform:uppercase; }
+    .source-open:hover { color:var(--text); }
     .theater-footer { border-top:1px solid var(--line); color:var(--muted); display:flex; flex-wrap:wrap; font-size:9px; gap:12px 28px; grid-column:1 / -1; line-height:1.45; padding:10px 16px 13px; }
     .theater-footer b { color:var(--text); font-weight:680; text-transform:uppercase; }
     .hud-grid { display:block; margin-top:28px; }
@@ -448,6 +452,76 @@ _HTML_TEMPLATE = r"""<!doctype html>
     body[data-theme="light"] .model-lane strong { color:#f3f6f0; }
     @media (max-width:1100px) { .cortex-theater { grid-template-columns:180px minmax(0,1fr); grid-template-rows:minmax(590px,calc(100vh - 112px)) auto auto; } .theater-control { border-left:0; border-top:1px solid var(--line); grid-column:1 / -1; } .theater-control .map-proof-list { grid-template-columns:repeat(3,minmax(0,1fr)); } .theater-control .model-lanes { display:flex; } .theater-control .model-lane { border-bottom:0; border-right:1px solid var(--line); padding:0 10px 0 0; } .theater-control .model-lane:not(:first-child) { padding-left:10px; } .hud-aside { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width:700px) { .shell { padding:12px; } header { align-items:flex-start; display:grid; gap:14px; grid-template-columns:1fr; } .header-right { align-items:center; display:grid; gap:8px; grid-template-columns:1fr auto; justify-content:stretch; width:100%; } .demo-badge { min-width:0; text-align:center; } .stream-badge { justify-content:center; } .theme-toggle { grid-column:1 / -1; min-height:42px; width:100%; } .services { display:none; } .cortex-theater { display:flex; flex-direction:column; margin-left:-12px; margin-right:-12px; } .cortex-core { min-height:440px; order:-1; } .theater-sources,.theater-control { border-left:0; border-right:0; padding:16px 14px; } .theater-sources { display:grid; gap:8px; grid-template-columns:repeat(2,minmax(0,1fr)); } .theater-sources .rail-head,.theater-sources .rail-rule,.theater-sources .rail-copy { grid-column:1 / -1; } .source-cluster { margin-top:0; } .core-topline { font-size:7px; gap:8px; padding:12px 8px; } .core-topline span:nth-child(2) { display:none; } .theater-tabs { top:36px; width:calc(100% - 32px); } .theater-tabs .agent-tab { font-size:9px; padding:0 7px; } .core-title { bottom:49px; } .core-title strong { font-size:42px; } .core-title em { font-size:9px; max-width:30ch; } .core-bottom { bottom:13px; font-size:7px; left:10px; right:10px; } .core-bottom > span:first-child { display:none; } .theater-control .map-proof-list { grid-template-columns:1fr; } .theater-control .model-lanes { display:block; } .theater-control .model-lane { border-bottom:1px solid var(--line); border-right:0; padding:10px 0; } .hud-aside { display:block; } .hud-aside .hud-panel + .hud-panel { border-left:0; border-top:1px solid var(--line); margin-top:18px; padding:18px 0 0; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } }
+
+    /* Neural observatory: the file universe is the interface. Edge telemetry
+       floats over the field and never boxes the organism into a dashboard. */
+    body { background:#020504; overflow-x:hidden; }
+    body::before { display:none; }
+    .shell { max-width:none; padding:0 24px 28px; }
+    header { background:linear-gradient(180deg,rgba(2,5,4,.98),rgba(2,5,4,.55) 72%,transparent); border:0; left:24px; min-height:72px; padding:18px 0 22px; position:absolute; right:24px; top:0; z-index:20; }
+    .brand { font-family:ui-monospace,"Cascadia Code",monospace; font-size:18px; letter-spacing:.02em; }
+    .brand span { font-size:8px; letter-spacing:.22em; }
+    .cortex-clock { color:var(--text); font-family:ui-monospace,"Cascadia Code",monospace; font-size:18px; font-variant-numeric:tabular-nums; letter-spacing:.04em; }
+    .cortex-theater { border:0; display:block; height:100dvh; margin:0; min-height:720px; overflow:hidden; position:relative; }
+    .cortex-core { background:radial-gradient(circle at 50% 45%,rgba(25,92,72,.16),rgba(3,8,6,.36) 34%,#020504 72%); inset:0; min-height:100%; position:absolute; }
+    .cortex-core::after { background:linear-gradient(90deg,rgba(2,5,4,.92),transparent 20%,transparent 80%,rgba(2,5,4,.92)); content:""; inset:0; pointer-events:none; position:absolute; z-index:2; }
+    .theater-rail { background:linear-gradient(180deg,rgba(4,10,8,.62),rgba(4,10,8,.18)); border:0; bottom:72px; padding:16px 14px; position:absolute; top:104px; width:218px; z-index:7; }
+    .theater-sources { left:0; }
+    .theater-control { right:0; }
+    .rail-head { border-bottom:1px solid rgba(126,226,191,.18); padding-bottom:9px; }
+    .source-cluster { margin-top:13px; }
+    .source-cluster b { font-family:ui-monospace,"Cascadia Code",monospace; font-size:10px; }
+    .source-cluster small { font-size:8px; }
+    .source-count { color:var(--cyan); font-family:ui-monospace,"Cascadia Code",monospace; font-size:10px; margin-left:auto; }
+    .brain-search { border-top:1px solid rgba(126,226,191,.18); margin-top:20px; padding-top:14px; }
+    .brain-search label { color:var(--muted); display:block; font-size:8px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
+    .brain-search input { background:rgba(1,4,3,.55); border:0; border-bottom:1px solid rgba(126,226,191,.28); color:var(--text); font:10px/1.2 ui-monospace,"Cascadia Code",monospace; margin-top:8px; outline:0; padding:8px 4px; width:100%; }
+    .brain-search input:focus { border-color:var(--cyan); }
+    .brain-search-results { display:grid; gap:2px; margin-top:7px; max-height:170px; overflow:auto; }
+    .brain-search-results button { background:transparent; border:0; color:var(--muted); cursor:pointer; display:grid; font:9px/1.3 ui-monospace,"Cascadia Code",monospace; gap:2px; padding:5px 4px; text-align:left; }
+    .brain-search-results button:hover,.brain-search-results button:focus-visible { background:rgba(99,217,182,.08); color:var(--text); outline:0; }
+    .brain-search-results small { color:var(--cyan); font-size:7px; letter-spacing:.08em; text-transform:uppercase; }
+    .core-topline { padding-top:91px; }
+    .theater-tabs { background:rgba(3,8,6,.72); border-color:rgba(126,226,191,.2); top:24px; }
+    .theater-tabs .agent-tab { min-width:92px; }
+    .core-title { bottom:60px; }
+    .core-title span { opacity:.78; }
+    .core-title strong { font-family:ui-monospace,"Cascadia Code",monospace; font-size:clamp(48px,5vw,76px); font-weight:400; letter-spacing:.12em; text-shadow:0 0 34px rgba(99,217,182,.24); }
+    .core-title em { font-family:ui-monospace,"Cascadia Code",monospace; font-size:9px; letter-spacing:.08em; max-width:52ch; text-transform:uppercase; }
+    .core-bottom { bottom:18px; left:238px; right:238px; }
+    .theater-footer { background:rgba(2,5,4,.72); border-color:rgba(126,226,191,.14); bottom:0; left:0; padding:9px 14px 11px; position:absolute; right:0; z-index:8; }
+    .theater-control h1 { font-size:17px; }
+    .theater-control > p { font-size:9px; }
+    .theater-control .model-lanes { border-color:rgba(126,226,191,.16); }
+    .theater-control .model-lane { border-color:rgba(126,226,191,.13); }
+    .hud-grid { margin-top:24px; }
+    body[data-theme="light"] { background:#e9eee9; }
+    body[data-theme="light"] header { background:linear-gradient(180deg,rgba(237,241,236,.98),rgba(237,241,236,.64) 72%,transparent); }
+    body[data-theme="light"] .cortex-core { background:radial-gradient(circle at 50% 45%,rgba(38,137,103,.26),rgba(223,235,226,.58) 40%,#dce5dd 78%); }
+    body[data-theme="light"] .cortex-core::after { background:linear-gradient(90deg,rgba(225,234,226,.86),transparent 22%,transparent 78%,rgba(225,234,226,.86)); }
+    body[data-theme="light"] .theater-rail { background:linear-gradient(180deg,rgba(239,245,239,.72),rgba(239,245,239,.28)); }
+    body[data-theme="light"] .theater-footer { background:rgba(232,239,232,.82); }
+    @media (max-width:1100px) {
+      .theater-rail { width:190px; }
+      .core-bottom { left:204px; right:204px; }
+    }
+    @media (max-width:760px) {
+      .shell { padding:0 12px 64px; }
+      header { display:grid; left:12px; padding-top:14px; position:relative; right:auto; }
+      .cortex-clock,.services { display:none; }
+      .cortex-theater { display:flex; height:auto; min-height:0; overflow:visible; }
+      .cortex-core { height:590px; min-height:590px; position:relative; }
+      .cortex-core::after { background:linear-gradient(180deg,rgba(2,5,4,.74),transparent 16%,transparent 86%,rgba(2,5,4,.7)); }
+      .theater-rail { background:transparent; bottom:auto; position:relative; top:auto; width:auto; }
+      .theater-sources,.theater-control { left:auto; right:auto; }
+      .core-topline { padding-top:76px; }
+      .theater-tabs { top:20px; width:auto; }
+      .theater-tabs .agent-tab { min-width:0; }
+      .core-title { bottom:62px; }
+      .core-title strong { font-size:42px; }
+      .core-bottom { left:10px; right:10px; }
+      .theater-footer { bottom:auto; position:relative; }
+    }
     </style>
 </head>
 <body data-theme="dark">
@@ -460,18 +534,15 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <span class="demo-badge" id="demoBadge" hidden>Demonstration data</span>
         <span class="stream-badge down" id="streamBadge" role="status" aria-atomic="true">Evidence stream connecting</span>
         <div class="services" id="services" aria-label="Daemon service state"></div>
+        <time class="cortex-clock" id="cortexClock"></time>
         <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">Light interface</button>
       </div>
     </header>
     <section class="cortex-theater" aria-label="Tri-AI private operator console">
       <aside class="theater-rail theater-sources" aria-label="Authorized source clusters">
         <div class="rail-head"><span>System vitals</span><b>private by default</b></div>
-        <div class="source-cluster"><span class="source-dot"></span><div><b>Desktop</b><small>authorized folders and files</small></div></div>
-        <div class="source-cluster"><span class="source-dot"></span><div><b>Laptop</b><small>authorized folders and files</small></div></div>
-        <div class="source-cluster"><span class="source-dot"></span><div><b>Google Drive</b><small>selected folders only</small></div></div>
-        <div class="source-cluster"><span class="source-dot"></span><div><b>Obsidian</b><small>notes, links, and graph metadata</small></div></div>
-        <div class="source-cluster"><span class="source-dot"></span><div><b>GitHub and deploys</b><small>repos, Vercel, and Render</small></div></div>
-        <div class="source-cluster"><span class="source-dot"></span><div><b>Session exports</b><small>Claude and Codex handoffs</small></div></div>
+        <div id="sourceIndex" aria-live="polite"></div>
+        <div class="brain-search"><label for="fileSearch">Find a node</label><input id="fileSearch" type="search" autocomplete="off" placeholder="file or folder name"><div class="brain-search-results" id="fileSearchResults"></div></div>
         <div class="rail-rule"></div>
         <div class="rail-head"><span>Ingress</span><b>bounded</b></div>
         <p class="rail-copy">Telegram and voice requests become a scoped brief before any model receives context.</p>
@@ -483,7 +554,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
           <button class="agent-tab" id="lensCodex" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="codex">Codex</button>
           <button class="agent-tab" id="lensLocal" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="local">Local + free</button>
         </div>
-        <div class="core-title"><span>TRI-AI FILE BRAIN</span><strong id="activeLaneLabel">CLAUDE</strong><em id="brainIndexSummary">Every authorized file becomes a provenance-linked node.</em></div>
+        <div class="core-title"><span>TRI-AI PRIVATE NEURAL FIELD</span><strong id="activeLaneLabel">CLAUDE</strong><em id="brainIndexSummary">Every authorized file becomes a provenance-linked node.</em></div>
         <div id="spatialGraph" role="img" aria-label="Interactive three-dimensional Tri-AI system topology"><div class="spatial-tooltip" id="spatialTooltip"></div></div>
         <canvas id="neuralGraph" role="img" aria-label="Interactive task, memory, capability, and technology-radar graph"></canvas>
         <div class="core-bottom"><span id="graphSummary">Awaiting evidence</span><span class="view-switch" aria-label="Topology view"><button id="graph3d" type="button" disabled>3D</button><button id="graph2d" type="button" class="active">2D</button><button id="motionToggle" type="button" aria-pressed="false">Pause</button></span><span>drag to inspect a node</span></div>
@@ -498,7 +569,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <div class="model-lanes" id="modelLanes" aria-label="Observed model lanes"></div>
         <p class="rail-copy"><b>Free routing:</b> Ollama is local. OmniRoute and FreeLLMAPI are policy-gated free routes that must retain requested and resolved model evidence.</p>
       </aside>
-      <footer class="theater-footer"><span><b>sealed demonstration</b> no private source, credential, chat, artifact, or workspace is loaded here</span><span><b>human gate</b> publishing, deployment, DNS, and paid actions require approval</span></footer>
+      <footer class="theater-footer"><span id="privacyBoundary"><b>sealed demonstration</b> no private source, credential, chat, artifact, or workspace is loaded here</span><span><b>human gate</b> publishing, deployment, DNS, and paid actions require approval</span></footer>
     </section>
     <section class="cortex-intent" aria-label="Current operating intent">
       <section class="now" id="now" aria-live="polite">
@@ -621,6 +692,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
     const statusColor=status=>status==='done'?'#00ff9d':status==='running'?'#00f0ff':(status==='failed'||status==='cancelled')?'#ff4d6d':'#00f0ff';
     const shortPath=value=>String(value).replace(/\\/g,'/').split('/').slice(-2).join('/');
     const setText=(node,value)=>{ node.textContent=value; return node; };
+    function updateClock(){const node=byId('cortexClock');if(node)node.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+    updateClock(); setInterval(updateClock,1000);
     function renderSystemInspection(node) {
       const detail=node.detail||{};
       setText(byId('mapPhase'),detail.group||'System node');
@@ -630,6 +703,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
       [['Receives',detail.context||'Not recorded'],['Tool permissions',detail.tools||'Not recorded'],['Evidence returned',detail.evidence||'Not recorded']].forEach(([label,value])=>{
         const row=make('div',''); row.append(make('span',label),make('b',value)); proof.append(row);
       });
+      if(detail.modifiedAt){const row=make('div','');row.append(make('span','Modified'),make('b',new Date(detail.modifiedAt).toLocaleString()));proof.append(row);}
+      if(detail.url){const link=make('a','Open source','source-open');link.href=detail.url;link.target='_blank';link.rel='noopener';proof.append(link);}
     }
     window.addEventListener('tri-ai:system-select',event=>renderSystemInspection(event.detail));
     renderAgentLens(activeAgentLens);
@@ -1329,9 +1404,44 @@ _HTML_TEMPLATE = r"""<!doctype html>
     byId('sheetHandle').addEventListener('click',()=>openSheet(!byId('hudAside').classList.contains('open')));
     window.addEventListener('resize',drawGraph); requestAnimationFrame(advanceGraph);
     const demoMode=new URLSearchParams(window.location.search).get('demo')==='1';
+    function renderSourceIndex(fileGraph) {
+      const root=byId('sourceIndex'); if(!root)return; clear(root);
+      const descriptions={desktop:'remote index pending','laptop-desktop':'this machine',laptop:'remote machine',drive:'Google Drive metadata',github:'repositories',obsidian:'notes and graph',sessions:'authorized exports',deploys:'deployment records'};
+      const sources=Array.isArray(fileGraph?.sources)?fileGraph.sources:[];
+      if(!sources.length){root.append(make('p',fileGraph?.diagnostic||'No private source index attached.','rail-copy'));return;}
+      sources.forEach(source=>{
+        const row=make('div','','source-cluster');
+        const detail=make('div','');
+        detail.append(make('b',source.label||source.id),make('small',descriptions[source.id]||source.status||'authorized metadata'));
+        row.append(make('span','','source-dot'),detail,make('span',String(source.node_count??0),'source-count'));
+        root.append(row);
+      });
+    }
+    let searchableFiles=[];
+    function updateFileSearch() {
+      const root=byId('fileSearchResults'),query=byId('fileSearch').value.trim().toLocaleLowerCase(); clear(root);
+      if(query.length<2)return;
+      const matches=[];
+      for(const item of searchableFiles){
+        if(String(item.label||'').toLocaleLowerCase().includes(query)){matches.push(item);if(matches.length===8)break;}
+      }
+      matches.forEach(item=>{
+        const button=make('button','');button.type='button';
+        button.append(make('span',item.label||item.id),make('small',`${item.source} / ${item.kind}`));
+        button.addEventListener('click',()=>window.dispatchEvent(new CustomEvent('tri-ai:file-focus',{detail:{id:item.id}})));
+        root.append(button);
+      });
+      if(!matches.length)root.append(make('span','No matching indexed node.','rail-copy'));
+    }
+    byId('fileSearch').addEventListener('input',updateFileSearch);
+    function renderFileSearch(fileGraph){searchableFiles=Array.isArray(fileGraph?.items)?fileGraph.items:[];if(byId('fileSearch').value)updateFileSearch();}
     function render(data) {
       hud.data=data; setText(byId('total'),data.metrics.total_tasks);setText(byId('active'),data.metrics.active_runs);setText(byId('ledger'),data.metrics.ledger_entries);setText(byId('rules'),data.metrics.accepted_rules);setText(byId('capabilityCount'),data.capabilities?.total??0);setText(byId('radarCount'),data.radar?.candidate_count??0);
       const demoBadge=byId('demoBadge'); demoBadge.hidden=!data.demo; if(data.demo)setText(demoBadge,'Demonstration data // no live work');
+      renderSourceIndex(data.file_graph);
+      renderFileSearch(data.file_graph);
+      const boundary=byId('privacyBoundary'); clear(boundary);
+      boundary.append(make('b',data.demo?'sealed demonstration':'private local view'),document.createTextNode(data.demo?' no private source, credential, chat, artifact, or workspace is loaded here':' metadata stays on this machine; file contents are not copied into the index'));
       const services=byId('services');clear(services);for(const [name,alive] of Object.entries(data.daemons.processes)){const item=make('div','',`service ${alive?'up':'down'}`);item.append(make('i','','dot'),make('span',`${name} ${alive?'up':'down'}`));services.append(item);} syncGraph(data);
       const events=byId('events');clear(events);const heading=make('div','','event');['Time','Task','Outcome','Verify','Duration'].forEach(label=>heading.append(make('span',label)));events.append(heading);data.ledger_events.forEach(event=>{const row=make('div','','event'),exit=event.verify_exit===0?'0':event.verify_exit===null?'-':String(event.verify_exit);row.append(timeCell(event.timestamp),make('span',event.task_id),make('span',event.outcome,`outcome-badge ${event.outcome==='passed'?'pass':event.outcome==='skipped'?'warn':'fail'}`),make('span',exit,event.verify_exit===0?'pass':event.verify_exit===null?'warn':'fail'),make('span',duration(event.seconds)));events.append(row);}); if(data.ledger_errors.length){const issue=make('div',data.ledger_errors.join(' | '),'event warn');issue.style.gridTemplateColumns='1fr';events.append(issue);}
       hud.lastSnapshotAt=Date.now()/1000;
@@ -1369,6 +1479,22 @@ _HTML_TEMPLATE = r"""<!doctype html>
     // the stream is closed on error and reopened on a doubling delay, and the
     // badge states which of the two the page currently is.
     const streamState={source:null,attempt:0,timer:null};
+    let privateFileGraph=null;
+    let privateFileGraphRequest=null;
+    async function hydrateFileGraph(data) {
+      const summary=data.file_graph||{};
+      if(data.demo||!summary.index_url)return data;
+      if(privateFileGraph&&privateFileGraph.revision===summary.revision){data.file_graph=privateFileGraph;return data;}
+      if(!privateFileGraphRequest){
+        privateFileGraphRequest=fetch(summary.index_url,{cache:'no-store'})
+          .then(response=>{if(!response.ok)throw new Error(`private index ${response.status}`);return response.json();})
+          .then(graph=>{privateFileGraph=graph;return graph;})
+          .finally(()=>{privateFileGraphRequest=null;});
+      }
+      try { data.file_graph=await privateFileGraphRequest; }
+      catch (_) { data.file_graph=summary; }
+      return data;
+    }
     function setStreamBadge(live,detail) {
       const badge=byId('streamBadge'); if(!badge)return;
       badge.className=`stream-badge ${live?'live':'down'}`;
@@ -1377,9 +1503,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
     function openStream() {
       if(streamState.timer){clearTimeout(streamState.timer);streamState.timer=null;}
       const source=new EventSource(demoMode?'/events?demo=1':'/events'); streamState.source=source;
-      source.addEventListener('snapshot',event=>{
+      source.addEventListener('snapshot',async event=>{
         streamState.attempt=0; setStreamBadge(true);
-        render(JSON.parse(event.data));
+        render(await hydrateFileGraph(JSON.parse(event.data)));
       });
       source.onopen=()=>{streamState.attempt=0;setStreamBadge(true);};
       source.onerror=()=>{
@@ -1402,6 +1528,95 @@ _HTML_TEMPLATE = r"""<!doctype html>
 </html>"""
 
 HTML = _HTML_TEMPLATE.replace("KAYA", PRODUCT_NAME)
+
+
+_PRIVATE_SOURCE_ROOT = Path(
+    os.environ.get("TRI_AI_PRIVATE_SOURCE_DIR", Path.home() / ".tri-ai" / "private-sources")
+)
+_private_graph_cache: tuple[tuple[tuple[str, int, int], ...], dict[str, object]] | None = None
+
+
+def _load_private_file_graph() -> dict[str, object]:
+    """Load metadata-only indexes for the loopback operator surface.
+
+    Index files are generated out of band and contain no file contents. Their
+    filesystem signature becomes the browser revision, so the heavyweight
+    graph is fetched once and refreshed only when an index actually changes.
+    """
+    global _private_graph_cache
+    paths = sorted(_PRIVATE_SOURCE_ROOT.glob("*.json"))
+    signature_parts: list[tuple[str, int, int]] = []
+    for path in paths:
+        try:
+            metadata = path.stat()
+        except OSError:
+            continue
+        signature_parts.append((path.name, metadata.st_mtime_ns, metadata.st_size))
+    signature = tuple(signature_parts)
+    if _private_graph_cache is not None and _private_graph_cache[0] == signature:
+        return _private_graph_cache[1]
+
+    sources: list[dict[str, object]] = []
+    items: list[dict[str, object]] = []
+    diagnostics: list[str] = []
+    statuses: list[str] = []
+    source_ids: set[str] = set()
+    item_ids: set[str] = set()
+    for path in paths:
+        try:
+            graph = private_index.load_private_index(path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            diagnostics.append(f"{path.name}: {type(error).__name__}")
+            continue
+        statuses.append(str(graph["status"]))
+        diagnostics.append(str(graph["diagnostic"]))
+        for source in graph["sources"]:
+            source_id = str(source["id"])
+            if source_id in source_ids:
+                diagnostics.append(f"{path.name}: duplicate source {source_id}")
+                continue
+            source_ids.add(source_id)
+            sources.append(source)
+        for item in graph["items"]:
+            item_id = str(item["id"])
+            if item_id in item_ids or str(item["source"]) not in source_ids:
+                continue
+            item_ids.add(item_id)
+            # The browser needs hierarchy and inspectable metadata, never a
+            # local absolute path or file body.
+            items.append(item)
+
+    if not items:
+        status = "unavailable"
+    elif diagnostics and ("partial" in statuses or len(statuses) != len(paths)):
+        status = "partial"
+    else:
+        status = "indexed"
+    revision = hashlib.sha256(repr(signature).encode("utf-8")).hexdigest()[:16]
+    result: dict[str, object] = {
+        "status": status,
+        "synthetic": False,
+        "item_count": len(items),
+        "sources": sources,
+        "items": items,
+        "diagnostic": " ".join(diagnostics) if diagnostics else "No private index is attached.",
+        "revision": revision,
+    }
+    _private_graph_cache = (signature, result)
+    return result
+
+
+def _private_file_graph_summary(graph: dict[str, object]) -> dict[str, object]:
+    return {
+        "status": graph["status"],
+        "synthetic": False,
+        "item_count": graph["item_count"],
+        "sources": graph["sources"],
+        "items": [],
+        "diagnostic": graph["diagnostic"],
+        "revision": graph.get("revision"),
+        "index_url": "/api/file-graph",
+    }
 
 
 def _demo_file_graph() -> dict[str, object]:
@@ -1457,11 +1672,12 @@ def _demo_file_graph() -> dict[str, object]:
 
 def snapshot_payload(
     snapshot: kaya_terminal.DashboardSnapshot, *, demo: bool = False,
+    private_file_graph: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Serialize only evidence already present in a terminal snapshot."""
     return {
         "demo": demo,
-        "file_graph": _demo_file_graph() if demo else {
+        "file_graph": _demo_file_graph() if demo else private_file_graph or {
             "status": "not-indexed", "synthetic": False, "item_count": 0,
             "sources": [], "items": [],
             "diagnostic": "No authorized file index is attached to this snapshot.",
@@ -1729,7 +1945,8 @@ ARTIFACT_TYPES = {
 
 
 def _handler(
-    snapshot_fn: SnapshotReader, event_interval: float, artifact_fn=None, *, force_demo: bool = False,
+    snapshot_fn: SnapshotReader, event_interval: float, artifact_fn=None, *,
+    force_demo: bool = False, private_graph_fn=_load_private_file_graph,
 ) -> type[BaseHTTPRequestHandler]:
     class KayaHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -1747,7 +1964,11 @@ def _handler(
             self.wfile.write(body)
 
         def _snapshot(self, *, demo: bool = False) -> dict[str, object]:
-            return snapshot_payload(demo_snapshot() if demo else snapshot_fn(), demo=demo)
+            graph = None if demo else _private_file_graph_summary(private_graph_fn())
+            return snapshot_payload(
+                demo_snapshot() if demo else snapshot_fn(), demo=demo,
+                private_file_graph=graph,
+            )
 
         def _demo_request(self) -> bool:
             return force_demo or self.path.endswith("?demo=1")
@@ -1817,6 +2038,12 @@ def _handler(
             if self.path in {"/api/snapshot", "/api/snapshot?demo=1"}:
                 self._json(self._snapshot(demo=self._demo_request()))
                 return
+            if self.path == "/api/file-graph":
+                if force_demo:
+                    self.send_error(404, "not found")
+                    return
+                self._json(private_graph_fn())
+                return
             if self.path in STATIC_ASSETS:
                 self._serve_static(*STATIC_ASSETS[self.path])
                 return
@@ -1862,6 +2089,7 @@ def create_server(
     event_interval: float = 2.0,
     allow_non_loopback: bool = False,
     artifact_fn=None,
+    private_graph_fn=_load_private_file_graph,
     demo: bool = False,
 ) -> KayaHTTPServer:
     """Create the read-only dashboard server; loopback unless told otherwise.
@@ -1905,7 +2133,10 @@ def create_server(
                     runtime / "board.db", task_id,
                 )
     return KayaHTTPServer(
-        (host, int(port)), _handler(snapshot_fn, event_interval, artifact_fn, force_demo=demo),
+        (host, int(port)), _handler(
+            snapshot_fn, event_interval, artifact_fn,
+            force_demo=demo, private_graph_fn=private_graph_fn,
+        ),
     )
 
 

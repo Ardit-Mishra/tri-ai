@@ -45,11 +45,11 @@ const MEMBRANE_DETAIL = 3;
 
 // How far each hemisphere is pushed off the midline. The gap is the single
 // feature that makes the silhouette read as a brain rather than as a ball.
-const FISSURE = 0.13;
+const FISSURE = 0.035;
 
 // Depth of the surface folding. Enough to break the sphere, little enough
 // that node positions stay readable.
-const GYRI = 0.06;
+const GYRI = 0.025;
 
 if (root && panel && button3d && button2d && motionButton && tooltip) {
   try {
@@ -77,23 +77,21 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
      * scaled by the caller's shell. */
     function brainShape(unit) {
       const p = unit.clone();
-      // Longer front to back than it is wide, and flatter than it is long.
-      p.x *= 1.26;
-      p.y *= 0.84;
-      p.z *= 1.02;
+      // A nearly spherical neural volume matches the observatory reference;
+      // a shallow fissure and restrained cortical folding keep it organic.
+      p.x *= 1.03;
+      p.y *= 0.98;
+      p.z *= 1.03;
       // Split the hemispheres: every point moves away from the midline, so a
       // valley opens along it instead of a seam through a solid ball.
       const side = p.z >= 0 ? 1 : -1;
-      p.z = side * (Math.abs(p.z) * 0.84 + FISSURE);
+      p.z = side * (Math.abs(p.z) * 0.96 + FISSURE);
       // Fold the surface. Two frequencies, so the folds do not repeat
       // regularly enough to read as a pattern.
       const fold = 1
         + GYRI * Math.sin(p.x * 5.2) * Math.cos(p.z * 4.6)
         + GYRI * 0.6 * Math.sin(p.y * 6.1 + p.x * 2.0);
       p.multiplyScalar(fold);
-      // Taper the frontal pole. A brain is not symmetric front to back, and
-      // the asymmetry is most of what makes it recognisable in outline.
-      if (p.x < 0) p.multiplyScalar(1 + p.x * 0.05);
       return p;
     }
 
@@ -125,7 +123,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       mesh.userData.membrane = true;
       return mesh;
     }
-    topology.add(buildMembrane(7.1));
+    topology.add(buildMembrane(6.75));
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let motionPaused = reducedMotion.matches;
@@ -141,6 +139,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     let fileCloud = null;
     let fileItems = [];
     let filePositions = new Map();
+    let lastRenderSignature = null;
     let yaw = 0.42;
     let pitch = 0.18;
     // The organ is the primary information object, not background decoration.
@@ -148,7 +147,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     // at a glance in the desktop dashboard's wide topology panel.
     // The architecture layer extends beyond the cortical core. Keep its outer
     // source and release nodes in frame before offering manual zoom.
-    let distance = 15.6;
+    let distance = 15.9;
     let drag = null;
 
     const colors = {
@@ -381,11 +380,12 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const sourceAngle = (sourceIndex / sourceCount) * Math.PI * 2;
       const seed = hashUnit(item.id);
       const secondary = hashUnit(`${item.source}:${item.label}`);
-      const angle = sourceAngle + (seed - 0.5) * 1.05;
-      const y = Math.max(-0.92, Math.min(0.92, (secondary - 0.5) * 1.9));
-      const radial = Math.sqrt(Math.max(0.12, 1 - y * y));
+      const angle = sourceAngle + (seed - 0.5) * 1.72 + index * 0.017;
+      const y = Math.max(-0.96, Math.min(0.96, secondary * 1.92 - 0.96));
+      const radial = Math.sqrt(Math.max(0.08, 1 - y * y));
       const unit = new THREE.Vector3(Math.cos(angle) * radial, y, Math.sin(angle) * radial);
-      const depth = item.kind === "folder" ? 6.25 : 2.4 + hashUnit(`${item.id}:depth`) * 4.25;
+      const density = Math.pow(hashUnit(`${item.id}:depth`), 0.42);
+      const depth = item.kind === "folder" ? 5.7 + seed * 0.65 : 0.45 + density * 5.95;
       return brainShape(unit).multiplyScalar(depth);
     }
 
@@ -399,20 +399,21 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const sourceOrder = (fileGraph.sources || []).map((source) => source.id);
       const positions = new Float32Array(fileItems.length * 3);
       const colors = new Float32Array(fileItems.length * 3);
-      const cyan = new THREE.Color(0x73e6c5);
+      const sourceColors = [0x54d7ae, 0x7ce8c5, 0x48b996, 0x9af3d5, 0x3f9f83, 0x6cd9b8, 0xb1f7df];
       const folder = new THREE.Color(0xe7f8ef);
       fileItems.forEach((item, index) => {
         const position = filePosition(item, index, fileItems.length, sourceOrder);
         filePositions.set(item.id, position);
         positions.set([position.x, position.y, position.z], index * 3);
-        const color = item.kind === "folder" ? folder : cyan;
+        const sourceIndex = Math.max(0, sourceOrder.indexOf(item.source));
+        const color = item.kind === "folder" ? folder : new THREE.Color(sourceColors[sourceIndex % sourceColors.length]);
         colors.set([color.r, color.g, color.b], index * 3);
       });
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
       fileCloud = new THREE.Points(geometry, new THREE.PointsMaterial({
-        size: 3.2,
+        size: fileItems.length > 7000 ? 1.75 : fileItems.length > 2500 ? 2.15 : 3.1,
         sizeAttenuation: false,
         vertexColors: true,
         transparent: true,
@@ -425,10 +426,16 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       topology.add(fileCloud);
 
       const branches = [];
+      const edgeBudgetRatio = Math.min(1, 1900 / Math.max(fileItems.length, 1));
       fileItems.forEach((item) => {
         const from = filePositions.get(item.id);
         const to = filePositions.get(item.parent_id);
         if (!from || !to) return;
+        // Every item remains a real point and keeps its parent in metadata.
+        // Drawing ten thousand simultaneous file edges makes an opaque
+        // hairball, so the field shows all folder trunks plus a stable sample
+        // of leaves; search and inspection retain the complete hierarchy.
+        if (item.kind !== "folder" && hashUnit(`${item.id}:branch`) > edgeBudgetRatio) return;
         branches.push(from.x, from.y, from.z, to.x, to.y, to.z);
         synapseSegments.push([from.clone(), to.clone()]);
       });
@@ -436,7 +443,22 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         const branchGeometry = new THREE.BufferGeometry();
         branchGeometry.setAttribute("position", new THREE.Float32BufferAttribute(branches, 3));
         topology.add(new THREE.LineSegments(branchGeometry, new THREE.LineBasicMaterial({
-          color: 0x4a9f87, transparent: true, opacity: 0.12,
+          color: 0x4a9f87, transparent: true, opacity: 0.085,
+        })));
+      }
+
+      const folderItems = fileItems.filter((item) => item.kind === "folder");
+      if (folderItems.length) {
+        const folderPositions = new Float32Array(folderItems.length * 3);
+        folderItems.forEach((item, index) => {
+          const position = filePositions.get(item.id);
+          folderPositions.set([position.x, position.y, position.z], index * 3);
+        });
+        const folderGeometry = new THREE.BufferGeometry();
+        folderGeometry.setAttribute("position", new THREE.BufferAttribute(folderPositions, 3));
+        topology.add(new THREE.Points(folderGeometry, new THREE.PointsMaterial({
+          color: 0xd8fff1, size: 4.6, sizeAttenuation: false, transparent: true,
+          opacity: 0.88, blending: THREE.AdditiveBlending, depthWrite: false,
         })));
       }
 
@@ -534,6 +556,17 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
 
     function rebuild(data) {
       snapshot = data;
+      const renderSignature = JSON.stringify({
+        fileRevision: data.file_graph?.revision || `${data.file_graph?.item_count || 0}:${data.file_graph?.synthetic || false}`,
+        lane: root.dataset.activeLane || "claude",
+        tasks: data.tasks.map((task) => [task.id, task.status]),
+        rules: data.rules.map((rule) => rule.proposal_id),
+        brain: data.brain?.items?.map((item) => item.id) || [],
+        capabilities: data.capabilities?.items?.map((item) => item.id) || [],
+        radar: data.radar?.candidates?.map((item) => `${item.source}:${item.name}`) || [],
+      });
+      if (renderSignature === lastRenderSignature) return;
+      lastRenderSignature = renderSignature;
       clearTopology();
       const nodes = modelFrom(data);
       nodes.forEach((node, index) => {
@@ -596,12 +629,9 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       return raycaster.intersectObjects(fileCloud ? [...meshes, fileCloud] : meshes, false)[0] || null;
     }
 
-    function nodeFromHit(hit) {
-      if (!hit) return null;
-      if (hit.object === fileCloud && Number.isInteger(hit.index)) {
-        const item = fileItems[hit.index];
-        if (!item) return null;
-        return {
+    function fileNode(item) {
+      if (!item) return null;
+      return {
           id: `file:${item.id}`,
           kind: item.kind,
           label: item.label,
@@ -609,14 +639,34 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
             system: true,
             group: `${item.source} / ${item.kind}`,
             description: `${item.label} is represented by one provenance-linked node in the authorized index.`,
-            context: item.synthetic ? "Synthetic demonstration metadata" : "Authorized index metadata",
+            context: item.relative_path || (item.synthetic ? "Synthetic demonstration metadata" : "Authorized index metadata"),
             tools: "File graph index and provenance store",
             evidence: `Source ${item.source}; parent ${item.parent_id || "source root"}`,
+            size: item.size,
+            modifiedAt: item.modified_at || item.modified,
+            url: item.url || null,
           },
         };
+    }
+
+    function nodeFromHit(hit) {
+      if (!hit) return null;
+      if (hit.object === fileCloud && Number.isInteger(hit.index)) {
+        return fileNode(fileItems[hit.index]);
       }
       return hit.object.userData;
     }
+
+    window.addEventListener("tri-ai:file-focus", (event) => {
+      const itemId = event.detail?.id;
+      const index = fileItems.findIndex((item) => item.id === itemId);
+      if (index < 0 || !fileCloud) return;
+      const colors = fileCloud.geometry.attributes.color;
+      colors.setXYZ(index, 1, 1, 1);
+      colors.needsUpdate = true;
+      const node = fileNode(fileItems[index]);
+      if (node) window.dispatchEvent(new CustomEvent("tri-ai:system-select", { detail: node }));
+    });
 
     function showTooltip(event, hit) {
       const node = nodeFromHit(hit);
@@ -728,7 +778,9 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       if (!motionPaused) {
         // The whole organ turns, not just its core - it should read as one
         // floating body rather than a still cloud with a spinning centre.
-        topology.rotation.y = elapsed * 0.055;
+        const breath = 1 + Math.sin(elapsed * 0.72) * 0.008;
+        topology.scale.setScalar(breath);
+        topology.rotation.y = elapsed * 0.042;
         core.rotation.y = elapsed * 0.11;
       }
       renderer.render(scene, camera);
