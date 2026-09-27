@@ -43,6 +43,12 @@ class PublicReleaseBoundaryTests(unittest.TestCase):
             for marker in PRIVATE_MARKERS:
                 self.assertNotIn(marker, text, f"{marker!r} in {relative}")
 
+    def test_render_blueprint_can_only_start_the_sealed_demo(self):
+        manifest = (ROOT / "render.yaml").read_text(encoding="utf-8")
+        self.assertIn("--demo", manifest)
+        self.assertIn("healthCheckPath: /api/snapshot", manifest)
+        self.assertIn("autoDeploy: false", manifest)
+
 
 if __name__ == "__main__":
     unittest.main()

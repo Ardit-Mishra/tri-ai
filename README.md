@@ -20,6 +20,9 @@ specialists, retains evidence, and refuses to accept a delegated result on an ag
 > without exposing an operator's live tasks, logs, machines, or credentials. See
 > [the demo guide](docs/SHOWCASE.md).
 
+**Reproduce it:** [`docs/PUBLIC_DEMO.md`](docs/PUBLIC_DEMO.md) has the
+copy-paste local run, boundary checks, and a no-secrets Render Blueprint path.
+
 <img src="docs/img/verify-gate.svg" alt="A claimed task runs on a free model; the model's own report is discarded; a verify command's exit code decides whether the work is accepted or reverted." width="100%">
 
 <img src="docs/img/tri-ai-system.svg" alt="Tri-AI routes a task through research, planning, build, verification, retained evidence, and a human release gate." width="100%">
@@ -115,6 +118,7 @@ Asked to count a 17-row list by eye, the same model answered 15, then 18. Given
 | [docs/OPERATING.md](docs/OPERATING.md) | the commands you actually type |
 | [docs/AUTONOMY.md](docs/AUTONOMY.md) | scheduling, continuity, and what is genuinely unattended |
 | [docs/SHOWCASE.md](docs/SHOWCASE.md) | the public dashboard demo and how to discuss it honestly |
+| [docs/PUBLIC_DEMO.md](docs/PUBLIC_DEMO.md) | run and deploy the sealed public demo from a clean clone |
 | [SECURITY.md](SECURITY.md) | public-release boundary and vulnerability reporting |
 
 ## Running the tests
