@@ -98,8 +98,8 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     }
 
     const core = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.7, 2),
-      new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true, transparent: true, opacity: 0.35 }),
+      new THREE.IcosahedronGeometry(1.04, 2),
+      new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true, transparent: true, opacity: 0.42 }),
     );
     topology.add(core);
 
@@ -118,7 +118,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       position.needsUpdate = true;
       geometry.computeVertexNormals();
       const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-        color: 0x1d7f9c, wireframe: true, transparent: true, opacity: 0.16,
+        color: 0x1d7f9c, wireframe: true, transparent: true, opacity: 0.11,
       }));
       // Survives a rebuild. The shell is the form itself, not contents, and
       // recomputing 1,280 deformed vertices on every snapshot would be waste.
@@ -231,11 +231,12 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       // The fixed-size beacon is the information signal at console distance.
       // Physical objects stay deliberately compact so the connected cortex,
       // not a pile of oversized tokens, remains the visual protagonist.
-      if (kind === "planner" || kind === "approval") return 1.05;
-      if (kind === "model" || kind === "verifier") return 0.92;
-      if (kind === "specialist") return 0.82;
-      if (kind === "source" || kind === "ingress") return 0.76;
-      return 1;
+      if (kind === "planner" || kind === "approval") return 0.72;
+      if (kind === "model" || kind === "verifier") return 0.61;
+      if (kind === "specialist") return 0.54;
+      if (kind === "source" || kind === "ingress") return 0.5;
+      if (kind === "brain") return 0.48;
+      return 0.42;
     }
 
     function nodeColor(node) {

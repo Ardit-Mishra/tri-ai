@@ -416,9 +416,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .theater-tabs { border:1px solid var(--line); display:flex; flex-direction:row; gap:0; left:50%; margin:0; padding:3px; position:absolute; top:40px; transform:translateX(-50%); width:auto; z-index:5; }
     .theater-tabs .agent-tab { border:0; font-size:10px; min-height:31px; padding:0 13px; text-align:center; white-space:nowrap; }
     .theater-tabs .agent-tab[aria-selected="true"] { background:#eef3ee; color:#102319; }
-    .core-title { bottom:42px; display:grid; justify-items:center; left:0; pointer-events:none; right:0; text-align:center; z-index:3; }
+    .core-title { bottom:48px; display:grid; justify-items:center; left:0; pointer-events:none; right:0; text-align:center; z-index:3; }
     .core-title span { color:var(--cyan); font-family:ui-monospace,"Cascadia Code",monospace; font-size:9px; font-weight:720; letter-spacing:.18em; }
-    .core-title strong { color:#f3f6f0; font-size:clamp(40px,5vw,78px); font-weight:760; letter-spacing:0; line-height:.95; margin-top:6px; text-transform:uppercase; }
+    .core-title strong { color:#f3f6f0; font-size:clamp(38px,4vw,58px); font-weight:760; letter-spacing:0; line-height:.95; margin-top:6px; text-transform:uppercase; }
     .core-title em { color:#b6c8be; font-size:10px; font-style:normal; line-height:1.4; margin-top:8px; max-width:44ch; }
     .cortex-core #spatialGraph,.cortex-core #neuralGraph { bottom:0; height:100%; left:0; right:0; top:0; width:100%; z-index:1; }
     .cortex-core .spatial-tooltip { z-index:8; }

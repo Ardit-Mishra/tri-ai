@@ -140,6 +140,7 @@ class ArchitectureTopologyTest(_Source):
 
     def test_physical_architecture_nodes_do_not_obscure_the_cortex(self):
         self.assertIn("Physical objects stay deliberately compact", self.source)
+        self.assertIn('if (kind === "model" || kind === "verifier") return 0.61', self.source)
 
     def test_firing_evidence_packets_remain_visible_at_console_distance(self):
         self.assertIn("moving evidence packets", self.source)
