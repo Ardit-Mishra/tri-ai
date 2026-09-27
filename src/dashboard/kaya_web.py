@@ -342,13 +342,63 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .terminal { font-family:ui-sans-serif,system-ui,sans-serif; font-size:11px; min-width:0; padding:0; }
     .event { grid-template-columns:125px minmax(170px,1fr) 105px 80px 95px; }
     .cortex-footer { color:var(--muted); font-size:10px; padding-top:16px; }
+    .orchestration-stage { border-bottom:1px solid var(--line); padding:28px 0 24px; }
+    .orchestration-head { align-items:end; display:flex; gap:30px; justify-content:space-between; margin-bottom:18px; }
+    .orchestration-eyebrow { color:var(--cyan); font-size:9px; font-weight:750; letter-spacing:.16em; text-transform:uppercase; }
+    .orchestration-head h1 { color:var(--text); font-size:clamp(29px,3.2vw,50px); font-weight:760; letter-spacing:0; line-height:1; margin:8px 0 0; max-width:15ch; }
+    .orchestration-head p { color:var(--muted); font-size:13px; line-height:1.55; margin:0; max-width:48ch; }
+    .orchestration-proof { border-left:1px solid var(--mineral); color:var(--muted); font-size:10px; line-height:1.5; max-width:27ch; padding-left:13px; }
+    .orchestration-proof strong { color:var(--text); display:block; font-size:11px; margin-bottom:3px; }
+    .orchestration-grid { border:1px solid var(--line); display:grid; grid-template-columns:220px minmax(470px,1fr) 230px; min-height:440px; }
+    .agent-lens { border-right:1px solid var(--line); padding:18px; }
+    .lens-kicker,.map-inspector label { color:var(--muted); display:block; font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
+    .agent-tabs { display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+    .agent-tab { background:transparent; border:1px solid var(--line); color:var(--muted); cursor:pointer; font:650 11px/1 ui-sans-serif,system-ui,sans-serif; min-height:38px; padding:0 10px; text-align:left; }
+    .agent-tab:hover,.agent-tab[aria-selected="true"] { border-color:var(--cyan); color:var(--text); }
+    .agent-tab[aria-selected="true"] { background:color-mix(in srgb,var(--cyan) 12%,transparent); }
+    .agent-tab:focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }
+    .agent-context { border-top:1px solid var(--line); margin-top:18px; padding-top:15px; }
+    .agent-context strong { color:var(--text); display:block; font-size:14px; line-height:1.2; }
+    .agent-context p { color:var(--muted); font-size:11px; line-height:1.5; margin:8px 0 0; }
+    .lens-rows { display:grid; gap:9px; margin-top:15px; }
+    .lens-row { border-left:1px solid var(--line); padding-left:9px; }
+    .lens-row span { color:var(--muted); display:block; font-size:8px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+    .lens-row b { color:var(--text); display:block; font-size:10px; font-weight:600; line-height:1.4; margin-top:3px; }
+    .world-map-wrap { min-width:0; overflow:hidden; padding:15px 10px 12px; position:relative; }
+    .world-map { display:block; height:100%; min-height:410px; overflow:visible; width:100%; }
+    .world-map .guide { fill:none; stroke:var(--line); stroke-width:1; }
+    .world-map .route { fill:none; stroke:var(--cyan); stroke-dasharray:8 12; stroke-linecap:round; stroke-width:1.8; }
+    .world-map .route.warm { stroke:var(--mineral); }
+    .world-map .route.muted { stroke:rgba(180,218,200,.34); stroke-dasharray:3 9; }
+    .world-map .route.signal { animation:route-flow 3.4s linear infinite; }
+    .world-map .node { fill:var(--surface-strong); stroke:var(--line); stroke-width:1.25; }
+    .world-map .node-world { stroke:var(--cyan); }
+    .world-map .node-execute { stroke:var(--mineral); }
+    .world-map .node-brain { fill:color-mix(in srgb,var(--cyan) 12%,var(--surface-strong)); stroke:var(--cyan); stroke-width:1.7; }
+    .world-map .node-gate { fill:color-mix(in srgb,var(--mineral) 12%,var(--surface-strong)); stroke:var(--mineral); stroke-width:1.5; }
+    .world-map .node-title { fill:var(--text); font-family:ui-sans-serif,system-ui,sans-serif; font-size:10px; font-weight:700; }
+    .world-map .node-detail { fill:var(--muted); font-family:ui-monospace,"Cascadia Code",monospace; font-size:7px; letter-spacing:.08em; }
+    .world-map .group-label { fill:var(--cyan); font-family:ui-monospace,"Cascadia Code",monospace; font-size:8px; font-weight:700; letter-spacing:.14em; }
+    .world-map .pulse { animation:node-pulse 2.2s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+    @keyframes route-flow { to { stroke-dashoffset:-80; } }
+    @keyframes node-pulse { 50% { opacity:.55; transform:scale(1.07); } }
+    .map-inspector { border-left:1px solid var(--line); padding:18px; }
+    .map-inspector h2 { color:var(--text); font-size:18px; font-weight:730; letter-spacing:0; line-height:1.14; margin:8px 0 0; }
+    .map-inspector > p { color:var(--muted); font-size:11px; line-height:1.5; margin:9px 0 0; }
+    .map-proof-list { border-top:1px solid var(--line); display:grid; gap:12px; margin-top:20px; padding-top:14px; }
+    .map-proof-list div { border-left:1px solid var(--line); padding-left:10px; }
+    .map-proof-list span { color:var(--muted); display:block; font-size:8px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+    .map-proof-list b { color:var(--text); display:block; font-size:11px; line-height:1.38; margin-top:3px; }
+    .orchestration-foot { display:flex; flex-wrap:wrap; gap:12px 26px; margin-top:13px; }
+    .orchestration-foot span { color:var(--muted); font-size:10px; line-height:1.4; }
+    .orchestration-foot b { color:var(--text); font-weight:650; }
     body[data-theme="light"] .graph-panel { background:#102119; }
     body[data-theme="light"] .graph-panel .panel-head strong,body[data-theme="light"] .cortex-stage-label strong { color:#f3f6f0; }
     body[data-theme="light"] .cortex-stage-label { background:rgba(5,16,13,.86); }
     body[data-theme="light"] .cortex-stage-label em,body[data-theme="light"] .graph-hint,body[data-theme="light"] .model-lane .lane-kind { color:#c6d7cd; }
     body[data-theme="light"] .model-lane strong { color:#f3f6f0; }
-    @media (max-width:1000px) { .hud-grid { grid-template-columns:1fr; } .hud-aside { border-left:0; border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:18px 0 0; } .hud-aside .hud-panel { padding-right:14px; } }
-    @media (max-width:700px) { .shell { padding:14px; } header { align-items:flex-start; } .header-right { align-items:flex-end; flex-wrap:wrap; justify-content:flex-end; } .services { display:none; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } .graph-panel { min-height:480px; padding:14px; } #spatialGraph,#neuralGraph { height:370px; } .cortex-stage-label { left:22px; top:56px; } .hud-aside { display:block; } .hud-aside .hud-panel { padding-right:0; } }
+    @media (max-width:1100px) { .orchestration-grid { grid-template-columns:205px minmax(440px,1fr); } .map-inspector { border-left:0; border-top:1px solid var(--line); grid-column:1 / -1; } .map-proof-list { grid-template-columns:repeat(3,minmax(0,1fr)); } .hud-grid { grid-template-columns:1fr; } .hud-aside { border-left:0; border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:18px 0 0; } .hud-aside .hud-panel { padding-right:14px; } }
+    @media (max-width:700px) { .shell { padding:14px; } header { align-items:flex-start; } .header-right { align-items:flex-end; flex-wrap:wrap; justify-content:flex-end; } .services { display:none; } .orchestration-head { align-items:start; flex-direction:column; gap:14px; } .orchestration-grid { display:block; } .agent-lens { border-bottom:1px solid var(--line); border-right:0; } .agent-tabs { flex-direction:row; } .agent-tab { flex:1; min-height:36px; padding:0 7px; } .agent-context { display:none; } .world-map-wrap { overflow-x:auto; padding:12px 0; } .world-map { min-width:610px; } .map-inspector { padding:16px; } .map-proof-list { grid-template-columns:1fr; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } .graph-panel { min-height:480px; padding:14px; } #spatialGraph,#neuralGraph { height:370px; } .cortex-stage-label { left:22px; top:56px; } .hud-aside { display:block; } .hud-aside .hud-panel { padding-right:0; } }
     </style>
 </head>
 <body data-theme="dark">
@@ -364,6 +414,65 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">Light interface</button>
       </div>
     </header>
+    <section class="orchestration-stage" aria-label="Private operating map">
+      <div class="orchestration-head">
+        <div>
+          <div class="orchestration-eyebrow">Private operating map</div>
+          <h1>One brain. Two linked layers.</h1>
+        </div>
+        <p>Your authorized world supplies bounded context. Tri-AI turns it into a plan, delegates specialist work, verifies the result, and preserves the evidence behind delivery.</p>
+        <div class="orchestration-proof"><strong>Sealed public demonstration</strong>No connector, chat, credential, artifact, or private workspace is loaded on this surface.</div>
+      </div>
+      <div class="orchestration-grid">
+        <section class="agent-lens" aria-label="Reasoning lane lens">
+          <span class="lens-kicker">Reasoning lens</span>
+          <div class="agent-tabs" role="tablist" aria-label="Choose an execution lane">
+            <button class="agent-tab" id="lensClaude" type="button" role="tab" aria-selected="true" aria-controls="agentContext" data-lane="claude">Claude Code</button>
+            <button class="agent-tab" id="lensCodex" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="codex">Codex</button>
+            <button class="agent-tab" id="lensLocal" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="local">Local</button>
+          </div>
+          <div class="agent-context" id="agentContext" role="tabpanel" aria-live="polite"></div>
+        </section>
+        <div class="world-map-wrap">
+          <svg class="world-map" id="worldMap" viewBox="0 0 760 420" role="img" aria-label="Authorized world graph and Tri-AI execution graph">
+            <text class="group-label" x="22" y="24">01 / AUTHORIZED WORLD</text>
+            <text class="group-label" x="286" y="24">02 / TRI-AI CONTROL PLANE</text>
+            <text class="group-label" x="589" y="24">03 / DELIVERY EVIDENCE</text>
+            <path class="guide" d="M252 38V396 M560 38V396" />
+            <path class="route muted" d="M130 87 C196 87 201 150 292 176" />
+            <path class="route muted" d="M130 152 C204 152 213 172 292 176" />
+            <path class="route muted" d="M130 217 C208 217 221 195 292 176" />
+            <path class="route muted" d="M130 282 C198 282 211 204 292 176" />
+            <path class="route muted" d="M130 347 C194 347 213 223 292 176" />
+            <path class="route signal" d="M340 176 C387 176 391 176 425 176" />
+            <path class="route warm signal" d="M472 176 C518 176 523 176 579 176" />
+            <path class="route signal" d="M626 176 C661 176 674 176 712 176" />
+            <path class="route muted" d="M440 205 C440 252 440 278 440 316" />
+            <path class="route warm" d="M440 316 C506 316 536 274 592 243" />
+            <path class="route signal" d="M608 243 C655 243 669 220 712 198" />
+            <g><circle class="node node-world" cx="92" cy="87" r="37"/><text class="node-title" x="92" y="84" text-anchor="middle">Obsidian</text><text class="node-detail" x="92" y="98" text-anchor="middle">NOTES</text></g>
+            <g><circle class="node node-world" cx="92" cy="152" r="37"/><text class="node-title" x="92" y="149" text-anchor="middle">Drive</text><text class="node-detail" x="92" y="163" text-anchor="middle">FILES</text></g>
+            <g><circle class="node node-world" cx="92" cy="217" r="37"/><text class="node-title" x="92" y="214" text-anchor="middle">GitHub</text><text class="node-detail" x="92" y="228" text-anchor="middle">CODE</text></g>
+            <g><circle class="node node-world" cx="92" cy="282" r="37"/><text class="node-title" x="92" y="279" text-anchor="middle">Deploys</text><text class="node-detail" x="92" y="293" text-anchor="middle">VERCEL / RENDER</text></g>
+            <g><circle class="node node-world" cx="92" cy="347" r="37"/><text class="node-title" x="92" y="344" text-anchor="middle">Sessions</text><text class="node-detail" x="92" y="358" text-anchor="middle">CLAUDE / CODEX</text></g>
+            <g class="pulse"><circle class="node node-brain" cx="316" cy="176" r="28"/><text class="node-title" x="316" y="173" text-anchor="middle">TRI-AI</text><text class="node-detail" x="316" y="187" text-anchor="middle">PLANNER</text></g>
+            <g class="pulse"><circle class="node node-brain" cx="449" cy="176" r="28"/><text class="node-title" id="activeLaneLabel" x="449" y="173" text-anchor="middle">CLAUDE</text><text class="node-detail" x="449" y="187" text-anchor="middle">MODEL LANE</text></g>
+            <g><rect class="node node-execute" x="579" y="146" width="48" height="60" rx="0"/><text class="node-title" x="603" y="170" text-anchor="middle">WORK</text><text class="node-detail" x="603" y="185" text-anchor="middle">SPECIALISTS</text></g>
+            <g><circle class="node node-gate pulse" cx="603" cy="243" r="28"/><text class="node-title" x="603" y="240" text-anchor="middle">VERIFY</text><text class="node-detail" x="603" y="254" text-anchor="middle">EVIDENCE</text></g>
+            <g><circle class="node node-brain" cx="440" cy="344" r="34"/><text class="node-title" x="440" y="341" text-anchor="middle">BRAIN</text><text class="node-detail" x="440" y="355" text-anchor="middle">MEMORY + LINKS</text></g>
+            <g><circle class="node node-gate" cx="724" cy="187" r="32"/><text class="node-title" x="724" y="184" text-anchor="middle">HUMAN</text><text class="node-detail" x="724" y="198" text-anchor="middle">APPROVAL</text></g>
+            <text class="node-detail" x="287" y="214">BOUNDED CONTEXT</text><text class="node-detail" x="506" y="164">TOOL PERMISSIONS</text><text class="node-detail" x="641" y="288">RETAINED PROOF</text>
+          </svg>
+        </div>
+        <aside class="map-inspector" aria-label="Selected model lane details">
+          <label id="mapPhase">Claude lane</label>
+          <h2 id="mapAgentTitle">Research and planning</h2>
+          <p id="mapAgentSummary">The selected lane receives a bounded brief and returns a reviewable plan, source record, and acceptance checks.</p>
+          <div class="map-proof-list" id="mapProofList"></div>
+        </aside>
+      </div>
+      <div class="orchestration-foot"><span><b>Ingress:</b> Telegram or voice request enters as a bounded brief.</span><span><b>Privacy:</b> source ingestion is opt-in and provenance stays attached.</span><span><b>Delivery:</b> publish, deploy, and DNS remain behind an explicit approval gate.</span></div>
+    </section>
     <section class="cortex-intent" aria-label="Current operating intent">
       <section class="now" id="now" aria-live="polite">
         <div class="now-kicker"><i class="now-idle" id="nowPip"></i><span id="nowKicker">Checking…</span></div>
@@ -435,6 +544,28 @@ _HTML_TEMPLATE = r"""<!doctype html>
     themeToggle.addEventListener('click',()=>setTheme(document.body.dataset.theme==='light'?'dark':'light'));
     const clear = node => { while (node.firstChild) node.removeChild(node.firstChild); };
     const make = (tag, text, cls) => { const node=document.createElement(tag); node.textContent=text; if(cls) node.className=cls; return node; };
+    const AGENT_LENSES={
+      claude:{label:'Claude lane',title:'Research and planning',summary:'Claude receives an approved brief, source boundaries, and the project constraints. It returns a plan that can be challenged, cited research, and explicit acceptance checks.',received:'Approved brief + source pack',tools:'Research, files, documentation',returns:'Plan, citations, acceptance checks'},
+      codex:{label:'Codex lane',title:'Implementation and verification',summary:'Codex receives a build contract, repository context, and review notes. It returns an inspectable diff, test evidence, and a release packet rather than an unverified claim.',received:'Build contract + repository scope',tools:'Code, browser checks, test harness',returns:'Diff, tests, rollback-ready packet'},
+      local:{label:'Local lane',title:'Private execution',summary:'A local or free-routed model receives only the bounded subtask and approved project context. It returns local output and artifact metadata for the verifier to inspect.',received:'Bounded subtask + approved context',tools:'Ollama, local files, route policy',returns:'Local transcript + verifier input'},
+    };
+    let activeAgentLens='claude';
+    function renderAgentLens(lane) {
+      const detail=AGENT_LENSES[lane]||AGENT_LENSES.claude; activeAgentLens=lane;
+      document.querySelectorAll('.agent-tab').forEach(button=>{
+        const selected=button.dataset.lane===lane;
+        button.setAttribute('aria-selected',String(selected));
+      });
+      setText(byId('activeLaneLabel'),lane.toUpperCase());
+      setText(byId('mapPhase'),detail.label);
+      setText(byId('mapAgentTitle'),detail.title);
+      setText(byId('mapAgentSummary'),detail.summary);
+      const proof=byId('mapProofList'); clear(proof);
+      [['Receives',detail.received],['Tool permissions',detail.tools],['Evidence returned',detail.returns]].forEach(([label,value])=>{
+        const row=make('div',''); row.append(make('span',label),make('b',value)); proof.append(row);
+      });
+    }
+    document.querySelectorAll('.agent-tab').forEach(button=>button.addEventListener('click',()=>renderAgentLens(button.dataset.lane)));
     // Relative time is what an operator glancing at a phone actually reads;
     // the exact clock value stays reachable as the element's title so nothing
     // is lost. Both come from the same recorded epoch seconds.
@@ -469,6 +600,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
     const statusColor=status=>status==='done'?'#00ff9d':status==='running'?'#00f0ff':(status==='failed'||status==='cancelled')?'#ff4d6d':'#00f0ff';
     const shortPath=value=>String(value).replace(/\\/g,'/').split('/').slice(-2).join('/');
     const setText=(node,value)=>{ node.textContent=value; return node; };
+    renderAgentLens(activeAgentLens);
     const isPhone=()=>window.matchMedia('(max-width:767px)').matches;
     const telemetryOf=node=>(node&&node.kind==='task'&&node.detail.telemetry)||null;
     function elapsed(from,to) {

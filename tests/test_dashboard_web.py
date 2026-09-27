@@ -148,6 +148,12 @@ class WebSerializationTests(unittest.TestCase):
         self.assertIn("function setTheme(theme)", page)
         self.assertIn('id="modelLanes"', page)
         self.assertIn("function renderModelLanes(data)", page)
+        self.assertIn("One brain. Two linked layers.", page)
+        self.assertIn('id="worldMap"', page)
+        self.assertIn('id="lensClaude"', page)
+        self.assertIn('id="lensCodex"', page)
+        self.assertIn("function renderAgentLens(lane)", page)
+        self.assertIn("Evidence returned", page)
 
         with request.urlopen(base + "/api/snapshot", timeout=2) as response:
             api_payload = json.loads(response.read().decode("utf-8"))

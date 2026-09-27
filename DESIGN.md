@@ -8,15 +8,20 @@ is quieter, evidence-led instrumentation.
 
 ## Surface Strategy
 
-The first viewport shows what Tri-AI is doing now, who is handling it, and how
-the activity connects to retained knowledge. The cortex remains visible while
-detail moves into a right-side inspection dock.
+The first viewport is a linked two-layer map: the user-authorized world on the
+left and Tri-AI's reasoning and execution route on the right. A Claude, Codex,
+or Local lens answers what the selected lane receives, which tools it may use,
+and what evidence it must return. The cortex remains visible below as the
+retained-memory topology while detail moves into a right-side inspection dock.
 
 ## Composition
 
 - A thin identity bar frames the system and contains the theme control.
-- A left-aligned live work brief sits above a large central cortex stage.
-- The animated 3D graph occupies the dominant region.
+- A visible world graph connects authorized notes, files, repositories,
+  deployments, and session exports to a bounded Tri-AI planner.
+- The animated route runs from ingress through a model lane, specialist work,
+  verification, retained evidence, and a human approval gate.
+- The animated 3D graph shows the retained-memory topology beneath that route.
 - Model lanes, evidence counts, and source status form compact supporting
   telemetry rather than a wall of equal cards.
 - Detail is a deliberate inspection dock, not competing dashboard chrome.
