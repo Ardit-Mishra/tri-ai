@@ -131,6 +131,12 @@ class WebSerializationTests(unittest.TestCase):
         page = web._HTML_TEMPLATE
         self.assertIn("window.__triAiSnapshot=data;", page)
 
+    def test_source_rail_uses_truthful_model_inventory_labels(self):
+        page = web._HTML_TEMPLATE
+        self.assertIn("ollama:'local model inventory'", page)
+        self.assertIn("omniroute:'route evidence pending'", page)
+        self.assertIn("freellmapi:'route evidence pending'", page)
+
     def test_private_graph_is_summarized_in_stream_and_fetched_once_from_its_endpoint(self):
         graph = {
             "status": "indexed", "synthetic": False, "item_count": 1,

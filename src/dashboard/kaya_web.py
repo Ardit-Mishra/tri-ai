@@ -1416,7 +1416,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
     function sourceColorFor(sourceId){const source=String(sourceId||'').toLowerCase();if(source.startsWith('drive'))return SOURCE_REGION_CSS.drive;if(source.startsWith('desktop'))return SOURCE_REGION_CSS.desktop;if(source.startsWith('laptop'))return SOURCE_REGION_CSS.laptop;if(source.startsWith('phone'))return SOURCE_REGION_CSS.phone;if(source.includes('omniroute'))return SOURCE_REGION_CSS.omniroute;if(source.includes('freellmapi'))return SOURCE_REGION_CSS.freellmapi;if(source.includes('ollama'))return SOURCE_REGION_CSS.ollama;if(source.startsWith('obsidian'))return SOURCE_REGION_CSS.obsidian;if(source.startsWith('github'))return SOURCE_REGION_CSS.github;if(source.startsWith('deploy'))return SOURCE_REGION_CSS.deploys;if(source.startsWith('session'))return SOURCE_REGION_CSS.sessions;return SOURCE_REGION_CSS.default;}
     function renderSourceIndex(fileGraph) {
       const root=byId('sourceIndex'); if(!root)return; clear(root);
-      const descriptions={'laptop-desktop':'this machine',laptop:'remote machine',drive:'Google Drive metadata',github:'repositories',obsidian:'notes and graph',sessions:'authorized exports',deploys:'deployment records'};
+      const descriptions={'laptop-desktop':'this machine',laptop:'remote machine',drive:'Google Drive metadata',github:'repositories',obsidian:'notes and graph',sessions:'authorized exports',deploys:'deployment records',ollama:'local model inventory',omniroute:'route evidence pending',freellmapi:'route evidence pending'};
       const sources=Array.isArray(fileGraph?.sources)?fileGraph.sources:[];
       if(!sources.length){root.append(make('p',fileGraph?.diagnostic||'No private source index attached.','rail-copy'));return;}
       sources.forEach(source=>{
