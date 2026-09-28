@@ -93,6 +93,16 @@ python -m dashboard.local_model_index `
   --output "$HOME\.tri-ai\private-sources\ollama.json"
 ```
 
+For a second machine, write a separate private index with a device-scoped
+source ID such as `ollama-desktop`. Cortex aggregates it into the same green
+Local Ollama region while retaining the distinct source record locally:
+
+```powershell
+python -m dashboard.local_model_index `
+  --output "$HOME\.tri-ai\private-sources\ollama-desktop.json" `
+  --source-id ollama-desktop
+```
+
 The collector exits nonzero when Ollama is unavailable, and Cortex keeps the
 region visible as `unavailable` rather than inventing a model count. OmniRoute
 and FreeLLMAPI are intentionally separate regions: their policy and route

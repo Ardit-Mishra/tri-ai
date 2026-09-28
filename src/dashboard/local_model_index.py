@@ -19,6 +19,7 @@ from . import private_index
 
 
 _MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}\Z")
+_SOURCE_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 
 
 def _timestamp() -> str:
@@ -42,8 +43,9 @@ def _model_names(payload: object) -> list[tuple[str, int]]:
     return sorted(found.items(), key=lambda row: row[0].casefold())
 
 
-def _index(models: list[tuple[str, int]], *, status: str, diagnostic: str) -> dict[str, object]:
-    source_id = "ollama"
+def _index(
+    models: list[tuple[str, int]], *, status: str, diagnostic: str, source_id: str,
+) -> dict[str, object]:
     observed = _timestamp()
     items: list[dict[str, object]] = [
         {
@@ -51,7 +53,7 @@ def _index(models: list[tuple[str, int]], *, status: str, diagnostic: str) -> di
             "label": "Local Ollama",
             "name": "Local Ollama",
             "relative_path": ".",
-            "provenance": "ollama:.",
+            "provenance": f"{source_id}:.",
             "kind": "folder",
             "source": source_id,
             "parent_id": None,
@@ -68,7 +70,7 @@ def _index(models: list[tuple[str, int]], *, status: str, diagnostic: str) -> di
             "label": name,
             "name": name,
             "relative_path": relative_path,
-            "provenance": f"ollama:{relative_path}",
+            "provenance": f"{source_id}:{relative_path}",
             "kind": "file",
             "source": source_id,
             "parent_id": parent_id,
@@ -92,27 +94,34 @@ def _index(models: list[tuple[str, int]], *, status: str, diagnostic: str) -> di
     return private_index.validate_private_index(payload)
 
 
-def ollama_inventory(base_url: str = "http://127.0.0.1:11434") -> dict[str, object]:
+def ollama_inventory(
+    base_url: str = "http://127.0.0.1:11434", *, source_id: str = "ollama",
+) -> dict[str, object]:
     """Read local model metadata, never exporting the configured endpoint."""
+    if not _SOURCE_ID.fullmatch(source_id):
+        raise ValueError("source_id must use lower-case letters, numbers, and hyphens")
     try:
         url = base_url.rstrip("/") + "/api/tags"
         with request.urlopen(url, timeout=5) as response:  # nosec B310 - explicit loopback operator setting
             models = _model_names(json.loads(response.read().decode("utf-8")))
     except (OSError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
-        return _index([], status="unavailable", diagnostic="Local Ollama inventory is unavailable.")
-    return _index(models, status="indexed", diagnostic=f"Indexed metadata for {len(models)} local model(s).")
+        return _index([], status="unavailable", diagnostic="Local Ollama inventory is unavailable.", source_id=source_id)
+    return _index(
+        models, status="indexed", diagnostic=f"Indexed metadata for {len(models)} local model(s).", source_id=source_id,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Write a private local Ollama model inventory for Cortex.")
     parser.add_argument("--output", required=True, help="Local JSON destination for the inventory.")
     parser.add_argument("--url", default="http://127.0.0.1:11434", help="Local Ollama base URL.")
+    parser.add_argument("--source-id", default="ollama", help="Private source identifier, such as ollama-desktop.")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    payload = ollama_inventory(args.url)
+    payload = ollama_inventory(args.url, source_id=args.source_id)
     output = Path(args.output)
     private_index.write_private_index_atomic(output, payload)
     private_index.write_private_index_summary_atomic(output, payload)

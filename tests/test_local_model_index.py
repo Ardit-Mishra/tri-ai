@@ -47,6 +47,17 @@ class LocalModelIndexTests(unittest.TestCase):
         self.assertEqual(index["sources"][0]["id"], "ollama")
         self.assertNotIn("private-loopback", json.dumps(index))
 
+    def test_a_device_specific_source_id_keeps_a_remote_inventory_distinct(self):
+        response = mock.MagicMock()
+        response.read.return_value = b'{"models": [{"name": "qwen2.5-coder:7b", "size": 7}]}'
+        response.__enter__.return_value = response
+
+        with mock.patch.object(local_model_index.request, "urlopen", return_value=response):
+            index = local_model_index.ollama_inventory(source_id="ollama-desktop")
+
+        self.assertEqual(index["sources"][0]["id"], "ollama-desktop")
+        self.assertEqual(index["items"][1]["provenance"], "ollama-desktop:models/qwen2.5-coder:7b")
+
 
 if __name__ == "__main__":
     unittest.main()

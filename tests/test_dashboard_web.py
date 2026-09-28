@@ -226,6 +226,9 @@ class WebSerializationTests(unittest.TestCase):
         self.assertEqual(scene["clusters"][0]["state"], "pending")
         self.assertEqual(scene["ambient"]["node_count"], 0)
 
+    def test_device_specific_ollama_sources_merge_into_the_local_model_region(self):
+        self.assertEqual(web._source_region_id("ollama-desktop"), "ollama")
+
     def test_source_registry_adds_pending_sources_without_exposing_configuration_labels(self):
         sources = web._merge_declared_sources(
             [{"id": "drive", "label": "untrusted local account label", "node_count": 4, "authorized": True}],
