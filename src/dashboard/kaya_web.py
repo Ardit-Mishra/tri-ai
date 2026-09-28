@@ -403,7 +403,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .rail-head { align-items:center; display:flex; font-size:9px; font-weight:720; justify-content:space-between; letter-spacing:.1em; text-transform:uppercase; }
     .rail-head b { color:var(--cyan); font-size:8px; font-weight:720; }
     .source-cluster { align-items:flex-start; display:flex; gap:9px; margin-top:15px; }
-    .source-dot { background:var(--cyan); box-shadow:0 0 0 4px color-mix(in srgb,var(--cyan) 10%,transparent); flex:0 0 auto; height:6px; margin-top:5px; width:6px; }
+    .source-dot { background:var(--source-color,var(--cyan)); box-shadow:0 0 0 4px color-mix(in srgb,var(--source-color,var(--cyan)) 12%,transparent); flex:0 0 auto; height:7px; margin-top:5px; width:7px; }
     .source-cluster b { color:var(--text); display:block; font-size:11px; font-weight:680; line-height:1.2; }
     .source-cluster small { color:var(--muted); display:block; font-size:9px; line-height:1.35; margin-top:3px; }
     .rail-rule { border-top:1px solid var(--line); margin:24px 0 16px; }
@@ -1410,6 +1410,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
     byId('sheetHandle').addEventListener('click',()=>openSheet(!byId('hudAside').classList.contains('open')));
     window.addEventListener('resize',drawGraph); requestAnimationFrame(advanceGraph);
     const demoMode=new URLSearchParams(window.location.search).get('demo')==='1';
+    // Kept in sync with tri_space.js: the source rail is a readable legend
+    // for the same stable regions rendered in the private neural field.
+    const SOURCE_REGION_CSS=Object.freeze({drive:'#42d7c7',desktop:'#5ba7ff',laptop:'#b493ff',phone:'#ff8c78',omniroute:'#f7c85c',freellmapi:'#f7c85c',ollama:'#72d989',obsidian:'#a78bfa',github:'#cbd5e1',deploys:'#71c99a',sessions:'#9ca3af',default:'#7f9690'});
+    function sourceColorFor(sourceId){const source=String(sourceId||'').toLowerCase();if(source.startsWith('drive'))return SOURCE_REGION_CSS.drive;if(source.startsWith('desktop'))return SOURCE_REGION_CSS.desktop;if(source.startsWith('laptop'))return SOURCE_REGION_CSS.laptop;if(source.startsWith('phone'))return SOURCE_REGION_CSS.phone;if(source.includes('omniroute'))return SOURCE_REGION_CSS.omniroute;if(source.includes('freellmapi'))return SOURCE_REGION_CSS.freellmapi;if(source.includes('ollama'))return SOURCE_REGION_CSS.ollama;if(source.startsWith('obsidian'))return SOURCE_REGION_CSS.obsidian;if(source.startsWith('github'))return SOURCE_REGION_CSS.github;if(source.startsWith('deploy'))return SOURCE_REGION_CSS.deploys;if(source.startsWith('session'))return SOURCE_REGION_CSS.sessions;return SOURCE_REGION_CSS.default;}
     function renderSourceIndex(fileGraph) {
       const root=byId('sourceIndex'); if(!root)return; clear(root);
       const descriptions={'laptop-desktop':'this machine',laptop:'remote machine',drive:'Google Drive metadata',github:'repositories',obsidian:'notes and graph',sessions:'authorized exports',deploys:'deployment records'};
@@ -1420,7 +1424,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
         const detail=make('div','');
         const sourceDetail=source.id==='desktop'?(source.node_count>0?'Desktop metadata':'awaiting private index'):(descriptions[source.id]||source.status||'authorized metadata');
         detail.append(make('b',source.label||source.id),make('small',sourceDetail));
-        row.append(make('span','','source-dot'),detail,make('span',String(source.node_count??0),'source-count'));
+        const dot=make('span','','source-dot');dot.style.setProperty('--source-color',sourceColorFor(source.id));dot.setAttribute('aria-hidden','true');
+        row.append(dot,detail,make('span',String(source.node_count??0),'source-count'));
         root.append(row);
       });
     }

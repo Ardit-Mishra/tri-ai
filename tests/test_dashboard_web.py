@@ -268,6 +268,12 @@ class WebSerializationTests(unittest.TestCase):
         self.assertIn("Desktop metadata", page)
         self.assertIn("awaiting private index", page)
 
+    def test_source_rail_uses_the_same_stable_source_color_as_the_neural_field(self):
+        page = web.HTML
+        self.assertIn("SOURCE_REGION_CSS", page)
+        self.assertIn("--source-color", page)
+        self.assertIn("sourceColorFor(source.id)", page)
+
     def test_private_graph_refreshes_when_the_registry_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             source_root = Path(temporary)

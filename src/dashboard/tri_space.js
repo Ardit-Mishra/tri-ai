@@ -45,6 +45,45 @@ const MEMBRANE_DETAIL = 3;
 const MOBILE_FILE_POINT_BUDGET = 26000;
 const DESKTOP_FILE_POINT_BUDGET = 48000;
 
+// A source's hue is provenance, not decoration. Keep it fixed across
+// snapshots so the operator learns the field: Drive is teal, Desktop is blue,
+// Laptop is lavender, Phone is coral, free routes are gold, and local compute
+// is green. Unknown future sources remain deliberately neutral.
+const SOURCE_REGION_PALETTE = Object.freeze({
+  drive: 0x42d7c7,
+  desktop: 0x5ba7ff,
+  laptop: 0xb493ff,
+  phone: 0xff8c78,
+  omniroute: 0xf7c85c,
+  freellmapi: 0xf7c85c,
+  ollama: 0x72d989,
+  obsidian: 0xa78bfa,
+  github: 0xcbd5e1,
+  deploys: 0x71c99a,
+  sessions: 0x9ca3af,
+  default: 0x7f9690,
+});
+
+function sourceRegionKey(sourceId) {
+  const source = String(sourceId || "").toLowerCase();
+  if (source.startsWith("drive")) return "drive";
+  if (source.startsWith("desktop")) return "desktop";
+  if (source.startsWith("laptop")) return "laptop";
+  if (source.startsWith("phone")) return "phone";
+  if (source.includes("omniroute")) return "omniroute";
+  if (source.includes("freellmapi")) return "freellmapi";
+  if (source.includes("ollama")) return "ollama";
+  if (source.startsWith("obsidian")) return "obsidian";
+  if (source.startsWith("github")) return "github";
+  if (source.startsWith("deploy")) return "deploys";
+  if (source.startsWith("session")) return "sessions";
+  return "default";
+}
+
+function sourceColorFor(sourceId) {
+  return SOURCE_REGION_PALETTE[sourceRegionKey(sourceId)] || SOURCE_REGION_PALETTE.default;
+}
+
 function isCompactViewport() {
   return window.matchMedia(
     "(max-width: 760px), (pointer: coarse) and (orientation: portrait)",
@@ -400,24 +439,25 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     }
 
     function filePosition(item, index, total, sourceOrder) {
+      const sourceRegionIndex = Math.max(0, sourceOrder.indexOf(item.source));
+      const sourceCount = Math.max(1, sourceOrder.length);
+      const sourceRegionAngle = (sourceRegionIndex / sourceCount) * Math.PI * 2;
       if (String(item.id).startsWith("ambient:")) {
-        // The private scene carries counts rather than file metadata. Spread
-        // the representative points over both lobes with a Fibonacci field:
-        // source colours still reveal origin, but one very large source can
-        // no longer fill a single screen-facing wedge into a bright wall.
-        const y = 1 - 2 * ((index + 0.5) / Math.max(total, 1));
+        // Preserve the dense organ while giving each authorized source a
+        // spatial territory. The field stays a GPU point cloud, but color and
+        // topology now agree: a blue Desktop region cannot drift into teal
+        // Drive territory simply because a snapshot changed source order.
+        const local = hashUnit(`${item.id}:local`);
+        const y = Math.max(-0.94, Math.min(0.94, local * 1.88 - 0.94));
         const radial = Math.sqrt(Math.max(0.08, 1 - y * y));
-        const angle = index * 2.399963229728653 + hashUnit(`${item.id}:phase`) * 0.36;
+        const angle = sourceRegionAngle + (hashUnit(`${item.id}:phase`) - 0.5) * 1.3;
         const unit = new THREE.Vector3(Math.cos(angle) * radial, y, Math.sin(angle) * radial);
         const depth = 1.2 + Math.pow(hashUnit(`${item.id}:depth`), 0.62) * 4.75;
         return brainShape(unit).multiplyScalar(depth);
       }
-      const sourceIndex = Math.max(0, sourceOrder.indexOf(item.source));
-      const sourceCount = Math.max(1, sourceOrder.length);
-      const sourceAngle = (sourceIndex / sourceCount) * Math.PI * 2;
       const seed = hashUnit(item.id);
       const secondary = hashUnit(`${item.source}:${item.label}`);
-      const angle = sourceAngle + (seed - 0.5) * 1.72 + index * 0.017;
+      const angle = sourceRegionAngle + (seed - 0.5) * 1.72 + index * 0.017;
       const y = Math.max(-0.96, Math.min(0.96, secondary * 1.92 - 0.96));
       const radial = Math.sqrt(Math.max(0.08, 1 - y * y));
       const unit = new THREE.Vector3(Math.cos(angle) * radial, y, Math.sin(angle) * radial);
@@ -434,7 +474,8 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     function buildFileClusters(fileGraph, sourceOrder) {
       const clusters = Array.isArray(fileGraph?.clusters) ? fileGraph.clusters : [];
       clusters.forEach((cluster, index) => {
-        const angle = (index / Math.max(1, clusters.length)) * Math.PI * 2;
+        const sourceRegionIndex = Math.max(0, sourceOrder.indexOf(cluster.source));
+        const angle = (sourceRegionIndex / Math.max(1, sourceOrder.length || clusters.length)) * Math.PI * 2;
         const unit = new THREE.Vector3(Math.cos(angle), 0.18 + (index % 2) * 0.14, Math.sin(angle)).normalize();
         const node = fileNode({
           id: cluster.id, label: cluster.label, kind: "cluster", source: cluster.source,
@@ -443,8 +484,8 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         if (!node) return;
         const pending = cluster.state === "pending";
         const material = new THREE.MeshStandardMaterial({
-          color: pending ? 0xffb703 : nodeColor({ kind: "brain" }),
-          emissive: pending ? 0xffb703 : 0x63d9b6,
+          color: pending ? 0xffb703 : sourceColorFor(cluster.source),
+          emissive: pending ? 0xffb703 : sourceColorFor(cluster.source),
           emissiveIntensity: pending ? 0.38 : 0.9,
           metalness: 0.12, roughness: 0.32, transparent: true, opacity: pending ? 0.56 : 0.98,
         });
@@ -477,7 +518,6 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const sourceOrder = (fileGraph.sources || []).map((source) => source.id);
       const positions = new Float32Array(renderedPointCount * 3);
       const colors = new Float32Array(renderedPointCount * 3);
-      const sourceColors = [0x54d7ae, 0x7ce8c5, 0x48b996, 0x9af3d5, 0x3f9f83, 0x6cd9b8, 0xb1f7df];
       const folder = new THREE.Color(0xe7f8ef);
       const sourceRanges = [];
       let rangeEnd = 0;
@@ -502,8 +542,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         const position = filePosition(item, index, total, sourceOrder);
         if (visualItems) filePositions.set(item.id, position);
         positions.set([position.x, position.y, position.z], renderIndex * 3);
-        const sourceIndex = Math.max(0, sourceOrder.indexOf(item.source));
-        const color = item.kind === "folder" && !ambientSources ? folder : new THREE.Color(sourceColors[sourceIndex % sourceColors.length]);
+        const color = item.kind === "folder" && !ambientSources ? folder : new THREE.Color(sourceColorFor(item.source));
         colors.set([color.r, color.g, color.b], renderIndex * 3);
       }
       const geometry = new THREE.BufferGeometry();

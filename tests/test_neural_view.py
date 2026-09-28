@@ -96,6 +96,25 @@ class BrainShapeTest(_Source):
         self.assertIn("GYRI", self.source)
 
 
+class SourceRegionColorTest(_Source):
+    def test_private_sources_have_stable_semantic_regions(self):
+        """The neural field is an atlas: a source's color cannot change just
+        because a different source was indexed first."""
+        self.assertIn("SOURCE_REGION_PALETTE", self.source)
+        self.assertIn('drive: 0x', self.source)
+        self.assertIn('desktop: 0x', self.source)
+        self.assertIn('laptop: 0x', self.source)
+        self.assertIn('phone: 0x', self.source)
+        self.assertIn('omniroute: 0x', self.source)
+        self.assertIn('freellmapi: 0x', self.source)
+        self.assertIn('ollama: 0x', self.source)
+
+    def test_file_density_uses_source_regions_for_position_and_color(self):
+        self.assertIn("function sourceColorFor", self.source)
+        self.assertIn("sourceRegionIndex", self.source)
+        self.assertIn("sourceRegionAngle", self.source)
+
+
 class SynapseTest(_Source):
     def test_nodes_are_wired_to_their_nearest_neighbours(self):
         """Real task edges are sparse - most nodes would sit unconnected, and
