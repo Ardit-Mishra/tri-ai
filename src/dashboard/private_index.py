@@ -8,7 +8,7 @@ import os
 import re
 import stat
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
@@ -46,11 +46,25 @@ def _is_reparse(stat_result: os.stat_result) -> bool:
 
 
 def scan_authorized_roots(
-    roots: Mapping[str, str | os.PathLike[str]],
+    roots: Mapping[str, str | os.PathLike[str]], *,
+    excluded_directory_names: Collection[str] = (),
 ) -> dict[str, object]:
-    """Recursively index metadata beneath explicitly supplied local roots."""
+    """Recursively index metadata beneath explicitly supplied local roots.
+
+    Exclusions are directory basenames, not paths. That keeps a reusable
+    desktop-profile recipe from embedding machine-specific locations while
+    allowing application state and credentials to remain outside the index.
+    """
     if not isinstance(roots, Mapping):
         raise TypeError("roots must map public source labels to local paths")
+    excluded_names: set[str] = set()
+    for name in excluded_directory_names:
+        if not isinstance(name, str) or not name.strip() or name.strip() in {".", ".."}:
+            raise ValueError("excluded directory names must be non-empty names")
+        normalized = name.strip()
+        if "/" in normalized or "\\" in normalized:
+            raise ValueError("excluded directory names must not contain paths")
+        excluded_names.add(normalized.casefold())
 
     items: list[dict[str, object]] = []
     sources: list[dict[str, object]] = []
@@ -89,6 +103,9 @@ def scan_authorized_roots(
             if stat.S_ISLNK(metadata.st_mode) or _is_reparse(metadata):
                 if relative_path == ".":
                     diagnostics.append(f"{label}: root is a link or reparse point")
+                return
+
+            if relative_path != "." and path.name.casefold() in excluded_names:
                 return
 
             if stat.S_ISDIR(metadata.st_mode):

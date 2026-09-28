@@ -142,6 +142,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     let dynamicMaterials = [];
     let synapses = null;
     let synapseSegments = [];
+    let semanticSynapseSegments = [];
     let signals = null;
     let signalState = [];
     let fileCloud = null;
@@ -279,6 +280,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       dynamicMaterials = [];
       synapses = null;
       synapseSegments = [];
+      semanticSynapseSegments = [];
       signals = null;
       signalState = [];
       fileCloud = null;
@@ -348,6 +350,17 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(20));
       const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity });
       topology.add(new THREE.Line(geometry, material));
+    }
+
+    // A route is an actual data or control relationship. It has its own
+    // signal pool, so the visible packets demonstrate Tri-AI's operating path
+    // rather than treating every nearest-neighbour line as equally meaningful.
+    function addSemanticRoute(sourceId, targetId, color, opacity) {
+      const source = meshById.get(sourceId);
+      const target = meshById.get(targetId);
+      if (!source || !target) return;
+      addEdge(sourceId, targetId, color, opacity);
+      semanticSynapseSegments.push([source.position.clone(), target.position.clone()]);
     }
 
     /* Nearest-neighbour wiring. The board's real edges are sparse - most tasks
@@ -623,7 +636,12 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     }
 
     function spawnSignal() {
-      const segment = synapseSegments[Math.floor(Math.random() * synapseSegments.length)];
+      // Most packets travel provenance and execution routes. A small portion
+      // still crosses the local neural tissue so the cortex remains a living
+      // field rather than an animated flowchart.
+      const preferred = semanticSynapseSegments.length ? semanticSynapseSegments : synapseSegments;
+      const pool = Math.random() < 0.84 ? preferred : synapseSegments;
+      const segment = pool[Math.floor(Math.random() * pool.length)];
       return { from: segment[0], to: segment[1], t: Math.random(), speed: 0.25 + Math.random() * 0.5 };
     }
 
@@ -690,9 +708,11 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       buildSynapses();
       buildFileUniverse(data.file_graph);
       buildArchitectureBeacons();
-      buildSignals();
-      const route = (source, target, color = 0x63d9b6, opacity = 0.5) => addEdge(source, target, color, opacity);
-      ["obsidian", "drive", "github", "deploys", "sessions", "ingress"].forEach(source => route(`system:${source}`, "system:planner", 0x3b7f6a, 0.34));
+      const route = (source, target, color = 0x63d9b6, opacity = 0.5) => addSemanticRoute(source, target, color, opacity);
+      route("system:ingress", "system:planner", 0x3b7f6a, 0.42);
+      ["obsidian", "drive", "github", "deploys", "sessions"].forEach(source => route(`system:${source}`, "system:brain", 0x3b7f6a, 0.34));
+      (data.file_graph?.clusters || []).forEach(cluster => route(`file:cluster:${cluster.source}`, "system:brain", 0x54d7ae, 0.26));
+      route("system:brain", "system:planner", 0xa78bfa, 0.56);
       ["claude", "codex", "omniroute", "freellmapi", "ollama"].forEach(model => route("system:planner", `system:model:${model}`, 0x63d9b6, 0.42));
       route("system:model:claude", "system:research", 0x63d9b6, 0.54);
       route("system:model:codex", "system:design", 0x7bbde5, 0.54);
@@ -703,9 +723,10 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       ["research", "design", "build"].forEach(worker => route(`system:${worker}`, "system:verify", 0xe9b86d, 0.58));
       route("system:verify", "system:brain", 0x63d9b6, 0.58);
       route("system:brain", "system:approval", 0xef9a86, 0.6);
-      data.edges.forEach((edge) => addEdge(`task:${edge.parent_id}`, `task:${edge.child_id}`, 0x00f0ff, 0.36));
-      data.rule_task_links.forEach((edge) => addEdge(`rule:${edge.proposal_id}`, `task:${edge.task_id}`, 0xffb703, 0.48));
-      (data.brain?.edges || []).forEach((edge) => addEdge(`brain:${edge.source_id}`, `brain:${edge.target_id}`, 0xa78bfa, 0.34));
+      data.edges.forEach((edge) => route(`task:${edge.parent_id}`, `task:${edge.child_id}`, 0x00f0ff, 0.36));
+      data.rule_task_links.forEach((edge) => route(`rule:${edge.proposal_id}`, `task:${edge.task_id}`, 0xffb703, 0.48));
+      (data.brain?.edges || []).forEach((edge) => route(`brain:${edge.source_id}`, `brain:${edge.target_id}`, 0xa78bfa, 0.34));
+      buildSignals();
       core.scale.setScalar(1 + Math.min(visualFileNodeCount, 800) / 2400);
       root.dataset.nodes = String(nodes.length + visualFileNodeCount);
     }

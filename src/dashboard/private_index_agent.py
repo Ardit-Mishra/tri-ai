@@ -43,6 +43,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--watch-seconds", type=int, metavar="SECONDS",
         help="Rebuild the private index repeatedly. Omit for one metadata-only pass.",
     )
+    parser.add_argument(
+        "--exclude-directory", action="append", default=[], metavar="NAME",
+        help="Directory basename to skip anywhere below an approved root. Repeat as needed.",
+    )
     return parser
 
 
@@ -53,7 +57,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     output = Path(args.output)
     roots = _root_mapping(args.root)
     while True:
-        payload = private_index.scan_authorized_roots(roots)
+        payload = private_index.scan_authorized_roots(
+            roots, excluded_directory_names=set(args.exclude_directory),
+        )
         private_index.write_private_index_atomic(output, payload)
         private_index.write_private_index_summary_atomic(output, payload)
         if args.watch_seconds is None:

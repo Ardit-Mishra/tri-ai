@@ -107,11 +107,34 @@ class SynapseTest(_Source):
         phone, every frame."""
         self.assertIn("LineSegments", self.source)
 
+    def test_firing_prefers_semantic_routes_over_decorative_neighbours(self):
+        """The visible activity must follow the actual operating path, not
+        mostly arbitrary geometric proximity."""
+        self.assertIn("semanticSynapseSegments", self.source)
+        self.assertIn("function addSemanticRoute", self.source)
+        self.assertIn("const preferred = semanticSynapseSegments", self.source)
+
+    def test_private_source_clusters_join_the_retained_brain(self):
+        """A source cluster is provenance entering memory, not a floating
+        decoration disconnected from the agent's evidence flow."""
+        self.assertIn('route(`file:cluster:${cluster.source}`, "system:brain"', self.source)
+        self.assertIn('route("system:brain", "system:planner"', self.source)
+
 
 class FiringTest(_Source):
     def test_signals_travel_along_the_synapses(self):
         self.assertIn("signals", self.source)
         self.assertIn("advanceSignals", self.source)
+
+    def test_signals_are_created_after_the_real_routes_exist(self):
+        self.assertGreater(
+            self.source.index('route("system:brain", "system:planner"'),
+            self.source.index("buildFileUniverse(data.file_graph)"),
+        )
+        self.assertGreater(
+            self.source.index("buildSignals();"),
+            self.source.index('route("system:brain", "system:planner"'),
+        )
 
     def test_firing_stops_when_motion_is_paused(self):
         """The pause control has to mean it, or it is decoration."""

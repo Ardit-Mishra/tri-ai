@@ -47,6 +47,25 @@ class PrivateIndexAgentTests(unittest.TestCase):
 
         self.assertFalse(output.exists())
 
+    def test_agent_passes_protected_directory_exclusions_to_the_indexer(self):
+        output = self.root / "out" / "desktop.json"
+        source = self.root / "profile"
+        source.mkdir()
+        payload = {
+            "status": "unavailable", "synthetic": False, "item_count": 0,
+            "sources": [{"id": "desktop", "label": "Desktop", "node_count": 0, "authorized": True}],
+            "items": [], "diagnostic": "fixture",
+        }
+        with mock.patch.object(private_index_agent.private_index, "scan_authorized_roots", return_value=payload) as scan, \
+             mock.patch.object(private_index_agent.private_index, "write_private_index_atomic"), \
+             mock.patch.object(private_index_agent.private_index, "write_private_index_summary_atomic"):
+            private_index_agent.main([
+                "--output", str(output), "--root", f"Desktop={source}",
+                "--exclude-directory", "AppData", "--exclude-directory", ".ssh",
+            ])
+
+        self.assertEqual(scan.call_args.kwargs["excluded_directory_names"], {"AppData", ".ssh"})
+
     def test_watch_mode_reindexes_after_each_requested_interval(self):
         output = self.root / "private" / "index.json"
         source = self.root / "source"

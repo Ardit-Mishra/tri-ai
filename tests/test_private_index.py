@@ -98,6 +98,23 @@ class PrivateIndexTests(unittest.TestCase):
         self.assertEqual([item["relative_path"] for item in graph["items"]], ["."])
         self.assertNotIn("outside.txt", json.dumps(graph))
 
+    def test_scan_skips_explicitly_excluded_directory_names(self):
+        root = self.root / "profile"
+        protected = root / "AppData"
+        project = root / "projects"
+        protected.mkdir(parents=True)
+        project.mkdir()
+        (protected / "credentials.txt").write_text("do not index", encoding="utf-8")
+        (project / "readme.md").write_text("safe metadata", encoding="utf-8")
+
+        graph = private_index.scan_authorized_roots(
+            {"Desktop Profile": root}, excluded_directory_names={"AppData"},
+        )
+
+        paths = {item["relative_path"] for item in graph["items"]}
+        self.assertEqual(paths, {".", "projects", "projects/readme.md"})
+        self.assertNotIn("credentials.txt", json.dumps(graph))
+
     def test_nonexistent_and_unreadable_roots_are_reported_without_path_leaks(self):
         missing = self.root / "private" / "missing"
         denied = self.root / "private" / "denied"
