@@ -13,6 +13,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from dashboard import private_index_agent  # noqa: E402
+from memory import brain  # noqa: E402
 
 
 class PrivateIndexAgentTests(unittest.TestCase):
@@ -65,6 +66,30 @@ class PrivateIndexAgentTests(unittest.TestCase):
             ])
 
         self.assertEqual(scan.call_args.kwargs["excluded_directory_names"], {"AppData", ".ssh"})
+
+    def test_agent_can_record_a_path_free_scan_summary_in_the_local_brain(self):
+        source = self.root / "very-private-source-name"
+        source.mkdir()
+        (source / "private-note.txt").write_text("do not retain this body", encoding="utf-8")
+        output = self.root / "out" / "index.json"
+        brain_path = self.root / "brain" / "brain.db"
+
+        private_index_agent.main([
+            "--output", str(output), "--root", f"Desktop={source}", "--brain", str(brain_path),
+        ])
+
+        memory = brain.connect_read_only(brain_path)
+        try:
+            item = memory.execute("SELECT title, body, metadata_json FROM brain_items").fetchone()
+            self.assertEqual(item["title"], "Cortex index update")
+            self.assertIn("1 authorized source", item["body"])
+            self.assertIn("2 indexed nodes", item["body"])
+            self.assertNotIn(str(source), item["body"])
+            self.assertNotIn("very-private-source-name", item["body"])
+            self.assertNotIn("private-note.txt", item["body"])
+            self.assertNotIn("very-private-source-name", item["metadata_json"])
+        finally:
+            memory.close()
 
     def test_watch_mode_reindexes_after_each_requested_interval(self):
         output = self.root / "private" / "index.json"

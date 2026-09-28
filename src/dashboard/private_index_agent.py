@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import private_index
+from memory import brain
 
 
 def _root_mapping(values: Sequence[str]) -> dict[str, str]:
@@ -47,7 +48,46 @@ def build_parser() -> argparse.ArgumentParser:
         "--exclude-directory", action="append", default=[], metavar="NAME",
         help="Directory basename to skip anywhere below an approved root. Repeat as needed.",
     )
+    parser.add_argument(
+        "--brain", metavar="PATH",
+        help="Optional local Brain database for path-free scan summaries.",
+    )
     return parser
+
+
+def _record_brain_summary(path: Path, payload: dict[str, object]) -> None:
+    """Capture a scan fact without retaining local source metadata.
+
+    The file graph remains the only index that can hold private file metadata.
+    Brain receives a compact operational fact that makes source refreshes
+    inspectable alongside task history without copying labels, paths, or names.
+    """
+    source_count = len(payload["sources"])
+    node_count = int(payload["item_count"])
+    status = str(payload["status"])
+    body = (
+        f"Cortex completed a metadata-only scan of {source_count} authorized "
+        f"source{'s' if source_count != 1 else ''}: {node_count} indexed "
+        f"node{'s' if node_count != 1 else ''}; status {status}."
+    )
+    memory = brain.connect(path)
+    try:
+        brain.capture(
+            memory,
+            body,
+            title="Cortex index update",
+            kind="source-index",
+            source="cortex-indexer",
+            project="tri-ai",
+            metadata={
+                "schema": "triai.cortex-index-summary.v1",
+                "source_count": source_count,
+                "node_count": node_count,
+                "status": status,
+            },
+        )
+    finally:
+        memory.close()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -62,6 +102,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         private_index.write_private_index_atomic(output, payload)
         private_index.write_private_index_summary_atomic(output, payload)
+        if args.brain:
+            _record_brain_summary(Path(args.brain), payload)
         if args.watch_seconds is None:
             break
         time.sleep(args.watch_seconds)
