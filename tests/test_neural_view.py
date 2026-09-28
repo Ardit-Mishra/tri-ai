@@ -181,6 +181,12 @@ class FiringTest(_Source):
 
 
 class ArchitectureTopologyTest(_Source):
+    def test_hydrated_private_scene_forces_a_rebuild_after_its_summary(self):
+        """The initial SSE payload is intentionally metadata-light. When the
+        bounded scene arrives with the same revision, its density still has to
+        replace the empty summary render."""
+        self.assertIn("fileSceneMode: data.file_graph?.ambient?.mode", self.source)
+
     def test_private_scene_generates_dense_points_from_counts_without_file_metadata(self):
         """A large private index must not be downloaded to render its density."""
         self.assertIn("procedural-source-density", self.source)

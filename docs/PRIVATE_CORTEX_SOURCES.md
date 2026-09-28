@@ -63,13 +63,16 @@ python -m dashboard.private_index_agent `
   --root "Documents=C:\Users\you\Documents"
 ```
 
-For an always-updating index on that same device, use the PowerShell wrapper:
+For an always-updating small source on that same device, use the PowerShell
+wrapper. Large profile or application sources should use a much slower cadence
+or an operating-system scheduled task; a five-minute full walk is not an
+incremental watcher.
 
 ```powershell
 .\scripts\watch_private_cortex_source.ps1 `
   -OutputName desktop.json `
   -Root "Desktop=C:\Users\you\Desktop","Documents=C:\Users\you\Documents" `
-  -EverySeconds 300
+  -EverySeconds 21600
 ```
 
 The resulting JSON has stable opaque item IDs, relative paths, size, modified
@@ -79,18 +82,21 @@ to the public repository.
 
 ## Indexing a desktop profile
 
-For a fuller machine map, authorize the user profile as one Desktop region and
-explicitly exclude application state, credentials, and generated dependency
-trees. The exclusion switch matches directory names anywhere below the approved
-root, not an absolute path. Adjust the list to fit the machine, but keep secret
-and runtime state out of an index that may later be transported between your
-own devices.
+For a fuller machine map, authorize the user profile and the application
+configuration roots as one Desktop region. The profile pass skips `AppData` so
+it is not duplicated; the application passes retain useful project and tool
+metadata while excluding caches, sessions, and credential stores. The exclusion
+switch matches directory names anywhere below an approved root, not an absolute
+path. Adjust the list to fit the machine, but keep secret and runtime state out
+of an index that may later be transported between your own devices.
 
 ```powershell
 $env:PYTHONPATH = "C:\path\to\tri-ai\src"
 python -m dashboard.private_index_agent `
   --output "$HOME\.tri-ai\private-sources\desktop.json" `
   --root "desktop-profile=$HOME" `
+  --root "desktop-local-apps=$env:LOCALAPPDATA" `
+  --root "desktop-roaming-apps=$env:APPDATA" `
   --exclude-directory AppData `
   --exclude-directory .ssh `
   --exclude-directory .aws `
@@ -100,13 +106,22 @@ python -m dashboard.private_index_agent `
   --exclude-directory .codex `
   --exclude-directory .claude `
   --exclude-directory node_modules `
-  --exclude-directory .git
+  --exclude-directory .git `
+  --exclude-directory Temp `
+  --exclude-directory Cache `
+  --exclude-directory "Code Cache" `
+  --exclude-directory GPUCache `
+  --exclude-directory CrashDumps `
+  --exclude-directory Cookies `
+  --exclude-directory Credentials `
+  --exclude-directory TokenBroker `
+  --exclude-directory Vault
 ```
 
-This produces one dense Desktop cluster. Cortex keeps the individual entries
-inside the private index, renders a bounded representative field, and only
-exposes aggregate source information until a future authenticated expansion is
-implemented.
+This produces one dense Desktop cluster from several privately indexed roots.
+Cortex keeps the individual entries inside the private index, renders a
+bounded representative field, and only exposes aggregate source information
+until a future authenticated expansion is implemented.
 
 ## Transport and access
 

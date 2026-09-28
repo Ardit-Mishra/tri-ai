@@ -746,6 +746,10 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       snapshot = data;
       const renderSignature = JSON.stringify({
         fileRevision: data.file_graph?.revision || `${data.file_graph?.item_count || 0}:${data.file_graph?.synthetic || false}`,
+        // A summary and its hydrated private scene deliberately share a
+        // revision. They are not interchangeable render inputs: only the
+        // scene carries the bounded density contract.
+        fileSceneMode: data.file_graph?.ambient?.mode || "summary",
         lane: root.dataset.activeLane || "claude",
         tasks: data.tasks.map((task) => [task.id, task.status]),
         rules: data.rules.map((rule) => rule.proposal_id),
