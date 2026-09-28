@@ -44,6 +44,12 @@ The dashboard's event stream checks the index signature on each snapshot. A
 source update changes the scene revision automatically; no browser refresh or
 Render deployment is required.
 
+Each full index is accompanied by a small local `.summary.json` sidecar. The
+sidecar contains source IDs, counts, and folder counts only. Cortex uses it to
+start a large private field quickly without reading file names, paths, or file
+contents into the dashboard process. The source agent writes the matching
+sidecar automatically after every successful index rebuild.
+
 ## Indexing one device
 
 On the device that owns the folders, run the source agent with only the roots
@@ -70,6 +76,37 @@ The resulting JSON has stable opaque item IDs, relative paths, size, modified
 time, kind, and source provenance. It does not contain file contents or local
 absolute paths. It is private operational metadata and must never be committed
 to the public repository.
+
+## Indexing a desktop profile
+
+For a fuller machine map, authorize the user profile as one Desktop region and
+explicitly exclude application state, credentials, and generated dependency
+trees. The exclusion switch matches directory names anywhere below the approved
+root, not an absolute path. Adjust the list to fit the machine, but keep secret
+and runtime state out of an index that may later be transported between your
+own devices.
+
+```powershell
+$env:PYTHONPATH = "C:\path\to\tri-ai\src"
+python -m dashboard.private_index_agent `
+  --output "$HOME\.tri-ai\private-sources\desktop.json" `
+  --root "desktop-profile=$HOME" `
+  --exclude-directory AppData `
+  --exclude-directory .ssh `
+  --exclude-directory .aws `
+  --exclude-directory .azure `
+  --exclude-directory .gnupg `
+  --exclude-directory .tri-ai `
+  --exclude-directory .codex `
+  --exclude-directory .claude `
+  --exclude-directory node_modules `
+  --exclude-directory .git
+```
+
+This produces one dense Desktop cluster. Cortex keeps the individual entries
+inside the private index, renders a bounded representative field, and only
+exposes aggregate source information until a future authenticated expansion is
+implemented.
 
 ## Transport and access
 
