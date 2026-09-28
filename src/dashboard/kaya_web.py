@@ -2514,7 +2514,8 @@ def _login_page(*, failed: bool = False) -> bytes:
  body {{ margin:0; min-height:100vh; display:grid; place-items:center;
    background:#07090d; color:#dfe6f0;
    font:16px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif; }}
- form {{ width:min(360px,88vw); display:grid; gap:14px; padding:28px;
+ form {{ width:min(360px,88vw); box-sizing:border-box;
+   display:grid; gap:14px; padding:28px;
    border:1px solid #1b2430; border-radius:14px; background:#0c1016; }}
  h1 {{ margin:0; font-size:15px; letter-spacing:.22em; text-transform:uppercase;
    color:#6ee7d5; font-weight:600; }}

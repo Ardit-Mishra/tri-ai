@@ -175,6 +175,14 @@ class LoginSurfaceTest(_ServerCase):
         with request.urlopen(base + "/api/snapshot", timeout=3) as response:
             self.assertEqual(response.status, 200)
 
+    def test_the_card_does_not_overflow_a_phone_screen(self):
+        """The form's padding sat outside its width, so the card ran off the
+        right edge of a 375px screen - on the one device this page exists
+        for. Seen in a browser at phone width, not by a test."""
+        page = kaya_web._login_page().decode("utf-8")
+        form = page.split("form {")[1].split("}")[0]
+        self.assertIn("box-sizing:border-box", form)
+
     def test_the_cookie_is_httponly_so_a_script_cannot_read_it(self):
         base = self._serve(session_token="s3cret", trust_loopback=False)
         _, headers = self._post_login(base, "s3cret")
