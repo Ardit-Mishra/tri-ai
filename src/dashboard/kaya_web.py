@@ -2238,6 +2238,33 @@ def _handler(
                 trust_loopback=trust_loopback,
             )
 
+        def _send_login(self, *, failed: bool = False) -> None:
+            body = _login_page(failed=failed)
+            self.send_response(401 if failed else 200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _set_session_cookie(self, value: str, *, max_age: int) -> None:
+            secure = ""
+            if str(self.headers.get("X-Forwarded-Proto") or "").lower() == "https":
+                # Tailscale Serve terminates TLS and forwards over plain
+                # loopback. Without this the session key would travel back in
+                # clear text on any later plain-http request to the same host.
+                secure = "; Secure"
+            self.send_header(
+                "Set-Cookie",
+                f"{SESSION_COOKIE}={value}; Path=/; Max-Age={max_age}"
+                f"; HttpOnly; SameSite=Lax{secure}",
+            )
+
+        def _redirect(self, location: str) -> None:
+            self.send_header("Location", location)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
         def _demo_request(self) -> bool:
             return force_demo or self.path.endswith("?demo=1")
 
@@ -2296,7 +2323,58 @@ def _handler(
             self.end_headers()
             self.wfile.write(body)
 
+        def _read_body(self) -> str:
+            """Read the request body, always, before answering anything.
+
+            This connection is HTTP/1.1 with keep-alive. A reply sent while
+            the body is still unread leaves those bytes in the socket, where
+            they are parsed as the start of the next request and the
+            connection is aborted - including on the paths that refuse. The
+            refusal paths are exactly the ones where forgetting is easy.
+            """
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                length = 0
+            return self.rfile.read(
+                max(0, min(length, 4096))).decode("utf-8", "replace")
+
+        def do_POST(self) -> None:
+            body = self._read_body()
+            if self.path not in {"/login", "/logout"}:
+                self.send_error(404, "not found")
+                return
+            if self.path == "/logout":
+                self.send_response(303)
+                self._set_session_cookie("", max_age=0)
+                self._redirect("/login")
+                return
+            secret = str(session_token or "").strip()
+            if not secret:
+                # Fail closed. An unconfigured deployment has no password, so
+                # it must not be handed one by whoever asks first.
+                self.send_error(404, "not found")
+                return
+            presented = _form_field(body, "token").strip()
+            if not presented or not hmac.compare_digest(presented, secret):
+                self._send_login(failed=True)
+                return
+            self.send_response(303)
+            self._set_session_cookie(presented, max_age=SESSION_MAX_AGE)
+            self._redirect("/")
+
         def do_GET(self) -> None:
+            if self.path == "/login":
+                if not str(session_token or "").strip():
+                    self.send_error(404, "not found")
+                    return
+                self._send_login()
+                return
+            if self.path in {"/", "/?demo=1"} and not self._private_allowed():
+                # Show a sealed visitor the door rather than an empty room.
+                self.send_response(303)
+                self._redirect("/login")
+                return
             if self.path in {"/", "/?demo=1"}:
                 body = HTML.encode("utf-8")
                 self.send_response(200)
@@ -2362,6 +2440,101 @@ def _handler(
 LOOPBACK_HOST = "127.0.0.1"
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 SESSION_COOKIE = "kaya_session"
+SESSION_ENV = "KAYA_SESSION_TOKEN"
+SESSION_MAX_AGE = 30 * 24 * 60 * 60
+
+
+def session_config(env) -> tuple[Optional[str], bool]:
+    """Read the session token, and decide whether loopback is still trusted.
+
+    These are one decision, not two. `tailscale serve` proxies the tailnet to
+    `http://127.0.0.1:3026`, so every remote visitor reaches this server from
+    loopback. A deployment that configured a token while still trusting
+    loopback would therefore hand the dashboard to the entire tailnet - which
+    is exactly what the first version of this boundary did, with every test
+    passing. Returning both from one function makes that combination
+    unrepresentable.
+
+    The consequence is deliberate: once a session is required, the operator's
+    own browser logs in too. Local and remote then travel the same path, so
+    no rule can hold on one and not the other.
+
+    The token comes from the environment, never an argument. A command line
+    is readable by any local process - `Get-CimInstance Win32_Process` prints
+    it in full on this machine.
+    """
+    token = str((env or {}).get(SESSION_ENV) or "").strip()
+    if not token:
+        return None, True
+    return token, False
+
+
+def _form_field(body: str, name: str) -> str:
+    """Read one field out of an urlencoded form body.
+
+    Hand-rolled rather than `urllib.parse.parse_qs` because the dashboard's
+    read-only boundary (`test_dashboard_web.WebBoundaryTests`) bans the whole
+    `urllib` package, so that this surface can never acquire outbound network
+    reach. `urllib.parse` would not violate that intent, but an absolute rule
+    cannot be eroded and the decoder is six lines.
+    """
+    for pair in body.split("&"):
+        key, sep, raw = pair.partition("=")
+        if not sep or key != name:
+            continue
+        out = bytearray()
+        chars = raw.replace("+", " ")
+        index = 0
+        while index < len(chars):
+            char = chars[index]
+            if char == "%" and index + 3 <= len(chars):
+                try:
+                    out.append(int(chars[index + 1:index + 3], 16))
+                    index += 3
+                    continue
+                except ValueError:
+                    pass
+            out.extend(char.encode("utf-8"))
+            index += 1
+        return out.decode("utf-8", "replace")
+    return ""
+
+
+def _login_page(*, failed: bool = False) -> bytes:
+    """The one page a sealed visitor may see. It contains no private material."""
+    note = ("<p class=\"err\">That did not match. Try again.</p>"
+            if failed else
+            "<p class=\"hint\">This device is not signed in.</p>")
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kaya</title>
+<style>
+ :root {{ color-scheme: dark; }}
+ body {{ margin:0; min-height:100vh; display:grid; place-items:center;
+   background:#07090d; color:#dfe6f0;
+   font:16px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif; }}
+ form {{ width:min(360px,88vw); display:grid; gap:14px; padding:28px;
+   border:1px solid #1b2430; border-radius:14px; background:#0c1016; }}
+ h1 {{ margin:0; font-size:15px; letter-spacing:.22em; text-transform:uppercase;
+   color:#6ee7d5; font-weight:600; }}
+ p {{ margin:0; font-size:13px; color:#7c8899; }}
+ .err {{ color:#f0a3a3; }}
+ input {{ font:inherit; padding:12px 14px; border-radius:9px;
+   border:1px solid #223042; background:#070a0f; color:#eaf1fa; width:100%;
+   box-sizing:border-box; }}
+ input:focus-visible {{ outline:2px solid #6ee7d5; outline-offset:2px; }}
+ button {{ font:inherit; font-weight:600; padding:12px 14px; border:0;
+   border-radius:9px; background:#6ee7d5; color:#06231f; cursor:pointer; }}
+</style></head><body>
+<form method="post" action="/login">
+ <h1>Kaya</h1>
+ {note}
+ <input type="password" name="token" autocomplete="current-password"
+        autofocus placeholder="Session key" aria-label="Session key">
+ <button type="submit">Unlock</button>
+</form>
+</body></html>""".encode("utf-8")
 
 
 def private_access_allowed(
@@ -2576,6 +2749,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
+    session_token, trust_loopback = session_config(os.environ)
+    if session_token:
+        print(
+            "KAYA requires a session: every caller signs in at /login, "
+            "including this machine",
+            file=sys.stderr,
+        )
     hosts: list[str] = []
     for host in args.hosts or [LOOPBACK_HOST]:
         if host not in hosts:
@@ -2587,7 +2767,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             servers.append(
                 create_server(
                     host=host, port=args.port, allow_non_loopback=args.allow_non_loopback,
-                    demo=args.demo,
+                    demo=args.demo, session_token=session_token,
+                    trust_loopback=trust_loopback,
                 )
             )
             if host != LOOPBACK_HOST and args.demo:
