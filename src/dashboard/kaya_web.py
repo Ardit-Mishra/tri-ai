@@ -1716,6 +1716,8 @@ def _source_region_id(source_id: str) -> str:
     for device in ("desktop", "laptop"):
         if source_id.startswith(f"{device}-"):
             return device
+    if source_id.startswith("ollama-"):
+        return "ollama"
     return source_id
 
 
