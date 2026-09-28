@@ -248,6 +248,25 @@ class WebSerializationTests(unittest.TestCase):
             "id": "laptop", "label": "Laptop", "node_count": 13, "authorized": True,
         }])
 
+    def test_source_registry_groups_multiple_desktop_roots_into_one_visual_region(self):
+        """Desktop roots must not appear as unrelated visual sources."""
+        sources = web._merge_declared_sources(
+            [
+                {"id": "desktop-desktop", "label": "Desktop", "node_count": 4, "authorized": True},
+                {"id": "desktop-documents", "label": "Documents", "node_count": 9, "authorized": True},
+            ],
+            ["desktop"],
+        )
+
+        self.assertEqual(sources, [{
+            "id": "desktop", "label": "Desktop", "node_count": 13, "authorized": True,
+        }])
+
+    def test_source_rail_describes_indexed_desktop_metadata_truthfully(self):
+        page = web.HTML
+        self.assertIn("Desktop metadata", page)
+        self.assertIn("awaiting private index", page)
+
     def test_private_graph_refreshes_when_the_registry_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             source_root = Path(temporary)

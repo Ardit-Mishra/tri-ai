@@ -1412,13 +1412,14 @@ _HTML_TEMPLATE = r"""<!doctype html>
     const demoMode=new URLSearchParams(window.location.search).get('demo')==='1';
     function renderSourceIndex(fileGraph) {
       const root=byId('sourceIndex'); if(!root)return; clear(root);
-      const descriptions={desktop:'remote index pending','laptop-desktop':'this machine',laptop:'remote machine',drive:'Google Drive metadata',github:'repositories',obsidian:'notes and graph',sessions:'authorized exports',deploys:'deployment records'};
+      const descriptions={'laptop-desktop':'this machine',laptop:'remote machine',drive:'Google Drive metadata',github:'repositories',obsidian:'notes and graph',sessions:'authorized exports',deploys:'deployment records'};
       const sources=Array.isArray(fileGraph?.sources)?fileGraph.sources:[];
       if(!sources.length){root.append(make('p',fileGraph?.diagnostic||'No private source index attached.','rail-copy'));return;}
       sources.forEach(source=>{
         const row=make('div','','source-cluster');
         const detail=make('div','');
-        detail.append(make('b',source.label||source.id),make('small',descriptions[source.id]||source.status||'authorized metadata'));
+        const sourceDetail=source.id==='desktop'?(source.node_count>0?'Desktop metadata':'awaiting private index'):(descriptions[source.id]||source.status||'authorized metadata');
+        detail.append(make('b',source.label||source.id),make('small',sourceDetail));
         row.append(make('span','','source-dot'),detail,make('span',String(source.node_count??0),'source-count'));
         root.append(row);
       });
@@ -1668,8 +1669,9 @@ def _source_region_id(source_id: str) -> str:
     """Fold technical root identifiers into the operator's source regions."""
     if source_id == "google-drive":
         return "drive"
-    if source_id.startswith("laptop-"):
-        return "laptop"
+    for device in ("desktop", "laptop"):
+        if source_id.startswith(f"{device}-"):
+            return device
     return source_id
 
 
