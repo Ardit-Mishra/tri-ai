@@ -132,7 +132,7 @@ if __name__ == "__main__":
 class FourXXClassificationTest(unittest.TestCase):
     """Not every 4xx is permanent, and two of them are the opposite.
 
-    Observed on DESKTOP-JHQ7HJM on 2026-09-25: the daemon exited on HTTP 409
+    Observed on the always-on desktop on 2026-09-25: the daemon exited on 409
     and the supervisor restarted it eight times in a row. 409 means another
     getUpdates is already polling that bot - which is exactly what happens when
     a second machine, or a stale process, holds the slot. It clears the moment

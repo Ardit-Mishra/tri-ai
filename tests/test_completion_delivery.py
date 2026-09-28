@@ -214,8 +214,8 @@ class CompletionCardTests(unittest.TestCase):
         self.assertIn("diwali.html (11.5 KB)", text)
 
     def test_card_links_artifacts_when_a_dashboard_url_is_known(self):
-        text = completion_report.render(self.row(), dashboard_url="http://100.64.0.1:8080/").text
-        self.assertIn("http://100.64.0.1:8080/artifact/t_63cfab7a/0", text)
+        text = completion_report.render(self.row(), dashboard_url="http://kaya.example:8080/").text
+        self.assertIn("http://kaya.example:8080/artifact/t_63cfab7a/0", text)
 
     def test_a_run_that_produced_nothing_says_so_rather_than_implying_output(self):
         text = completion_report.render(self.row(artifacts=())).text

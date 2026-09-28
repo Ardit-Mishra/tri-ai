@@ -83,7 +83,7 @@ class ReplyRevisionLoopTests(BoardTestCase):
             default_workspace="sandbox",
         )
         self.control = telegram_control.TelegramControl(
-            self.policy, dashboard_url="http://100.64.0.1:8080",
+            self.policy, dashboard_url="http://kaya.example:8080",
         )
         self.transport = ScriptedTransport()
         self.daemon = daemon.TelegramDaemon(
@@ -96,7 +96,7 @@ class ReplyRevisionLoopTests(BoardTestCase):
             callback_handler=self.control.dispatch_callback,
             completion_notifier=self.control.pending_completions,
             completion_recorder=self.control.record_completion,
-            dashboard_url="http://100.64.0.1:8080",
+            dashboard_url="http://kaya.example:8080",
             progress_opener=self.control.open_progress,
             progress_notifier=self.control.pending_progress,
             progress_starter=self.control.start_progress,

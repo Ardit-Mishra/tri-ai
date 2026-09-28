@@ -28,7 +28,7 @@ class NamesFromAnUntrustedSender(unittest.TestCase):
             r"..\..\..\Windows\System32\evil.dll",
             "../../../etc/passwd",
             "/etc/shadow",
-            r"C:\Users\ardit\.ssh\id_ed25519",
+            r"C:\Users\someone\.ssh\id_ed25519",
         ):
             with self.subTest(hostile=hostile):
                 safe = attachments.safe_name(hostile)
