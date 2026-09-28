@@ -59,6 +59,7 @@ class PrivateIndexAgentTests(unittest.TestCase):
                 raise KeyboardInterrupt
 
         with mock.patch.object(private_index_agent.private_index, "write_private_index_atomic", side_effect=write_once), \
+             mock.patch.object(private_index_agent.private_index, "write_private_index_summary_atomic"), \
              mock.patch.object(private_index_agent.time, "sleep") as sleep:
             with self.assertRaises(KeyboardInterrupt):
                 private_index_agent.main([

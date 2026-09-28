@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from urllib import request
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -284,6 +285,32 @@ class WebSerializationTests(unittest.TestCase):
 
         self.assertNotEqual(first["revision"], second["revision"])
         self.assertEqual([source["id"] for source in second["sources"]], ["desktop", "phone"])
+
+    def test_private_graph_uses_matching_summary_without_loading_large_index(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source_root = Path(temporary)
+            index = source_root / "desktop.json"
+            payload = {
+                "status": "indexed", "synthetic": False, "item_count": 1,
+                "sources": [{"id": "desktop", "label": "Desktop", "node_count": 1, "authorized": True}],
+                "items": [{"id": "private:root", "label": "Desktop", "name": "Desktop", "relative_path": ".", "provenance": "desktop:.", "kind": "folder", "source": "desktop", "parent_id": None, "size": None, "modified_at": "2026-09-27T00:00:00Z", "synthetic": False}],
+                "diagnostic": "metadata only",
+            }
+            from dashboard import private_index
+            private_index.write_private_index_atomic(index, payload)
+            private_index.write_private_index_summary_atomic(index, payload)
+            previous_root, previous_cache = web._PRIVATE_SOURCE_ROOT, web._private_graph_cache
+            try:
+                web._PRIVATE_SOURCE_ROOT = source_root
+                web._private_graph_cache = None
+                with mock.patch.object(web.private_index, "load_private_index", side_effect=AssertionError("full index loaded")):
+                    graph = web._load_private_file_graph()
+            finally:
+                web._PRIVATE_SOURCE_ROOT, web._private_graph_cache = previous_root, previous_cache
+
+        self.assertEqual(graph["item_count"], 1)
+        self.assertEqual(graph["sources"][0]["id"], "desktop")
+        self.assertEqual(graph["folder_counts"], {"desktop": 1})
 
     def test_server_is_loopback_only_and_serves_html_json_and_sse(self):
         # Non-loopback is refused unless the operator asks for it by name: a

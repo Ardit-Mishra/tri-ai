@@ -55,6 +55,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     while True:
         payload = private_index.scan_authorized_roots(roots)
         private_index.write_private_index_atomic(output, payload)
+        private_index.write_private_index_summary_atomic(output, payload)
         if args.watch_seconds is None:
             break
         time.sleep(args.watch_seconds)

@@ -1556,7 +1556,7 @@ def _load_private_file_graph() -> dict[str, object]:
     registry_path = _PRIVATE_SOURCE_ROOT / _SOURCE_REGISTRY_FILENAME
     paths = sorted(
         path for path in _PRIVATE_SOURCE_ROOT.glob("*.json")
-        if path.name != _SOURCE_REGISTRY_FILENAME
+        if path.name != _SOURCE_REGISTRY_FILENAME and not path.name.endswith(".summary.json")
     )
     signature_parts: list[tuple[str, int, int]] = []
     for path in paths:
@@ -1565,6 +1565,12 @@ def _load_private_file_graph() -> dict[str, object]:
         except OSError:
             continue
         signature_parts.append((path.name, metadata.st_mtime_ns, metadata.st_size))
+        summary_path = private_index.private_index_summary_path(path)
+        try:
+            summary_metadata = summary_path.stat()
+        except OSError:
+            continue
+        signature_parts.append((summary_path.name, summary_metadata.st_mtime_ns, summary_metadata.st_size))
     try:
         registry_metadata = registry_path.stat()
     except OSError:
@@ -1578,16 +1584,32 @@ def _load_private_file_graph() -> dict[str, object]:
     declared_source_ids, registry_diagnostic = _load_declared_source_ids(registry_path)
     sources: list[dict[str, object]] = []
     items: list[dict[str, object]] = []
+    folder_counts: dict[str, int] = {}
     diagnostics: list[str] = []
     statuses: list[str] = []
     source_ids: set[str] = set()
     item_ids: set[str] = set()
+    indexed_item_count = 0
     for path in paths:
         try:
-            graph = private_index.load_private_index(path)
+            summary = private_index.load_private_index_summary(path)
+            graph: dict[str, object] = {
+                "status": summary["status"],
+                "diagnostic": "Path-free local index summary loaded.",
+                "sources": [
+                    {"id": source["id"], "node_count": source["node_count"], "authorized": True}
+                    for source in summary["sources"]
+                ],
+                "items": [],
+                "folder_counts": summary["folder_counts"],
+            }
         except (OSError, ValueError, json.JSONDecodeError) as error:
-            diagnostics.append(f"{path.name}: {type(error).__name__}")
-            continue
+            try:
+                graph = private_index.load_private_index(path)
+                diagnostics.append(f"{path.name}: full index fallback ({type(error).__name__})")
+            except (OSError, ValueError, json.JSONDecodeError) as fallback_error:
+                diagnostics.append(f"{path.name}: {type(fallback_error).__name__}")
+                continue
         statuses.append(str(graph["status"]))
         diagnostics.append(str(graph["diagnostic"]))
         for source in graph["sources"]:
@@ -1596,7 +1618,19 @@ def _load_private_file_graph() -> dict[str, object]:
                 diagnostics.append(f"{path.name}: duplicate source {source_id}")
                 continue
             source_ids.add(source_id)
-            sources.append(source)
+            node_count = source.get("node_count")
+            if type(node_count) is not int:
+                diagnostics.append(f"{path.name}: invalid source count")
+                continue
+            sources.append({
+                "id": source_id, "node_count": node_count,
+                "authorized": source.get("authorized") is True,
+            })
+            indexed_item_count += node_count
+            region_id = _source_region_id(source_id)
+            summary_folder_count = graph.get("folder_counts", {}).get(source_id, 0)
+            if type(summary_folder_count) is int:
+                folder_counts[region_id] = folder_counts.get(region_id, 0) + summary_folder_count
         for item in graph["items"]:
             item_id = str(item["id"])
             if item_id in item_ids or str(item["source"]) not in source_ids:
@@ -1617,7 +1651,7 @@ def _load_private_file_graph() -> dict[str, object]:
     if missing_sources:
         diagnostics.append(f"Awaiting metadata index from {len(missing_sources)} authorized source(s).")
 
-    if not items:
+    if not indexed_item_count:
         status = "unavailable"
     elif missing_sources or (diagnostics and ("partial" in statuses or len(statuses) != len(paths))):
         status = "partial"
@@ -1627,9 +1661,10 @@ def _load_private_file_graph() -> dict[str, object]:
     result: dict[str, object] = {
         "status": status,
         "synthetic": False,
-        "item_count": len(items),
+        "item_count": indexed_item_count,
         "sources": sources,
         "items": items,
+        "folder_counts": folder_counts,
         "diagnostic": " ".join(diagnostics) if diagnostics else "No private index is attached.",
         "revision": revision,
     }
@@ -1782,13 +1817,15 @@ def _private_file_graph_scene(graph: dict[str, object]) -> dict[str, object]:
     """
     sources = _safe_scene_sources(graph)
     items = graph.get("items", [])
-    folder_counts: dict[str, int] = {}
-    for item in items:
-        if isinstance(item, dict) and item.get("kind") == "folder":
-            source = item.get("source")
-            if isinstance(source, str):
-                region_id = _source_region_id(source)
-                folder_counts[region_id] = folder_counts.get(region_id, 0) + 1
+    folder_counts = graph.get("folder_counts")
+    if not isinstance(folder_counts, dict):
+        folder_counts = {}
+        for item in items:
+            if isinstance(item, dict) and item.get("kind") == "folder":
+                source = item.get("source")
+                if isinstance(source, str):
+                    region_id = _source_region_id(source)
+                    folder_counts[region_id] = folder_counts.get(region_id, 0) + 1
 
     clusters: list[dict[str, object]] = []
     ambient_sources: list[dict[str, object]] = []

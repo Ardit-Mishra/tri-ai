@@ -154,6 +154,26 @@ class PrivateIndexTests(unittest.TestCase):
         self.assertEqual(private_index.load_private_index(destination), payload)
         self.assertEqual([path.name for path in destination.parent.iterdir()], [destination.name])
 
+    def test_summary_sidecar_has_only_counts_and_can_be_matched_to_its_index(self):
+        source = self.root / "authorized"
+        source.mkdir()
+        (source / "private-name.txt").write_text("content must stay local", encoding="utf-8")
+        destination = self.root / "state" / "desktop.json"
+        payload = private_index.scan_authorized_roots({"Desktop": source})
+
+        private_index.write_private_index_atomic(destination, payload)
+        summary_path = private_index.write_private_index_summary_atomic(destination, payload)
+        summary = private_index.load_private_index_summary(destination)
+
+        self.assertEqual(summary_path.name, "desktop.summary.json")
+        self.assertEqual(summary["item_count"], 2)
+        self.assertEqual(summary["sources"], [{"id": "desktop", "node_count": 2}])
+        self.assertEqual(summary["folder_counts"], {"desktop": 1})
+        serialized = json.dumps(summary)
+        self.assertNotIn("private-name.txt", serialized)
+        self.assertNotIn("content must stay local", serialized)
+        self.assertNotIn(str(source), serialized)
+
 
 if __name__ == "__main__":
     unittest.main()
