@@ -978,6 +978,27 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       root.dataset.activeLane = event.detail?.lane || "claude";
       if (snapshot) rebuild(snapshot);
     });
+    // The page controller opens its local event stream before this module is
+    // evaluated. Replaying the most recent snapshot closes that load-order
+    // race, so a hydrated private field cannot retain "awaiting data" merely
+    // because the first SSE event arrived quickly.
+    if (window.__triAiSnapshot) {
+      applySourceRailColors(window.__triAiSnapshot.file_graph);
+      rebuild(window.__triAiSnapshot);
+    } else {
+      // Existing long-running local servers can serve this new module before
+      // their inline template is refreshed. Recover the current snapshot from
+      // the read-only endpoint instead of asking the operator to restart a
+      // private dashboard solely to repair a status label.
+      fetch("/api/snapshot", { cache: "no-store" })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => {
+          if (!data) return;
+          applySourceRailColors(data.file_graph);
+          rebuild(data);
+        })
+        .catch(() => {});
+    }
     new ResizeObserver(resize).observe(root);
     applyCamera();
     // Every width, including a phone. See the header: gating this on viewport

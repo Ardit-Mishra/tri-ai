@@ -181,6 +181,13 @@ class FiringTest(_Source):
 
 
 class ArchitectureTopologyTest(_Source):
+    def test_spatial_module_replays_the_early_snapshot_from_the_page_controller(self):
+        """A local stream can beat module evaluation; the visible index state
+        must describe the current source graph, not the template placeholder."""
+        self.assertIn("if (window.__triAiSnapshot)", self.source)
+        self.assertIn("rebuild(window.__triAiSnapshot);", self.source)
+        self.assertIn('fetch("/api/snapshot", { cache: "no-store" })', self.source)
+
     def test_hydrated_private_scene_forces_a_rebuild_after_its_summary(self):
         """The initial SSE payload is intentionally metadata-light. When the
         bounded scene arrives with the same revision, its density still has to

@@ -1458,6 +1458,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
       const events=byId('events');clear(events);const heading=make('div','','event');['Time','Task','Outcome','Verify','Duration'].forEach(label=>heading.append(make('span',label)));events.append(heading);data.ledger_events.forEach(event=>{const row=make('div','','event'),exit=event.verify_exit===0?'0':event.verify_exit===null?'-':String(event.verify_exit);row.append(timeCell(event.timestamp),make('span',event.task_id),make('span',event.outcome,`outcome-badge ${event.outcome==='passed'?'pass':event.outcome==='skipped'?'warn':'fail'}`),make('span',exit,event.verify_exit===0?'pass':event.verify_exit===null?'warn':'fail'),make('span',duration(event.seconds)));events.append(row);}); if(data.ledger_errors.length){const issue=make('div',data.ledger_errors.join(' | '),'event warn');issue.style.gridTemplateColumns='1fr';events.append(issue);}
       hud.lastSnapshotAt=Date.now()/1000;
       setText(byId('connection'),`Supervisor state: ${data.daemons.status} // snapshot ${timeAgo(hud.lastSnapshotAt)}`);
+      // The spatial module is loaded after this inline controller. Keep the
+      // latest snapshot as well as emitting it: an extremely fast local SSE
+      // response must not leave the Cortex with its placeholder index state.
+      window.__triAiSnapshot=data;
       window.dispatchEvent(new CustomEvent('tri-ai:snapshot',{detail:data}));
     }
     window.addEventListener('tri-ai:select',event=>{const id=event.detail&&event.detail.id;if(!id||!hud.nodeById.has(id))return;hud.selected=id;hud.hover=id;renderInspector();if(isPhone())openSheet(true);});

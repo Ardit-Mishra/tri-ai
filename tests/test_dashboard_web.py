@@ -125,6 +125,12 @@ class WebSerializationTests(unittest.TestCase):
         self.assertEqual(payload["file_graph"]["status"], "not-indexed")
         self.assertEqual(payload["file_graph"]["items"], [])
 
+    def test_page_retains_the_latest_snapshot_for_the_spatial_module(self):
+        """The inline controller starts SSE first, so the deferred module
+        needs a replayable snapshot instead of relying on event timing."""
+        page = web._HTML_TEMPLATE
+        self.assertIn("window.__triAiSnapshot=data;", page)
+
     def test_private_graph_is_summarized_in_stream_and_fetched_once_from_its_endpoint(self):
         graph = {
             "status": "indexed", "synthetic": False, "item_count": 1,
