@@ -80,6 +80,25 @@ time, kind, and source provenance. It does not contain file contents or local
 absolute paths. It is private operational metadata and must never be committed
 to the public repository.
 
+## Indexing local models
+
+The local Ollama runtime is a separate source from files. Its collector records
+only installed model names and byte sizes; it never reads prompts, responses,
+token usage, API keys, or the local endpoint into Cortex. Run it on the same
+machine as the local Ollama service:
+
+```powershell
+$env:PYTHONPATH = "C:\path\to\tri-ai\src"
+python -m dashboard.local_model_index `
+  --output "$HOME\.tri-ai\private-sources\ollama.json"
+```
+
+The collector exits nonzero when Ollama is unavailable, and Cortex keeps the
+region visible as `unavailable` rather than inventing a model count. OmniRoute
+and FreeLLMAPI are intentionally separate regions: their policy and route
+evidence must be collected by dedicated, credential-safe adapters rather than
+being inferred from an Ollama inventory.
+
 ## Indexing a desktop profile
 
 For a fuller machine map, authorize the user profile and the application
