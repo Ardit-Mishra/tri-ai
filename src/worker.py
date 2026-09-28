@@ -200,6 +200,67 @@ def execute_task(
     *,
     ledger_path: Optional[Path | str] = None,
     runs_root: Optional[Path | str] = None,
+    brain_path: Optional[Path | str] = None,
+) -> Attempt:
+    """Run the task, then remember what happened.
+
+    A wrapper rather than a call at each of the eight terminal returns: one
+    choke point cannot be missed when a ninth is added, and the capture
+    happens strictly after the gate has decided, so it cannot influence an
+    outcome.
+    """
+    attempt = _execute_task(
+        conn, claimed, ledger_path=ledger_path, runs_root=runs_root)
+    _remember_run(attempt, brain_path)
+    return attempt
+
+
+def _remember_run(attempt: "Attempt", brain_path) -> None:
+    """Capture one finished run into the Brain. Never raises.
+
+    The Brain held nothing after two verified end-to-end passes because its
+    kernel - complete since it was written - was called only by Telegram's
+    `/remember`. A run nobody can recall is not knowledge the system has.
+
+    Swallowing everything is deliberate and narrow: this runs *after* the
+    verify gate has already accepted or rejected the work, so a bookkeeping
+    failure that changed the outcome would invert the one rule the system
+    has. A credential refusal from `brain.capture` lands here too, which is
+    the correct place for it to stop.
+    """
+    if brain_path is None or attempt is None:
+        return
+    entry = getattr(attempt, "entry", None) or {}
+    if not entry.get("run_id"):
+        return
+    try:
+        from memory import brain as _brain
+        conn = _brain.connect(Path(brain_path))
+        try:
+            _brain.capture_run(
+                conn,
+                task_id=str(entry.get("task_id") or ""),
+                run_id=int(entry["run_id"]),
+                title=str(entry.get("title") or "untitled run"),
+                outcome=str(entry.get("outcome") or "unknown"),
+                verify_summary=str(entry.get("reason") or ""),
+                artifacts=(),
+                agent_role=str(entry.get("agent_role") or ""),
+                model=str(entry.get("model") or ""),
+            )
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"worker: run not remembered ({type(exc).__name__}: {exc})",
+              file=sys.stderr, flush=True)
+
+
+def _execute_task(
+    conn,
+    claimed,
+    *,
+    ledger_path: Optional[Path | str] = None,
+    runs_root: Optional[Path | str] = None,
 ) -> Attempt:
     """Claimed task, through precheck → gate → agent → verify → accept/revert.
 
@@ -1641,6 +1702,7 @@ def run_once(
     task_id: Optional[str] = None,
     ledger_path: Optional[Path | str] = None,
     runs_root: Optional[Path | str] = None,
+    brain_path: Optional[Path | str] = None,
 ) -> Optional[Attempt]:
     """One tick: release stale claims, claim one ready task, execute it.
 
@@ -1690,7 +1752,10 @@ def run_once(
         # not execute under it — hand it back so the next tick can retry.
         kb.reclaim_task(conn, claimed.id, reason="worker_pid_registration_failed")
         return None
-    return execute_task(conn, claimed, ledger_path=ledger_path, runs_root=runs_root)
+    return execute_task(
+        conn, claimed, ledger_path=ledger_path, runs_root=runs_root,
+        brain_path=brain_path,
+    )
 
 
 def run(

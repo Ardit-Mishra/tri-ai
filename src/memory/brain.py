@@ -14,8 +14,8 @@ import sqlite3
 import time
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Mapping, Optional
+from pathlib import Path, PurePosixPath
+from typing import Any, Mapping, Optional, Sequence
 
 
 SCHEMA = """
@@ -222,6 +222,71 @@ def capture(
     if row is None:
         raise RuntimeError("Brain item disappeared after capture")
     return _item_from_row(row)
+
+
+def capture_run(
+    conn: sqlite3.Connection,
+    *,
+    task_id: str,
+    run_id: int,
+    title: str,
+    outcome: str,
+    verify_summary: str = "",
+    artifacts: Sequence[str] = (),
+    agent_role: str = "",
+    model: str = "",
+    now: Optional[float] = None,
+) -> BrainItem:
+    """Remember what a finished run produced, so it can be asked about later.
+
+    Two verified end-to-end passes left a ledger line, some files and a few
+    seconds of animation, while the Brain still held nothing - the kernel was
+    complete and only `/remember` ever called it. A run that cannot be
+    recalled is not knowledge the system has, only work it happened to do.
+
+    **Path-free by construction.** Only the basename of each artifact is
+    stored. The Cortex index is deliberately path-free because this material
+    is rendered on a dashboard, and a run memory is shown in the same place.
+
+    Deduplicated by `capture`'s existing content digest, so a worker that
+    repeats its own bookkeeping produces one item rather than two. Captured
+    `unreviewed` like everything else: it may inform a prompt while its
+    citation is visible, and it cannot become a rule by itself.
+
+    Raises only what `capture` raises - notably a credential refusal, which
+    must not be caught here. Callers on the execution path wrap this so a
+    bookkeeping failure cannot turn a delivered result into a failed run.
+    """
+    names = [PurePosixPath(str(a).replace("\\", "/")).name
+             for a in artifacts if str(a).strip()]
+    produced = ", ".join(dict.fromkeys(names)) or "no files"
+    lines = [
+        f"Run {int(run_id)} of task {task_id} finished {outcome}.",
+        f"Produced: {produced}.",
+    ]
+    if verify_summary.strip():
+        lines.append(f"Gate said: {verify_summary.strip()}")
+    if agent_role.strip():
+        lines.append(f"Role: {agent_role.strip()}.")
+    if model.strip():
+        lines.append(f"Model: {model.strip()}.")
+
+    return capture(
+        conn,
+        "\n".join(lines),
+        source=f"run:{task_id}:{int(run_id)}",
+        title=f"{outcome}: {title}",
+        kind="run",
+        metadata={
+            "task_id": task_id,
+            "run_id": int(run_id),
+            "outcome": outcome,
+            "artifacts": names,
+            "agent_role": agent_role or None,
+            "model": model or None,
+        },
+        now=now,
+    )
 
 
 def _fts_query(query: str) -> str:
