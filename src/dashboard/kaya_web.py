@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -17,7 +18,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional, Sequence, Mapping
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -2203,6 +2204,7 @@ ARTIFACT_TYPES = {
 def _handler(
     snapshot_fn: SnapshotReader, event_interval: float, artifact_fn=None, *,
     force_demo: bool = False, private_graph_fn=_load_private_file_graph,
+    session_token: Optional[str] = None, trust_loopback: bool = True,
 ) -> type[BaseHTTPRequestHandler]:
     class KayaHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -2224,6 +2226,16 @@ def _handler(
             return snapshot_payload(
                 demo_snapshot() if demo else snapshot_fn(), demo=demo,
                 private_file_graph=graph,
+            )
+
+        def _private_allowed(self) -> bool:
+            """Ask the boundary, once, per request."""
+            return private_access_allowed(
+                client_address=self.client_address,
+                configured_token=session_token,
+                header_token=self.headers.get("X-Kaya-Token"),
+                cookie_header=self.headers.get("Cookie"),
+                trust_loopback=trust_loopback,
             )
 
         def _demo_request(self) -> bool:
@@ -2295,9 +2307,15 @@ def _handler(
                 self.wfile.write(body)
                 return
             if self.path in {"/api/snapshot", "/api/snapshot?demo=1"}:
-                self._json(self._snapshot(demo=self._demo_request()))
+                self._json(seal_payload(
+                    self._snapshot(demo=self._demo_request()),
+                    private_allowed=self._private_allowed(),
+                ))
                 return
             if self.path == "/api/file-graph/scene":
+                if not self._private_allowed():
+                    self.send_error(404, "not found")
+                    return
                 if force_demo:
                     self.send_error(404, "not found")
                     return
@@ -2311,7 +2329,7 @@ def _handler(
                 # The hosted demonstration is intentionally a sealed scenario.
                 # Do not make its artifact-shaped URLs a back door to an
                 # accidentally supplied runtime reader.
-                if force_demo:
+                if force_demo or not self._private_allowed():
                     self.send_error(404, "not found")
                     return
                 self._serve_artifact(match.group(1), int(match.group(2)))
@@ -2325,7 +2343,11 @@ def _handler(
                 try:
                     while True:
                         data = json.dumps(
-                            self._snapshot(demo=self._demo_request()), separators=(",", ":"),
+                            seal_payload(
+                                self._snapshot(demo=self._demo_request()),
+                                private_allowed=self._private_allowed(),
+                            ),
+                            separators=(",", ":"),
                         )
                         self.wfile.write(f"event: snapshot\ndata: {data}\n\n".encode("utf-8"))
                         self.wfile.flush()
@@ -2338,6 +2360,105 @@ def _handler(
 
 
 LOOPBACK_HOST = "127.0.0.1"
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+SESSION_COOKIE = "kaya_session"
+
+
+def private_access_allowed(
+    *,
+    client_address,
+    configured_token,
+    header_token=None,
+    cookie_header=None,
+    trust_loopback: bool = True,
+) -> bool:
+    """Whether this caller may see private material.
+
+    Two rules, chosen to match the real risk rather than to add ceremony.
+
+    **Loopback is the operator.** Someone already on this machine can read
+    the indexed files directly, so a password there protects nothing and
+    would break every existing local workflow.
+
+    **Everything else must present the session token.** That is the Tailnet
+    case, and it is the one currently open: network privacy is not
+    authorization, and one shared or compromised device on the tailnet
+    currently sees 796,684 file and folder names with no login.
+
+    Fails closed. With no token configured, a non-loopback caller is refused
+    outright - an unconfigured deployment must never be an open one - and a
+    blank token authorizes nobody, so an empty environment variable cannot
+    become a password of empty string.
+    """
+    host = str((client_address or ("",))[0] or "")
+    # `trust_loopback` exists so a test can stand in for a remote caller
+    # while still binding 127.0.0.1, which is the only address a test can
+    # bind. Production leaves it True: someone already on this machine can
+    # read the indexed files directly.
+    if trust_loopback and (host in LOOPBACK_HOSTS
+                           or host.startswith("::ffff:127.")):
+        return True
+
+    secret = str(configured_token or "").strip()
+    if not secret:
+        return False
+
+    presented = str(header_token or "").strip()
+    if not presented:
+        presented = _cookie_value(cookie_header, SESSION_COOKIE)
+    if not presented:
+        return False
+    return hmac.compare_digest(presented, secret)
+
+
+def _cookie_value(cookie_header, name: str) -> str:
+    for part in str(cookie_header or "").split(";"):
+        key, sep, value = part.partition("=")
+        if sep and key.strip() == name:
+            return value.strip()
+    return ""
+
+
+def seal_payload(payload, *, private_allowed: bool):
+    """Return the payload a caller is entitled to, never a partial private one.
+
+    A refused caller gets an explicitly sealed view rather than a smaller
+    leak: no counts, no source labels, no tasks, no brain. Failing to
+    authenticate has to mean *nothing*, not *less*.
+
+    `sealed` is set so the interface can say it is locked. A locked view that
+    looks merely empty invites someone to conclude the system is broken, or
+    worse, that there was nothing there to protect.
+    """
+    if private_allowed:
+        return payload
+
+    metrics = payload.get("metrics") if isinstance(payload, Mapping) else None
+    return {
+        "demo": bool(payload.get("demo")) if isinstance(payload, Mapping) else False,
+        "sealed": True,
+        "file_graph": {
+            "status": "sealed", "synthetic": False,
+            "item_count": 0, "sources": [], "items": [],
+        },
+        "tasks": [],
+        "edges": [],
+        "rules": [],
+        "rule_task_links": [],
+        "ledger_events": [],
+        "ledger_errors": [],
+        "memory_errors": [],
+        "brain": {"status": "sealed", "item_count": 0, "inbox_count": 0,
+                  "edge_count": 0, "diagnostic": "authentication required"},
+        "capabilities": {"status": "sealed", "total": 0, "active": 0,
+                         "archived": 0, "routable": 0},
+        "radar": {"status": "sealed", "candidate_count": 0,
+                  "evaluated_count": 0, "error_count": 0},
+        "daemons": {"status": "sealed", "processes": [],
+                    "diagnostic": "authentication required"},
+        "metrics": {key: 0 for key in (metrics or {})} if metrics else {},
+    }
+
 
 
 def create_server(
@@ -2350,6 +2471,8 @@ def create_server(
     artifact_fn=None,
     private_graph_fn=_load_private_file_graph,
     demo: bool = False,
+    session_token: Optional[str] = None,
+    trust_loopback: bool = True,
 ) -> KayaHTTPServer:
     """Create the read-only dashboard server; loopback unless told otherwise.
 
@@ -2395,6 +2518,7 @@ def create_server(
         (host, int(port)), _handler(
             snapshot_fn, event_interval, artifact_fn,
             force_demo=demo, private_graph_fn=private_graph_fn,
+            session_token=session_token, trust_loopback=trust_loopback,
         ),
     )
 
