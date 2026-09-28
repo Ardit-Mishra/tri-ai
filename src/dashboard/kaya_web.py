@@ -505,12 +505,16 @@ _HTML_TEMPLATE = r"""<!doctype html>
       .theater-rail { width:190px; }
       .core-bottom { left:204px; right:204px; }
     }
-    @media (max-width:760px) {
+    /* A phone can request its browser's "desktop site" while still having a
+       portrait, coarse-pointer viewport. Keep the observatory in its touch
+       layout in that case; otherwise the central canvas becomes a flex item
+       squeezed between both rails. */
+    @media (max-width:760px), (pointer:coarse) and (orientation:portrait) {
       .shell { padding:0 12px 64px; }
       header { display:grid; left:12px; padding-top:14px; position:relative; right:auto; }
       .cortex-clock,.services { display:none; }
-      .cortex-theater { display:flex; height:auto; min-height:0; overflow:visible; }
-      .cortex-core { flex:none; height:590px; min-height:590px; order:1; position:relative !important; width:100%; z-index:0; }
+      .cortex-theater { align-items:stretch; display:flex; flex-direction:column; height:auto; min-height:0; overflow:visible; }
+      .cortex-core { flex:0 0 590px; height:590px; min-height:590px; min-width:0; order:1; position:relative !important; width:100%; z-index:0; }
       .cortex-core::after { background:linear-gradient(180deg,rgba(2,5,4,.74),transparent 16%,transparent 86%,rgba(2,5,4,.7)); }
       .theater-rail { background:transparent; bottom:auto; position:relative !important; top:auto; width:auto; z-index:1; }
       .theater-sources { order:2; }
@@ -2184,7 +2188,10 @@ def _handler(
             self.send_response(200)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "public, max-age=3600")
+            # The private observatory is often opened through a Tailnet URL
+            # on a phone. Do not leave an old renderer alive for an hour
+            # after a local visual repair.
+            self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(body)

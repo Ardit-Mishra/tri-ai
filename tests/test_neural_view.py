@@ -74,6 +74,13 @@ class PhoneTest(_Source):
         self.assertIn("const renderedPointCount", self.source)
         self.assertIn("isCompactViewport() ? 0.08 : 0.18", self.source)
 
+    def test_compact_layout_keeps_the_brain_a_full_width_column(self):
+        """A phone in desktop-site mode must not shrink the WebGL root to zero."""
+        page = Path("src/dashboard/kaya_web.py").read_text(encoding="utf-8")
+        self.assertIn(".cortex-theater { align-items:stretch; display:flex; flex-direction:column;", page)
+        self.assertIn(".cortex-core { flex:0 0 590px;", page)
+        self.assertIn("(pointer:coarse) and (orientation:portrait)", page)
+
 
 class BrainShapeTest(_Source):
     def test_positions_pass_through_a_named_brain_deformation(self):

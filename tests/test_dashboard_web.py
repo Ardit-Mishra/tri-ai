@@ -329,7 +329,9 @@ class WebSerializationTests(unittest.TestCase):
 
         with request.urlopen(base + "/assets/tri-space.js", timeout=2) as response:
             spatial_module = response.read().decode("utf-8")
+            asset_cache_control = response.headers.get("Cache-Control", "")
         self.assertIn('from "/assets/three.module.min.js"', spatial_module)
+        self.assertIn("no-store", asset_cache_control)
 
         with request.urlopen(base + "/events", timeout=2) as response:
             first_line = response.readline().decode("utf-8").strip()

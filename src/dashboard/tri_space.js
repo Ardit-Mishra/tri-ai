@@ -43,10 +43,12 @@ const MAX_SIGNALS = 72;
 const NEIGHBOURS_PER_NODE = 2;
 const MEMBRANE_DETAIL = 3;
 const MOBILE_FILE_POINT_BUDGET = 26000;
-const DESKTOP_FILE_POINT_BUDGET = 120000;
+const DESKTOP_FILE_POINT_BUDGET = 48000;
 
 function isCompactViewport() {
-  return window.matchMedia("(max-width: 760px)").matches;
+  return window.matchMedia(
+    "(max-width: 760px), (pointer: coarse) and (orientation: portrait)",
+  ).matches;
 }
 
 // How far each hemisphere is pushed off the midline. The gap is the single
@@ -495,12 +497,15 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
       fileCloud = new THREE.Points(geometry, new THREE.PointsMaterial({
-        size: isCompactViewport() ? 1.15 : total > 7000 ? 1.45 : total > 2500 ? 2.15 : 3.1,
+        size: isCompactViewport() ? 0.92 : total > 7000 ? 1.08 : total > 2500 ? 1.65 : 2.5,
         sizeAttenuation: false,
         vertexColors: true,
         transparent: true,
-        opacity: isCompactViewport() ? 0.46 : 0.74,
-        blending: isCompactViewport() ? THREE.NormalBlending : THREE.AdditiveBlending,
+        opacity: isCompactViewport() ? 0.38 : 0.5,
+        // The detailed field is data, not a light source. Normal blending
+        // preserves colored regions and prevents large sources becoming a
+        // white rectangle; only moving signals use additive glow below.
+        blending: THREE.NormalBlending,
         depthWrite: false,
       }));
       fileCloud.userData.fileUniverse = true;
