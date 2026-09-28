@@ -114,6 +114,12 @@ class SourceRegionColorTest(_Source):
         self.assertIn("sourceRegionIndex", self.source)
         self.assertIn("sourceRegionAngle", self.source)
 
+    def test_running_source_rail_is_colored_without_a_dashboard_restart(self):
+        """The JavaScript module can update a long-running read-only server's
+        rail while its next process refresh is deliberately deferred."""
+        self.assertIn("function applySourceRailColors", self.source)
+        self.assertIn('window.addEventListener("tri-ai:snapshot"', self.source)
+
 
 class SynapseTest(_Source):
     def test_nodes_are_wired_to_their_nearest_neighbours(self):

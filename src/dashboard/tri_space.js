@@ -911,7 +911,26 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         motionButton.textContent = "Resume";
       }
     });
-    window.addEventListener("tri-ai:snapshot", (event) => rebuild(event.detail));
+    function applySourceRailColors(fileGraph) {
+      const sources = Array.isArray(fileGraph?.sources) ? fileGraph.sources : [];
+      const rows = document.querySelectorAll("#sourceIndex .source-cluster");
+      rows.forEach((row, index) => {
+        const dot = row.querySelector(".source-dot");
+        const source = sources[index];
+        if (!dot || !source) return;
+        const color = `#${sourceColorFor(source.id).toString(16).padStart(6, "0")}`;
+        // The currently running read-only dashboard may have been started
+        // before its inline CSS acquired --source-color. Set concrete styles
+        // too, so the semantic legend upgrades safely without a service
+        // restart or a gap in the operator's private view.
+        dot.style.background = color;
+        dot.style.boxShadow = `0 0 0 4px color-mix(in srgb, ${color} 12%, transparent)`;
+      });
+    }
+    window.addEventListener("tri-ai:snapshot", (event) => {
+      applySourceRailColors(event.detail.file_graph);
+      rebuild(event.detail);
+    });
     window.addEventListener("tri-ai:lane", (event) => {
       root.dataset.activeLane = event.detail?.lane || "claude";
       if (snapshot) rebuild(snapshot);
