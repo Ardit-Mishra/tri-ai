@@ -2206,6 +2206,9 @@ def _handler(
     force_demo: bool = False, private_graph_fn=_load_private_file_graph,
     session_token: Optional[str] = None, trust_loopback: bool = True,
 ) -> type[BaseHTTPRequestHandler]:
+    # One gate per server, shared by every request thread.
+    throttle = LoginThrottle()
+
     class KayaHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
@@ -2355,10 +2358,21 @@ def _handler(
                 # it must not be handed one by whoever asks first.
                 self.send_error(404, "not found")
                 return
+            if throttle.blocked():
+                # Turn it away without looking at the key. A refusal that
+                # still compares would tell an attacker which guess was right.
+                self.send_response(429)
+                self.send_header("Retry-After", str(throttle.retry_after()))
+                self.send_header("Content-Length", "0")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                return
             presented = _form_field(body, "token").strip()
             if not presented or not hmac.compare_digest(presented, secret):
+                throttle.record_failure()
                 self._send_login(failed=True)
                 return
+            throttle.record_success()
             self.send_response(303)
             self._set_session_cookie(presented, max_age=SESSION_MAX_AGE)
             self._redirect("/")
@@ -2498,6 +2512,57 @@ def _form_field(body: str, name: str) -> str:
             index += 1
         return out.decode("utf-8", "replace")
     return ""
+
+
+LOGIN_FREE_ATTEMPTS = 4
+LOGIN_MAX_BLOCK = 300.0
+
+
+class LoginThrottle:
+    """A global bound on how fast the session key can be guessed.
+
+    Global, because `tailscale serve` proxies every caller from 127.0.0.1:
+    a per-address limit here would cover everybody or nobody.
+
+    Refusing immediately rather than sleeping, because this is a
+    `ThreadingHTTPServer`. A delayed reply throttles nothing when the guesses
+    run in parallel - the delays simply overlap. A shut gate turns every
+    attempt away without examining the key at all, so parallelism buys the
+    attacker nothing and no thread piles up waiting.
+
+    The wait grows with each failure and is capped, and any success clears
+    it. A lockout the operator cannot wait out would be an outage wearing
+    security's clothes - and on a tailnet the person tripping it is usually
+    the owner, thumb-typing.
+    """
+
+    def __init__(self, *, now=time.monotonic) -> None:
+        self._now = now
+        self._lock = threading.Lock()
+        self.failures = 0
+        self._blocked_until = 0.0
+
+    def blocked(self) -> bool:
+        with self._lock:
+            return self._now() < self._blocked_until
+
+    def retry_after(self) -> int:
+        with self._lock:
+            return max(0, int(self._blocked_until - self._now() + 0.999))
+
+    def record_failure(self) -> None:
+        with self._lock:
+            self.failures += 1
+            over = self.failures - LOGIN_FREE_ATTEMPTS
+            if over <= 0:
+                return
+            wait = min(float(2 ** min(over, 16)), LOGIN_MAX_BLOCK)
+            self._blocked_until = max(self._blocked_until, self._now() + wait)
+
+    def record_success(self) -> None:
+        with self._lock:
+            self.failures = 0
+            self._blocked_until = 0.0
 
 
 def _login_page(*, failed: bool = False) -> bytes:
