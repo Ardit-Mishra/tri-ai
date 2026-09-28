@@ -182,6 +182,8 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     let synapses = null;
     let synapseSegments = [];
     let semanticSynapseSegments = [];
+    let semanticRoutes = [];
+    let activeSignalSegments = [];
     let signals = null;
     let signalState = [];
     let fileCloud = null;
@@ -320,6 +322,8 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       synapses = null;
       synapseSegments = [];
       semanticSynapseSegments = [];
+      semanticRoutes = [];
+      activeSignalSegments = [];
       signals = null;
       signalState = [];
       fileCloud = null;
@@ -399,7 +403,9 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const target = meshById.get(targetId);
       if (!source || !target) return;
       addEdge(sourceId, targetId, color, opacity);
-      semanticSynapseSegments.push([source.position.clone(), target.position.clone()]);
+      const segment = [source.position.clone(), target.position.clone()];
+      semanticSynapseSegments.push(segment);
+      semanticRoutes.push({ sourceId, targetId, segment });
     }
 
     /* Nearest-neighbour wiring. The board's real edges are sparse - most tasks
@@ -613,11 +619,49 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         : `${total} files and folders across ${sourceCount} source clusters. Select any node to inspect its provenance.`;
     }
 
-    /* The firing. Each signal walks one synapse and respawns on another. */
-    function buildSignals() {
+    function executionLaneFor(task) {
+      const telemetry = task.telemetry || {};
+      const resolved = `${telemetry.model || ""} ${telemetry.provider || ""}`.toLowerCase();
+      if (resolved.includes("ollama")) return "ollama";
+      if (resolved.includes("freellmapi")) return "freellmapi";
+      // Hermes custom routes are currently served by the local OmniRoute
+      // gateway. This is a recorded runtime routing fact, not a guess about
+      // the model family behind it.
+      if (resolved.includes("omniroute") || resolved.includes("custom") || resolved.includes("auto/")) return "omniroute";
+      if (resolved.includes("claude")) return "claude";
+      if (resolved.includes("codex") || resolved.includes("gpt-")) return "codex";
+      return root.dataset.activeLane || "omniroute";
+    }
+
+    function activeExecutionRoutes(data) {
+      const activeTasks = data.tasks.filter((task) => (
+        task.status === "running" || task.telemetry?.run_status === "running"
+      ));
+      if (!activeTasks.length) return { activeTasks, segments: [] };
+      const lanes = new Set(activeTasks.map(executionLaneFor));
+      const segments = semanticRoutes.filter((route) => {
+        if (route.sourceId === "system:ingress" || route.sourceId === "system:verify") return true;
+        if (route.sourceId === "system:brain" && route.targetId === "system:planner") return true;
+        if (route.sourceId === "system:planner") return lanes.has(route.targetId.replace("system:model:", ""));
+        if (route.sourceId.startsWith("system:model:")) return lanes.has(route.sourceId.replace("system:model:", ""));
+        return route.targetId === "system:verify";
+      }).map((route) => route.segment);
+      return { activeTasks, segments };
+    }
+
+    /* The firing is execution telemetry. The Cortex can rotate at rest, but
+     * it does not emit bright packets unless the dashboard records live work. */
+    function buildSignals(data) {
       signalState = [];
-      if (!synapseSegments.length) return;
-      const count = Math.min(MAX_SIGNALS, synapseSegments.length);
+      const { activeTasks, segments } = activeExecutionRoutes(data);
+      activeSignalSegments = segments;
+      const state = document.getElementById("brainIndexState");
+      if (!activeTasks.length || !activeSignalSegments.length) {
+        if (state) state.textContent = `${visualFileNodeCount} authorized nodes // execution idle`;
+        return;
+      }
+      if (state) state.textContent = `${visualFileNodeCount} authorized nodes // ${activeTasks.length} live ${activeTasks.length === 1 ? "execution" : "executions"}`;
+      const count = Math.min(MAX_SIGNALS, activeSignalSegments.length, Math.max(18, activeTasks.length * 18));
       const positions = new Float32Array(count * 3);
       for (let index = 0; index < count; index += 1) {
         signalState.push(spawnSignal());
@@ -675,12 +719,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     }
 
     function spawnSignal() {
-      // Most packets travel provenance and execution routes. A small portion
-      // still crosses the local neural tissue so the cortex remains a living
-      // field rather than an animated flowchart.
-      const preferred = semanticSynapseSegments.length ? semanticSynapseSegments : synapseSegments;
-      const pool = Math.random() < 0.84 ? preferred : synapseSegments;
-      const segment = pool[Math.floor(Math.random() * pool.length)];
+      const segment = activeSignalSegments[Math.floor(Math.random() * activeSignalSegments.length)];
       return { from: segment[0], to: segment[1], t: Math.random(), speed: 0.25 + Math.random() * 0.5 };
     }
 
@@ -765,7 +804,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       data.edges.forEach((edge) => route(`task:${edge.parent_id}`, `task:${edge.child_id}`, 0x00f0ff, 0.36));
       data.rule_task_links.forEach((edge) => route(`rule:${edge.proposal_id}`, `task:${edge.task_id}`, 0xffb703, 0.48));
       (data.brain?.edges || []).forEach((edge) => route(`brain:${edge.source_id}`, `brain:${edge.target_id}`, 0xa78bfa, 0.34));
-      buildSignals();
+      buildSignals(data);
       core.scale.setScalar(1 + Math.min(visualFileNodeCount, 800) / 2400);
       root.dataset.nodes = String(nodes.length + visualFileNodeCount);
     }

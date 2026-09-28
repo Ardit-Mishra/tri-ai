@@ -137,7 +137,8 @@ class SynapseTest(_Source):
         mostly arbitrary geometric proximity."""
         self.assertIn("semanticSynapseSegments", self.source)
         self.assertIn("function addSemanticRoute", self.source)
-        self.assertIn("const preferred = semanticSynapseSegments", self.source)
+        self.assertIn("semanticRoutes.push", self.source)
+        self.assertIn("activeSignalSegments", self.source)
 
     def test_private_source_clusters_join_the_retained_brain(self):
         """A source cluster is provenance entering memory, not a floating
@@ -157,9 +158,17 @@ class FiringTest(_Source):
             self.source.index("buildFileUniverse(data.file_graph)"),
         )
         self.assertGreater(
-            self.source.index("buildSignals();"),
+            self.source.index("buildSignals(data);"),
             self.source.index('route("system:brain", "system:planner"'),
         )
+
+    def test_execution_firing_requires_an_actual_running_task(self):
+        """A sleeping runtime must not masquerade as agent work simply
+        because the dashboard is visually alive."""
+        self.assertIn("function activeExecutionRoutes", self.source)
+        self.assertIn("const activeTasks = data.tasks.filter", self.source)
+        self.assertIn("if (!activeTasks.length) return { activeTasks, segments: [] };", self.source)
+        self.assertIn("buildSignals(data);", self.source)
 
     def test_firing_stops_when_motion_is_paused(self):
         """The pause control has to mean it, or it is decoration."""
