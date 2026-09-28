@@ -42,6 +42,12 @@ const tooltip = document.getElementById("spatialTooltip");
 const MAX_SIGNALS = 72;
 const NEIGHBOURS_PER_NODE = 2;
 const MEMBRANE_DETAIL = 3;
+const MOBILE_FILE_POINT_BUDGET = 26000;
+const DESKTOP_FILE_POINT_BUDGET = 120000;
+
+function isCompactViewport() {
+  return window.matchMedia("(max-width: 760px)").matches;
+}
 
 // How far each hemisphere is pushed off the midline. The gap is the single
 // feature that makes the silhouette read as a brain rather than as a ball.
@@ -141,14 +147,16 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     let visualFileNodeCount = 0;
     let filePositions = new Map();
     let lastRenderSignature = null;
-    let yaw = 0.42;
-    let pitch = 0.18;
+    // A portrait screen needs the two lobes head-on. The wider console can
+    // afford the more oblique observatory angle.
+    let yaw = isCompactViewport() ? 0.08 : 0.42;
+    let pitch = isCompactViewport() ? 0.08 : 0.18;
     // The organ is the primary information object, not background decoration.
     // This framing keeps the full cortex visible while letting its firing read
     // at a glance in the desktop dashboard's wide topology panel.
     // The architecture layer extends beyond the cortical core. Keep its outer
     // source and release nodes in frame before offering manual zoom.
-    let distance = 15.9;
+    let distance = isCompactViewport() ? 16.7 : 15.9;
     let drag = null;
 
     const colors = {
@@ -377,6 +385,18 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
     }
 
     function filePosition(item, index, total, sourceOrder) {
+      if (String(item.id).startsWith("ambient:")) {
+        // The private scene carries counts rather than file metadata. Spread
+        // the representative points over both lobes with a Fibonacci field:
+        // source colours still reveal origin, but one very large source can
+        // no longer fill a single screen-facing wedge into a bright wall.
+        const y = 1 - 2 * ((index + 0.5) / Math.max(total, 1));
+        const radial = Math.sqrt(Math.max(0.08, 1 - y * y));
+        const angle = index * 2.399963229728653 + hashUnit(`${item.id}:phase`) * 0.36;
+        const unit = new THREE.Vector3(Math.cos(angle) * radial, y, Math.sin(angle) * radial);
+        const depth = 1.2 + Math.pow(hashUnit(`${item.id}:depth`), 0.62) * 4.75;
+        return brainShape(unit).multiplyScalar(depth);
+      }
       const sourceIndex = Math.max(0, sourceOrder.indexOf(item.source));
       const sourceCount = Math.max(1, sourceOrder.length);
       const sourceAngle = (sourceIndex / sourceCount) * Math.PI * 2;
@@ -434,11 +454,14 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const total = ambientSources
         ? ambientSources.reduce((sum, source) => sum + Math.max(0, Number(source.node_count) || 0), 0)
         : visualItems.length;
-      visualFileNodeCount = total;
+      const representedNodeCount = total;
+      const pointBudget = isCompactViewport() ? MOBILE_FILE_POINT_BUDGET : DESKTOP_FILE_POINT_BUDGET;
+      const renderedPointCount = ambientSources ? Math.min(total, pointBudget) : total;
+      visualFileNodeCount = representedNodeCount;
       if (!total) return;
       const sourceOrder = (fileGraph.sources || []).map((source) => source.id);
-      const positions = new Float32Array(total * 3);
-      const colors = new Float32Array(total * 3);
+      const positions = new Float32Array(renderedPointCount * 3);
+      const colors = new Float32Array(renderedPointCount * 3);
       const sourceColors = [0x54d7ae, 0x7ce8c5, 0x48b996, 0x9af3d5, 0x3f9f83, 0x6cd9b8, 0xb1f7df];
       const folder = new THREE.Color(0xe7f8ef);
       const sourceRanges = [];
@@ -448,7 +471,10 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         sourceRanges.push({ ...source, end: rangeEnd });
       });
       let sourceRangeIndex = 0;
-      for (let index = 0; index < total; index += 1) {
+      for (let renderIndex = 0; renderIndex < renderedPointCount; renderIndex += 1) {
+        const index = renderedPointCount === total
+          ? renderIndex
+          : Math.min(total - 1, Math.floor(renderIndex * total / renderedPointCount));
         while (ambientSources && index >= sourceRanges[sourceRangeIndex].end) sourceRangeIndex += 1;
         const source = ambientSources ? sourceRanges[sourceRangeIndex] : null;
         const sourceStart = source ? source.end - source.node_count : 0;
@@ -460,24 +486,25 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
         };
         const position = filePosition(item, index, total, sourceOrder);
         if (visualItems) filePositions.set(item.id, position);
-        positions.set([position.x, position.y, position.z], index * 3);
+        positions.set([position.x, position.y, position.z], renderIndex * 3);
         const sourceIndex = Math.max(0, sourceOrder.indexOf(item.source));
-        const color = item.kind === "folder" ? folder : new THREE.Color(sourceColors[sourceIndex % sourceColors.length]);
-        colors.set([color.r, color.g, color.b], index * 3);
+        const color = item.kind === "folder" && !ambientSources ? folder : new THREE.Color(sourceColors[sourceIndex % sourceColors.length]);
+        colors.set([color.r, color.g, color.b], renderIndex * 3);
       }
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
       fileCloud = new THREE.Points(geometry, new THREE.PointsMaterial({
-        size: total > 7000 ? 1.75 : total > 2500 ? 2.15 : 3.1,
+        size: isCompactViewport() ? 1.15 : total > 7000 ? 1.45 : total > 2500 ? 2.15 : 3.1,
         sizeAttenuation: false,
         vertexColors: true,
         transparent: true,
-        opacity: 0.88,
-        blending: THREE.AdditiveBlending,
+        opacity: isCompactViewport() ? 0.46 : 0.74,
+        blending: isCompactViewport() ? THREE.NormalBlending : THREE.AdditiveBlending,
         depthWrite: false,
       }));
       fileCloud.userData.fileUniverse = true;
+      fileCloud.userData.representedNodeCount = representedNodeCount;
       fileCloud.renderOrder = 3;
       topology.add(fileCloud);
 
@@ -525,7 +552,7 @@ if (root && panel && button3d && button2d && motionButton && tooltip) {
       const sourceCount = (fileGraph.sources || []).length;
       if (state) state.textContent = `${total} ${fileGraph.synthetic ? "synthetic" : "authorized"} nodes`;
       if (summary) summary.textContent = ambientSources
-        ? `${total} files and folders form a private density field across ${sourceCount} source clusters. Select a cluster to request its bounded detail.`
+        ? `${total} files and folders form a private density field across ${sourceCount} source clusters. ${renderedPointCount < total ? `${renderedPointCount.toLocaleString()} representative nodes are drawn for this device.` : ""} Select a cluster to request its bounded detail.`
         : `${total} files and folders across ${sourceCount} source clusters. Select any node to inspect its provenance.`;
     }
 

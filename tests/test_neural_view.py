@@ -67,6 +67,13 @@ class PhoneTest(_Source):
         self.assertIn('setView("2d")', self.source)
         self.assertIn("button2d", self.source)
 
+    def test_mobile_has_a_distinct_camera_and_point_budget(self):
+        """A six-figure private index must read as a brain, not a glowing slab."""
+        self.assertIn("MOBILE_FILE_POINT_BUDGET", self.source)
+        self.assertIn("function isCompactViewport", self.source)
+        self.assertIn("const renderedPointCount", self.source)
+        self.assertIn("isCompactViewport() ? 0.08 : 0.18", self.source)
+
 
 class BrainShapeTest(_Source):
     def test_positions_pass_through_a_named_brain_deformation(self):
@@ -118,9 +125,9 @@ class ArchitectureTopologyTest(_Source):
         self.assertIn("if (visualItems) filePositions.set", self.source)
         self.assertIn('cluster.state === "pending"', self.source)
 
-    def test_every_authorized_file_is_rendered_as_a_real_three_d_point(self):
+    def test_every_authorized_file_contributes_to_the_private_neural_field(self):
         self.assertIn("function buildFileUniverse(fileGraph)", self.source)
-        self.assertIn("fileItems.forEach", self.source)
+        self.assertIn("representedNodeCount", self.source)
         self.assertIn("fileCloud = new THREE.Points", self.source)
         self.assertIn("one provenance-linked node", self.source)
 

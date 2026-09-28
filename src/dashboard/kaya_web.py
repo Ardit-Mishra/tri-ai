@@ -510,9 +510,11 @@ _HTML_TEMPLATE = r"""<!doctype html>
       header { display:grid; left:12px; padding-top:14px; position:relative; right:auto; }
       .cortex-clock,.services { display:none; }
       .cortex-theater { display:flex; height:auto; min-height:0; overflow:visible; }
-      .cortex-core { height:590px; min-height:590px; position:relative; }
+      .cortex-core { flex:none; height:590px; min-height:590px; order:1; position:relative !important; width:100%; z-index:0; }
       .cortex-core::after { background:linear-gradient(180deg,rgba(2,5,4,.74),transparent 16%,transparent 86%,rgba(2,5,4,.7)); }
-      .theater-rail { background:transparent; bottom:auto; position:relative; top:auto; width:auto; }
+      .theater-rail { background:transparent; bottom:auto; position:relative !important; top:auto; width:auto; z-index:1; }
+      .theater-sources { order:2; }
+      .theater-control { order:3; }
       .theater-sources,.theater-control { left:auto; right:auto; }
       .core-topline { padding-top:76px; }
       .theater-tabs { top:20px; width:auto; }
@@ -520,7 +522,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
       .core-title { bottom:62px; }
       .core-title strong { font-size:42px; }
       .core-bottom { left:10px; right:10px; }
-      .theater-footer { bottom:auto; position:relative; }
+      .theater-footer { bottom:auto; order:4; position:relative; }
     }
     </style>
 </head>
