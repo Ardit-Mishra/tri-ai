@@ -80,6 +80,22 @@ separate operator action because it changes network reachability; it must not
 be replaced with a public Render route. A future remote collector will fetch
 only an authenticated machine's metadata index, never contents or credentials.
 
+With the Tailscale app signed into the same tailnet on both devices, enable
+the private proxy only after the loopback dashboard is healthy:
+
+```powershell
+.\scripts\serve_private_cortex_tailscale.ps1 -Enable
+```
+
+The command prints a `https://<device>.<tailnet>.ts.net/` address. It is
+available only to authenticated tailnet devices. This project deliberately
+does not use `tailscale funnel` for Cortex; Funnel would make it public.
+Disable the proxy later with:
+
+```powershell
+.\scripts\serve_private_cortex_tailscale.ps1 -Disable
+```
+
 Google Drive should remain an archive and optional source adapter, not a live
 SQLite database. Phone application-private data requires per-app exports or
 their official APIs; an unrooted Android device cannot expose every app's
