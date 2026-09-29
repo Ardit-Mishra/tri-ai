@@ -25,7 +25,16 @@ plain text - "try again at Sep 26th, 2026 11:21 AM" - so it is parsed and
 stored. An unparseable message still benches the lane, because blind retry
 against an exhausted subscription is how an unattended run spends an hour
 achieving nothing.
-"""
+
+
+    Not on the execution path yet, deliberately. Measured selection
+    compares lanes, and as of 2026-09-29 every role in the ledger had
+    run on exactly one (`auto/best-coding`), so there is nothing to
+    compare. `model_routes`, which is operator-declared and already
+    wired into board.py and planner.py, is what picks a model today.
+    This becomes useful once two or more lanes carry MIN_SAMPLES
+    decided, non-environment runs for the same role.
+    """
 
 from __future__ import annotations
 
@@ -204,6 +213,17 @@ def _outcomes(ledger_path: Path, role: str) -> dict[str, tuple[int, int]]:
         # Only decided runs count. skipped/blocked/quarantined say nothing
         # about the lane.
         if not lane or outcome not in ("passed", "failed"):
+            continue
+        # A lane is not bad because the harness was broken. On 2026-09-29
+        # the desktop's agent could not run a single command - its account
+        # name contains a space and the prompt's `cd` was unquoted - and
+        # every task was recorded as failed. Counting those would teach
+        # this module that the model is unreliable when the model was
+        # never reached. An *unclassified* failure still counts: absent a
+        # reason, the conservative reading is that it is evidence, because
+        # silently discarding unlabelled failures lets a bad lane look
+        # clean.
+        if outcome == "failed" and row.get("failure_class") == "environment":
             continue
         entry = stats.setdefault(lane, [0, 0])
         entry[1] += 1

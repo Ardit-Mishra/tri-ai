@@ -16,6 +16,7 @@ import json
 import sys
 import tempfile
 import time
+import re
 import unittest
 from pathlib import Path
 
@@ -159,3 +160,111 @@ class DegradationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EnvironmentFailuresAreNotTheLanesFaultTest(unittest.TestCase):
+    """A lane is not bad because the harness was broken.
+
+    On 2026-09-29 the desktop's agent could not run a single command: its
+    account name contains a space and the prompt's `cd` was unquoted. Every
+    task produced nothing and was recorded as failed. Counting those against
+    whichever model happened to be selected would teach this module that the
+    model is unreliable, when the model was never reached.
+
+    `failure_class` already separates the two. Only a failure the lane could
+    have prevented is evidence about the lane.
+    """
+
+    def _ledger(self, rows):
+        import json as _json
+        import tempfile
+        handle = tempfile.NamedTemporaryFile(
+            "w", suffix=".jsonl", delete=False, encoding="utf-8")
+        for row in rows:
+            handle.write(_json.dumps(row) + "\n")
+        handle.close()
+        self.addCleanup(lambda: __import__("os").unlink(handle.name))
+        return Path(handle.name)
+
+    def _row(self, outcome, failure_class=None):
+        return {"agent_role": "designer", "model": "auto/best-coding",
+                "outcome": outcome, "failure_class": failure_class}
+
+    def test_an_environment_failure_is_not_counted_against_the_lane(self):
+        path = self._ledger(
+            [self._row("passed")] * 5 + [self._row("failed", "environment")] * 20)
+        passes, attempts = lane_select._outcomes(path, "designer")["auto/best-coding"]
+        self.assertEqual((passes, attempts), (5, 5),
+                         "20 harness failures must not become lane evidence")
+
+    def test_a_logic_failure_still_counts(self):
+        """A page that does not keep its promises is the lane's problem."""
+        path = self._ledger(
+            [self._row("passed")] * 3 + [self._row("failed", "logic")] * 2)
+        self.assertEqual(lane_select._outcomes(path, "designer")["auto/best-coding"],
+                         (3, 5))
+
+    def test_an_unclassified_failure_still_counts(self):
+        """Absent a classification, the conservative reading is that the run
+        is evidence. Silently discarding unlabelled failures would let a bad
+        lane look clean."""
+        path = self._ledger(
+            [self._row("passed")] * 3 + [self._row("failed", None)] * 2)
+        self.assertEqual(lane_select._outcomes(path, "designer")["auto/best-coding"],
+                         (3, 5))
+
+    def test_a_lane_with_only_environment_failures_has_no_evidence(self):
+        path = self._ledger([self._row("failed", "environment")] * 9)
+        self.assertEqual(lane_select._outcomes(path, "designer"), {})
+
+
+class DeliberatelyNotWiredYetTest(unittest.TestCase):
+    """This module is complete and unused, on purpose, with a trigger.
+
+    Four modules in this repo were complete, tested and called by nothing
+    by accident. This one is the fifth by decision, and the decision has
+    evidence behind it:
+
+    Measured selection compares lanes. On 2026-09-29 the real ledger held
+    110 runs in which *every* role had run on exactly one lane,
+    `auto/best-coding`. There is nothing to choose between, so wiring it
+    would change one thing only - it would move `designer` onto a local 7b
+    model because a single lane's pass rate sits under the threshold. That
+    is a verdict on a sample of one lane, not a comparison.
+
+    The condition that changes this: two or more lanes with at least
+    MIN_SAMPLES decided, non-environment runs for the same role. Until
+    then `model_routes` - operator-declared and already wired into
+    board.py and planner.py - is what picks a model.
+
+    This test exists so the next agent finds a decision rather than a
+    mystery, and does not wire it reflexively because the code looks
+    finished.
+    """
+
+    def test_it_is_not_called_from_the_execution_path(self):
+        root = Path(__file__).resolve().parents[1] / "src"
+        callers = []
+        for path in root.rglob("*.py"):
+            if path.name == "lane_select.py":
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for line in text.splitlines():
+                stripped = line.strip()
+                # Prose mentions it - `ledger.py` and `worker.py` explain
+                # which fields it joins on. Only an import or an attribute
+                # access is a call site.
+                if stripped.startswith("#") or "``" in stripped:
+                    continue
+                if re.search(r"(^|\W)import\s+lane_select", stripped) or                         re.search(r"lane_select\s*\.\s*\w+\s*\(", stripped):
+                    callers.append(f"{path.name}: {stripped[:60]}")
+        self.assertEqual(
+            callers, [],
+            "lane_select is now called. If that is deliberate, delete this "
+            "test and record the multi-lane evidence that justified it.")
+
+    def test_the_module_says_why(self):
+        source = (Path(__file__).resolve().parents[1] / "src" / "lane_select.py"
+                  ).read_text(encoding="utf-8")
+        self.assertIn("model_routes", source,
+                      "the docstring must point at what picks a model today")
