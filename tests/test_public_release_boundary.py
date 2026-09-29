@@ -21,7 +21,32 @@ PRIVATE_MARKERS = (
 )
 
 
+def _release_scope() -> str:
+    """Who this branch's content is for, as declared in RELEASE_SCOPE.
+
+    These checks exist to keep the *public* repository clean. Applying them
+    to a private branch would forbid the operator's own planning notes and
+    handoffs from ever being committed anywhere - which is how 178 KB of
+    real working state came to live on a single laptop with no remote.
+
+    Anything unrecognised reads as private, and a private branch cannot
+    reach a public remote: `scripts/release_guard.py` refuses that push.
+    """
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT / "scripts"))
+    import release_guard
+    return release_guard.read_scope(ROOT)
+
+
 class PublicReleaseBoundaryTests(unittest.TestCase):
+    def setUp(self):
+        if _release_scope() != "public":
+            self.skipTest(
+                "RELEASE_SCOPE is not public; the public-release checks apply "
+                "to the published branch. scripts/release_guard.py refuses a "
+                "private branch on a public remote."
+            )
+
     def tracked_files(self) -> list[str]:
         output = subprocess.check_output(
             ["git", "ls-files"], cwd=ROOT, text=True, encoding="utf-8",

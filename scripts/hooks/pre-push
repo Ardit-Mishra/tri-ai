@@ -1,0 +1,30 @@
+#!/bin/sh
+# Refuse a push that would put private material on a public remote.
+#
+# git passes the remote name as $1 and its URL as $2. All the judgement is in
+# scripts/release_guard.py so it can be unit-tested; a hook nobody can test
+# is a hook nobody should trust.
+#
+# Install on each machine, once, from the repository root:
+#
+#     git config core.hooksPath scripts/hooks
+#     git config --add triai.privateremote <private repo url>
+#
+# The private remote is deliberately not stored in the repository, so the
+# public one never names it. Until it is configured the guard refuses every
+# private push - an unconfigured machine fails closed, not open.
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+guard="$root/scripts/release_guard.py"
+[ -f "$guard" ] || exit 0
+
+for candidate in python python3 py; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        "$candidate" "$guard" "$1" "$2" || exit 1
+        exit 0
+    fi
+done
+
+# No interpreter: refuse rather than wave the push through unchecked.
+echo "  BLOCKED: tri-ai release guard needs python on PATH to check this push." >&2
+exit 1
