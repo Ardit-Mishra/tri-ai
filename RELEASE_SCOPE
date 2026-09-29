@@ -1,0 +1,12 @@
+# Who this branch's content is for.
+#
+# public  - scrubbed for the public demo repository. The public-release
+#           boundary checks in tests/test_public_release_boundary.py apply,
+#           and this branch may be pushed to the public remote.
+# private - holds real paths, indexes or operator notes. A push to any
+#           remote not declared private is refused.
+#
+# Anything missing or unrecognised is treated as private, so a branch that
+# has not said it is publishable is not publishable.
+
+public
