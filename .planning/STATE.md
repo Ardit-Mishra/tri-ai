@@ -1,45 +1,91 @@
-# State — pointer, not a copy
+# Tri-AI — state, 2026-09-29
 
-This worktree (`public-main`) had no `.planning/` at all, so any agent
-following `CLAUDE.md` into it found nothing and worked blind. That is how two
-lines of work diverged without either noticing.
+This file is **tracked on `trunk`**, so it travels with the code. It used
+to be untracked, which is how 178 KB of working notes came to exist on
+exactly one laptop.
 
-`.planning/` is untracked, so **every worktree has its own copy and they
-drift.** Do not treat this file as the record.
+## One line, two repositories
 
-## Read these, in this order
+`trunk` is the only line of development. Both machines are on it.
 
-1. `C:\Users\ardit\tri-ai\docs\HANDOFF_2026-09-28.md` — current state of
-   play across both branches, and the branch-integration question that
-   blocks everything else.
-2. `C:\Users\ardit\worktrees\tri-ai-freellm-router\.planning\STATE.md` — the
-   working state document (178 KB, the real one). The copy at
-   `C:\Users\ardit\tri-ai\.planning\STATE.md` is an older 37 KB subset.
-3. `AGENTS.md` in this directory — the five things that were true and are
-   not any more.
+| | |
+|---|---|
+| `Ardit-Mishra/tri-ai` | **public** — the sealed demo, nothing else |
+| `Ardit-Mishra/tri-ai-private` | **private** — real history, Cortex indexes, operator notes |
 
-## What this worktree holds
+`RELEASE_SCOPE` declares a branch's audience; `scripts/release_guard.py`
+enforces it at push time from `core.hooksPath` outside the repo, so it
+applies on every branch. Fails closed in all three directions: unknown
+scope reads private, unknown remote reads public, no declared private
+remote means nothing private moves.
 
-`public-main`, 35 commits past base `4c8e454`: the Cortex
-(`src/dashboard/private_index.py`), `brain.capture_run`, and the whole
-2026-09-28 session boundary — `b8df28d`, `f279dc9`, `966cf83`, `bb10e08`.
+The three earlier lines are reconciled. The two `codex/freellm-router`
+branches shared 273 commits and no files in common, so they merged
+(`b8089c8`). `private/cortex` had an **unrelated history** — the scrubbed
+release began a fresh root — but was a strict superset, so it became
+`trunk`. Old branches are kept on the private remote as history.
 
-**All four are unpushed and must stay that way without Ardit's explicit
-approval.** `origin` is a public GitHub repo and this branch indexes real
-Google Drive and laptop paths.
+## What runs, and what keeps it running
 
-1,292 tests, exit 0, as of 2026-09-28.
+| | desktop `DESKTOP-JHQ7HJM` | laptop `Vivo-S14` |
+|---|---|---|
+| worker, supervisor, Telegram | scheduled task, boot + logon + 15 min | — |
+| dashboard | `:8081`, scheduled task | Cortex `:3026`, scheduled task |
+| OmniRoute | `:20129` | `:20128` |
+| FreeLLMAPI | `:3001` | `:3001` |
 
-## Running the dashboard from here
+Every service is loopback-only. The Cortex reaches a phone through
+`tailscale serve`, behind a session token.
 
-```powershell
-$env:KAYA_SESSION_TOKEN = (Get-Content "$env:USERPROFILE\.tri-ai\kaya-session-key.txt" -Raw).Trim()
-python -m dashboard.kaya_web --host 127.0.0.1 --port 3026   # cwd: .\src
-```
+**A long-running daemon does not reload Python.** After changing `src/`,
+stop the python processes and `Start-ScheduledTask`. A full evening's
+fixes appeared not to work because of this.
 
-Setting that variable turns loopback trust **off** — the operator's own
-browser signs in at `/login` too. That is deliberate: `tailscale serve`
-proxies the tailnet from `127.0.0.1`, so any rule that trusted loopback
-authorized the entire tailnet.
+## Cortex
 
-> **Corrected 2026-09-28 after an SSH survey of the desktop.** The claims that the desktop has never run a task, that it contributes 0 items, and that no SSH channel exists are all FALSE. The desktop holds 83 ledger entries (~56 its own), reports 486,925 nodes in the live Cortex, and runs Tri-AI as scheduled tasks serving a dashboard on :8081. Each machine has its own board, ledger and memory; the laptop's ledger was mistaken for the system's. Full correction: the CORRECTION section of docs/HANDOFF_2026-09-28.md in the primary checkout.
+870,777 indexed items across 9 reporting sources — desktop 486,925,
+laptop 307,151, Obsidian 73,802, Drive 2,606, OmniRoute 51, Claude and
+Codex 227, GitHub 10, Vercel and Render 3, Ollama 2. Sealed without a
+session, verified over the real Tailnet URL.
+
+## The build that proved it end to end
+
+A stalled 17-task e-commerce graph on the desktop went from 3 done to
+**15 done**, unattended, producing real files (`cart.html` 12,485 bytes,
+`checkout.html` 14,467 bytes, backends, admin views) each past a
+verifier's exit code.
+
+Four defects had to be fixed to get there, and none were visible to any
+test:
+
+1. **A space in an account name.** `Ardit II` made the prompt's unquoted
+   `cd` split in bash; every command failed and the agent stopped to ask a
+   question nobody could answer. Fixed by `executor.shell_path()`.
+2. **A stale daemon** running the pre-fix module from memory.
+3. **`git diff --quiet` cannot see new files**, so any task whose job was
+   to create something failed and had its work stashed away. Replaced with
+   `python verify.py`, which attributes deliverables to *this run*.
+4. **A cancelled parent strands its children silently.** `standstill.py`
+   now reports it, and repeats while it persists.
+
+## Open, needing Ardit rather than an agent
+
+- **FreeLLMAPI has no API key.** Create one at `http://127.0.0.1:3001`,
+  set `FREELLMAPI_API_KEY`. Not in the repo, a task prompt, or a chat
+  message — that is the project's own rule.
+- **Two tasks wait on a cancelled parent** and can never run. Cancel them
+  or recreate the parent; it is a product decision, and they are now
+  visible rather than silently parked.
+- **Phone** is a declared Cortex source with no collector, because
+  nothing runs on the phone yet.
+
+## Deliberately not wired
+
+`lane_select` is complete, tested, and off the execution path on purpose.
+Measured selection compares lanes, and all 110 ledger runs used a single
+lane, so there is nothing to compare. `model_routes` picks models today.
+A test names the condition that reverses this: two or more lanes with
+`MIN_SAMPLES` decided, non-environment runs for one role.
+
+Environment failures no longer count against a lane — a lane is not bad
+because the harness was broken.
