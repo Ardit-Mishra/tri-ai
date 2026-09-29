@@ -465,6 +465,11 @@ class TelegramDaemon:
         self._notifier = notifier
         self._notification_recorder = notification_recorder
         self._completion_notifier = completion_notifier
+        # Kept beside the board rather than in a new table: the cadence
+        # of a notice is operator convenience, not board truth.
+        self._standstill_state_path = (
+            Path(self._board_path).with_name("standstill-state.json")
+            if self._board_path else None)
         self._completion_recorder = completion_recorder
         self._dashboard_url = dashboard_url
         self._progress_opener = progress_opener
@@ -650,7 +655,60 @@ class TelegramDaemon:
         self.publish_pending()
         self.publish_progress()
         self.publish_completions()
+        self.publish_standstill()
         return next_offset
+
+    def publish_standstill(self) -> None:
+        """Say when work cannot move, and keep saying it.
+
+        Completion notices are one per (task, run). A stalled board produces
+        no new runs, so it produces no new notices - the desktop sat still
+        for three days after a single message on the evening it stopped.
+        This is the periodic half: it reports tasks that can never run
+        because an ancestor was cancelled, and a board that has gone quiet
+        with work still waiting.
+
+        Silence is the default. `standstill.digest` returns None for a
+        healthy board, because a check that always says something is one
+        the operator stops reading, and then the real notice is lost among
+        them.
+
+        Never raises into the poll loop. A reporting failure must not take
+        down the daemon whose whole job is to keep talking.
+        """
+        if self._standstill_state_path is None:
+            return
+        try:
+            import sqlite3
+            import standstill
+
+            conn = sqlite3.connect(f"file:{self._board_path}?mode=ro", uri=True)
+            try:
+                message = standstill.digest(conn, now=int(time.time()))
+            finally:
+                conn.close()
+            if not message:
+                return
+
+            state: dict = {}
+            try:
+                state = json.loads(
+                    self._standstill_state_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                state = {}
+            send, state = standstill.should_send(
+                state, message, now=int(time.time()))
+            if not send:
+                return
+            for chat_id in sorted(self._settings.authorized_chat_ids):
+                for chunk in _message_chunks("Tri-AI standstill\n" + message):
+                    self._api.send_message(chat_id=chat_id, text=chunk)
+            self._standstill_state_path.parent.mkdir(parents=True, exist_ok=True)
+            self._standstill_state_path.write_text(
+                json.dumps(state), encoding="utf-8")
+        except Exception as exc:  # noqa: BLE001 - see docstring
+            print(f"standstill report skipped: {type(exc).__name__}: {exc}",
+                  file=sys.stderr, flush=True)
 
     def publish_progress(self) -> None:
         """Open a card for newly running tasks, and edit existing ones in place.
