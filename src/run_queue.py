@@ -45,6 +45,8 @@ import subprocess
 import sys
 import time
 
+import executor
+
 HERE = pathlib.Path(__file__).resolve().parent
 QUEUE = HERE / "queue.jsonl"
 LEDGER = HERE / "ledger.jsonl"
@@ -60,7 +62,7 @@ HERMES = pathlib.Path(os.environ.get(
 # directory and the task looks broken when it is merely lost.
 CD_PREAMBLE = (
     "Your terminal starts in {home} and `cd` does NOT persist between commands. "
-    "Prefix EVERY command with: cd {repo} && \n\n"
+    'Prefix EVERY command with: cd "{repo}" && \n\n'
 )
 
 HARD_RULES = """
@@ -135,7 +137,9 @@ def run_task(t: dict, dry: bool) -> str:
         record({"id": tid, "result": "skip", "why": msg, "ts": time.time()})
         return "skip"
 
-    prompt = (CD_PREAMBLE.format(home=str(pathlib.Path.home()).replace("\\", "/"), repo=repo)
+    prompt = (CD_PREAMBLE.format(
+        home=executor.shell_path(pathlib.Path.home()),
+        repo=executor.shell_path(repo))
               + t["prompt"] + HARD_RULES)
 
     t0 = time.time()

@@ -44,9 +44,27 @@ IS_WINDOWS = sys.platform == "win32"
 # an un-prefixed command reports "not a git repository" from the wrong place and
 # a perfectly good task looks broken.
 
+def shell_path(path) -> str:
+    """Render a filesystem path safe to sit inside double quotes in bash.
+
+    The desktop account is `Ardit II`. Its sandbox path therefore contains a
+    space, and an unquoted `cd C:\\Users\\Ardit II\\tri-ai-sandbox &&` is split
+    by bash into `cd` with too many arguments. Every command the agent ran
+    on that machine failed, so it stopped and asked which quoting style to
+    use - and in an unattended run there is nobody to answer.
+
+    Forward slashes because Windows accepts them everywhere and they avoid
+    bash treating a backslash as an escape. The quotes themselves live in
+    CD_PREAMBLE rather than here, so a caller cannot drop them by accident;
+    this only makes the path safe to sit between them.
+    """
+    text = str(path).replace("\\", "/")
+    return text.replace('"', '\\"')
+
+
 CD_PREAMBLE = (
     "Your terminal starts in {home} and `cd` does NOT persist between commands. "
-    "Prefix EVERY command with: cd {repo} && \n\n"
+    'Prefix EVERY command with: cd "{repo}" && \n\n'
 )
 
 # "Touch ONLY the files this task names" was unsatisfiable for the requests this
@@ -590,7 +608,8 @@ def hermes_bin() -> Path:
 
 def build_prompt(repo: Path | str, prompt: str) -> str:
     home = str(Path.home()).replace("\\", "/")
-    return CD_PREAMBLE.format(home=home, repo=repo) + prompt + HARD_RULES
+    return (CD_PREAMBLE.format(home=shell_path(home), repo=shell_path(repo))
+            + prompt + HARD_RULES)
 
 
 def head_commit(repo: Path | str) -> Optional[str]:

@@ -84,8 +84,20 @@ class ThePromptCarriesTheWorkspace(unittest.TestCase):
     """The cd preamble is load-bearing and must survive any rewording."""
 
     def test_the_repo_path_reaches_the_agent(self):
+        """It arrives shell-safe, which is a deliberate change of form.
+
+        The path used to be interpolated exactly as given. On the desktop,
+        whose account is `Ardit II`, that produced an unquoted
+        `cd C:\\Users\\Ardit II\\...` that bash split on the space, and every
+        command the agent ran failed. It now arrives quoted, with forward
+        slashes; what must not change is that it arrives at all.
+        """
         built = executor.build_prompt(r"C:\somewhere\workspace", "do the thing")
-        self.assertIn(r"C:\somewhere\workspace", built)
+        self.assertIn('"C:/somewhere/workspace"', built)
+
+    def test_a_workspace_with_a_space_is_not_split_by_the_shell(self):
+        built = executor.build_prompt(r"C:\Users\Ardit II\sandbox", "do the thing")
+        self.assertIn('cd "C:/Users/Ardit II/sandbox" &&', built)
 
     def test_the_task_survives_intact(self):
         task = "Build me a landing page for a brand called Mishwan"
