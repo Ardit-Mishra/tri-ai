@@ -153,3 +153,26 @@ class BoundaryChecksAreScopeAwareTest(unittest.TestCase):
         self.assertEqual(result.failures, [])
         self.assertEqual(result.errors, [])
         self.assertTrue(result.skipped, "expected the public checks to be skipped here")
+
+
+class ScopeFileExplainsItselfTest(unittest.TestCase):
+    """The marker sits in a repo strangers read; it should say what it means.
+
+    A bare word in a file called RELEASE_SCOPE is cryptic, and a cryptic
+    marker gets deleted by someone tidying up. Comment lines are ignored so
+    the file can carry its own explanation.
+    """
+
+    def test_comment_lines_are_ignored(self):
+        self.assertEqual(release_guard.parse_scope(
+            "# what this means\n# more prose\npublic\n"), "public")
+
+    def test_the_first_meaningful_line_decides(self):
+        self.assertEqual(release_guard.parse_scope("\n\n  private  \n# trailing"),
+                         "private")
+
+    def test_a_file_of_only_comments_is_private(self):
+        self.assertEqual(release_guard.parse_scope("# nothing declared\n"), "private")
+
+    def test_a_stray_word_after_the_scope_does_not_flip_it(self):
+        self.assertEqual(release_guard.parse_scope("private\npublic\n"), "private")

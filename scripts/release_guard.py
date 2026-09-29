@@ -35,9 +35,18 @@ VALID_SCOPES = ("public", "private")
 
 
 def parse_scope(text: object) -> str:
-    """Read a declared scope. Anything unrecognised is private."""
-    value = str(text or "").strip().lower()
-    return value if value in VALID_SCOPES else "private"
+    """Read a declared scope. Anything unrecognised is private.
+
+    Comment and blank lines are skipped so the file can explain itself. A
+    bare word in a file called RELEASE_SCOPE is cryptic, and a cryptic
+    marker is the kind of thing someone deletes while tidying up.
+    """
+    for line in str(text or "").splitlines():
+        candidate = line.strip().lower()
+        if not candidate or candidate.startswith("#"):
+            continue
+        return candidate if candidate in VALID_SCOPES else "private"
+    return "private"
 
 
 def read_scope(root: Path | str) -> str:
