@@ -1710,15 +1710,27 @@ def _safe_source_label(source_id: str) -> str:
     return _SAFE_SOURCE_LABELS.get(source_id, "Authorized source")
 
 
+# A source may own several roots: Obsidian has a vault per location, Claude
+# and Codex are two session stores, Vercel and Render are two providers. Each
+# root indexes separately, but the operator declared one source, so the roots
+# fold back into it. A root that folds nowhere becomes a source nobody
+# declared, reported at zero - which is the reading that made the desktop
+# look absent while it held 486,925 indexed nodes.
+_SOURCE_REGIONS = (
+    "claude-codex", "vercel-render", "google-drive",
+    "desktop", "laptop", "obsidian", "ollama", "github",
+)
+
+
 def _source_region_id(source_id: str) -> str:
     """Fold technical root identifiers into the operator's source regions."""
     if source_id == "google-drive":
         return "drive"
-    for device in ("desktop", "laptop"):
-        if source_id.startswith(f"{device}-"):
-            return device
-    if source_id.startswith("ollama-"):
-        return "ollama"
+    # Longest region first, so `vercel-render-x` folds to `vercel-render` and
+    # never to a shorter region that happens to prefix it.
+    for region in sorted(_SOURCE_REGIONS, key=len, reverse=True):
+        if source_id.startswith(region + "-"):
+            return "drive" if region == "google-drive" else region
     return source_id
 
 
