@@ -223,3 +223,113 @@ class CredentialHandlingTest(unittest.TestCase):
             payload = source_collectors.openai_catalog(
                 "http://example.invalid", source_id="omniroute", label="OmniRoute")
         self.assertIn("500", str(payload["diagnostic"]))
+
+
+class OmniRouteCliTest(unittest.TestCase):
+    """The CLI lists models without the HTTP key the server demands.
+
+    `omniroute serve` answers /v1/models with 401 unless a key is presented,
+    but `omniroute models --output json` reads the same catalog locally and
+    is already trusted on this machine. Preferring it means the catalog can
+    be indexed without Claude ever handling a credential.
+    """
+
+    LISTING = json.dumps([
+        {"id": "Claude Opus 5", "provider": "anthropic", "contextWindow": 200000},
+        {"id": "qwen2.5-coder:7b", "provider": "deskollama", "contextWindow": 32768},
+    ])
+
+    def test_the_cli_catalog_is_indexed(self):
+        with mock.patch.object(source_collectors, "_run",
+                               return_value=(0, self.LISTING)):
+            payload = source_collectors.omniroute_catalog()
+        self.assertEqual(payload["status"], "indexed")
+        self.assertEqual(payload["item_count"], 3)          # root + 2 models
+        names = [item["name"] for item in payload["items"]]
+        self.assertIn("Claude Opus 5", names)
+        private_index.validate_private_index(payload)
+
+    def test_ansi_colour_codes_do_not_break_the_parse(self):
+        """The CLI writes a banner and colour escapes before the JSON."""
+        noisy = "\x1b[2m loaded env \x1b[0m\n" + self.LISTING + "\n\x1b[2m done \x1b[0m"
+        with mock.patch.object(source_collectors, "_run", return_value=(0, noisy)):
+            payload = source_collectors.omniroute_catalog()
+        self.assertEqual(payload["status"], "indexed")
+
+    def test_trailing_output_after_the_json_is_ignored(self):
+        with mock.patch.object(source_collectors, "_run",
+                               return_value=(0, self.LISTING + "\n... and 57 more.\n")):
+            payload = source_collectors.omniroute_catalog()
+        self.assertEqual(payload["status"], "indexed")
+
+    def test_the_provider_is_kept_so_a_lane_is_identifiable(self):
+        with mock.patch.object(source_collectors, "_run",
+                               return_value=(0, self.LISTING)):
+            payload = source_collectors.omniroute_catalog()
+        paths = [item["relative_path"] for item in payload["items"]]
+        self.assertIn("models/deskollama/qwen2.5-coder:7b", paths)
+
+    def test_no_cli_falls_back_to_the_http_catalog(self):
+        with mock.patch.object(source_collectors, "_run", return_value=(127, "")):
+            with mock.patch.object(source_collectors, "openai_catalog",
+                                   return_value={"fell_back": True}) as http:
+                result = source_collectors.omniroute_catalog()
+        self.assertTrue(result.get("fell_back"))
+        self.assertTrue(http.called)
+
+    def test_a_cli_that_prints_no_json_falls_back_too(self):
+        with mock.patch.object(source_collectors, "_run",
+                               return_value=(0, "a table, not json")):
+            with mock.patch.object(source_collectors, "openai_catalog",
+                                   return_value={"fell_back": True}):
+                result = source_collectors.omniroute_catalog()
+        self.assertTrue(result.get("fell_back"))
+
+
+class WindowsShimTest(unittest.TestCase):
+    """An npm-installed CLI is a .cmd shim, which CreateProcess cannot run.
+
+    `gh` and `render` are real executables and worked immediately. `omniroute`
+    is installed by npm as `omniroute.cmd`, and a bare `["omniroute", ...]`
+    argv fails with FileNotFoundError on Windows - so the collector silently
+    fell back to HTTP and reported 401, hiding a catalog it could have read.
+    """
+
+    def test_a_cmd_shim_is_invoked_through_the_interpreter(self):
+        captured = {}
+
+        def _fake_run(argv, **kwargs):
+            captured["argv"] = list(argv)
+            captured["shell"] = kwargs.get("shell")
+            raise OSError("stop here")
+
+        with mock.patch.object(source_collectors.shutil, "which",
+                               return_value=r"C:\npm\omniroute.cmd"):
+            with mock.patch.object(source_collectors.subprocess, "run", _fake_run):
+                source_collectors._run(["omniroute", "models"])
+
+        self.assertTrue(captured["argv"][0].lower().endswith("cmd.exe"),
+                        captured["argv"][0])
+        self.assertIn("/c", captured["argv"])
+        self.assertIn(r"C:\npm\omniroute.cmd", captured["argv"])
+        self.assertFalse(captured["shell"], "never hand the argv to a shell")
+
+    def test_a_real_executable_is_run_directly(self):
+        captured = {}
+
+        def _fake_run(argv, **kwargs):
+            captured["argv"] = list(argv)
+            raise OSError("stop here")
+
+        with mock.patch.object(source_collectors.shutil, "which",
+                               return_value=r"C:\Program Files\gh\gh.exe"):
+            with mock.patch.object(source_collectors.subprocess, "run", _fake_run):
+                source_collectors._run(["gh", "repo", "list"])
+
+        self.assertEqual(captured["argv"][0], r"C:\Program Files\gh\gh.exe")
+        self.assertNotIn("/c", captured["argv"])
+
+    def test_a_missing_command_is_reported_not_raised(self):
+        with mock.patch.object(source_collectors.shutil, "which", return_value=None):
+            code, output = source_collectors._run(["nonexistent-tool"])
+        self.assertNotEqual(code, 0)

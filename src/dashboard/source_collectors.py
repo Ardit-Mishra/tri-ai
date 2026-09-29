@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
@@ -34,6 +36,12 @@ if __package__ in (None, ""):  # pragma: no cover - direct script execution
     from dashboard import private_index
 else:
     from . import private_index
+
+
+# Written as an escape sequence, not the byte itself: a raw control
+# character in source survives this file but not every editor, diff
+# or encoding round-trip it will pass through.
+_ANSI = re.compile("\\x1b\\[[0-9;]*m")
 
 
 def _timestamp() -> str:
@@ -213,10 +221,37 @@ def agent_sessions(home: Path | None = None) -> dict[str, object]:
 
 # --- services behind a CLI --------------------------------------------------
 
+def _resolve(command: Sequence[str]) -> list[str] | None:
+    """Turn a bare command name into an argv this platform can execute.
+
+    npm installs a CLI on Windows as a `.cmd` shim, and `CreateProcess`
+    cannot execute one: a bare `["omniroute", ...]` raises FileNotFoundError.
+    `gh` and `render` are real executables, so they worked immediately and
+    this stayed hidden - the OmniRoute collector just fell back to HTTP and
+    reported a 401, concealing a catalog it could have read locally.
+
+    The shim is invoked through `cmd.exe /c` with an explicit argv rather
+    than `shell=True`, so nothing is ever parsed by a shell.
+    """
+    argv = list(command)
+    if not argv:
+        return None
+    resolved = shutil.which(argv[0])
+    if resolved is None:
+        return None
+    if os.name == "nt" and resolved.lower().endswith((".cmd", ".bat")):
+        interpreter = os.environ.get("COMSPEC") or "cmd.exe"
+        return [interpreter, "/c", resolved, *argv[1:]]
+    return [resolved, *argv[1:]]
+
+
 def _run(command: Sequence[str], timeout: float = 45.0) -> tuple[int, str]:
+    argv = _resolve(command)
+    if argv is None:
+        return 127, f"{command[0] if command else 'command'} is not installed"
     try:
         finished = subprocess.run(  # nosec B603 - fixed argv, no shell
-            list(command), capture_output=True, text=True, timeout=timeout,
+            argv, capture_output=True, text=True, timeout=timeout,
             shell=False, encoding="utf-8", errors="replace",
         )
     except (OSError, subprocess.SubprocessError) as exc:
@@ -278,6 +313,74 @@ def _github_time(value: object) -> str:
     return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _first_json_document(text: str):
+    """Pull the first JSON value out of CLI output that also prints prose.
+
+    The OmniRoute CLI writes a banner, ANSI colour escapes and an
+    "... and 57 more" footer around its JSON, so neither a plain
+    `json.loads` nor a naive slice survives it.
+    """
+    cleaned = _ANSI.sub("", text or "")
+    starts = [position for position in (cleaned.find("["), cleaned.find("{"))
+              if position >= 0]
+    if not starts:
+        return None
+    try:
+        document, _ = json.JSONDecoder().raw_decode(cleaned[min(starts):])
+    except ValueError:
+        return None
+    return document
+
+
+def omniroute_catalog() -> dict[str, object]:
+    """Index OmniRoute's model catalog, preferring the CLI over HTTP.
+
+    `omniroute serve` answers `/v1/models` with 401 unless a key is
+    presented. `omniroute models --output json` reads the same catalog
+    locally, through a CLI the operator has already authorized on this
+    machine - so the catalog can be indexed without this process ever
+    handling a credential. HTTP stays as the fallback for a host where the
+    CLI is not installed.
+    """
+    code, output = _run(["omniroute", "models", "--output", "json"], timeout=90.0)
+    document = _first_json_document(output) if code == 0 else None
+    entries = document if isinstance(document, list) else (
+        (document or {}).get("data") or (document or {}).get("models")
+        if isinstance(document, Mapping) else None)
+    if not isinstance(entries, list) or not entries:
+        return openai_catalog(
+            os.environ.get("TRI_AI_OMNIROUTE_URL", "http://127.0.0.1:20128"),
+            source_id="omniroute", label="OmniRoute", timeout=20.0,
+            api_key=os.environ.get("OMNIROUTE_API_KEY"))
+
+    rows: list[dict[str, object]] = []
+    providers: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        name = entry.get("id") or entry.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        name = name.strip()
+        provider = entry.get("provider")
+        provider = provider.strip() if isinstance(provider, str) and provider.strip() else "unknown"
+        providers.add(provider)
+        rows.append({
+            "name": name,
+            # The provider is the lane. Keeping it in the path makes a model
+            # identifiable as local or hosted without a second lookup.
+            "relative_path": f"models/{provider}/{name}",
+            "size": None,
+        })
+    if not rows:
+        return _empty("omniroute", "OmniRoute",
+                      "OmniRoute listed no usable models.", status="partial")
+    return _tree("omniroute", "OmniRoute", rows, status="indexed",
+                 diagnostic=(f"Indexed {len(rows)} routable model(s) across "
+                             f"{len(providers)} provider(s), read through the "
+                             f"OmniRoute CLI. No byte sizes are reported."))
+
+
 def hosting_projects() -> dict[str, object]:
     """Index Vercel and Render project names, when either CLI is signed in."""
     rows: list[dict[str, object]] = []
@@ -335,10 +438,7 @@ COLLECTORS = {
     "claude-codex": agent_sessions,
     "github": github_repositories,
     "vercel-render": hosting_projects,
-    "omniroute": lambda: openai_catalog(
-        os.environ.get("TRI_AI_OMNIROUTE_URL", "http://127.0.0.1:20128"),
-        source_id="omniroute", label="OmniRoute", timeout=20.0,
-        api_key=os.environ.get("OMNIROUTE_API_KEY")),
+    "omniroute": omniroute_catalog,
     "freellmapi": lambda: openai_catalog(
         os.environ.get("TRI_AI_FREELLMAPI_URL", "http://127.0.0.1:3001"),
         source_id="freellmapi", label="FreeLLMAPI",
