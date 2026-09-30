@@ -608,6 +608,15 @@ _HTML_TEMPLATE = r"""<!doctype html>
       .theater-tabs .agent-tab { min-height:48px; }
       .core-topline { top:49px; }
     }
+    .now-what {
+      /* A task title is operator-written and can be a paragraph. The real
+         one on this board runs to 180 characters, and at 35px in a 19ch
+         column that was eleven lines pushing everything below it off the
+         screen. Three lines, then ellipsis; the full text stays in the
+         title attribute and in the inspector. */
+      -webkit-box-orient:vertical; -webkit-line-clamp:3; display:-webkit-box;
+      line-clamp:3; max-width:28ch; overflow:hidden;
+    }
     </style>
 </head>
 <body data-theme="dark">
@@ -992,7 +1001,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
         const task=running[0],tel=task.telemetry||{phases:[],logs:[]};
         pip.className='now-live';
         setText(byId('nowKicker'),running.length>1?`Working on ${running.length} things`:'Working on it');
-        setText(byId('nowWhat'),taskLabel(task));
+        setText(byId('nowWhat'),taskLabel(task)); byId('nowWhat').title=taskLabel(task);
         const phase=(tel.phases||[]).find(p=>p.state==='active');
         const elapsed=elapsedSince(tel.started_at);
         const sub=byId('nowSub'); clear(sub);
@@ -1026,7 +1035,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
       // opening the console wants to know what it last did, not how many
       // skills are installed. The inventory keeps its place in the rail,
       // where a count belongs.
-      setText(byId('nowWhat'),taskLabel(task));
+      setText(byId('nowWhat'),taskLabel(task)); byId('nowWhat').title=taskLabel(task);
       const sub=byId('nowSub'); clear(sub);
       const verdict=task.status==='done'?'Finished':task.status==='cancelled'?'Cancelled':'Stopped';
       sub.append(make('b',verdict),make('span',` ${timeAgo(tel.ended_at)}`));
