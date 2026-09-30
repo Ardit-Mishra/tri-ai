@@ -227,3 +227,75 @@ operator's and was left alone.
   points there with `devstral:24b` and `qwen2.5-coder:14b` beneath it as
   fallbacks. `ensure_routers.ps1` matches it by process for this reason.
   A bare port probe of 20128 is not a health check.
+
+## 2026-09-30 — pressure-testing the Cortex
+
+Measured in the live console rather than looked at. What the measurements
+found, and what was done:
+
+**Two layouts for one markup.** The stylesheet declares a grid
+(`.cortex-theater { display:grid; grid-template-rows:... }`) and then, 90
+lines later, a "neural observatory" that re-declares the same selectors
+as a full-viewport stack. The second wins. Any edit to the first is dead
+on arrival — the first attempt at capping the graph resolved to
+`minmax(480px,558px)` while the element was `display:block; height:100dvh`.
+Corrections are now appended last, with a comment saying why.
+
+**The header was painted on top of the canvas.** `header` was
+`position:absolute; z-index:20` over a `1377x900` full-bleed canvas at
+`y=0`, and `.core-topline` carried a 91px padding whose only job was to
+dodge it. Four text layers floated on the live node field. The document
+ran to 2784px, so 68% of the console sat below a field of moving dots.
+
+**The lane tabs worked; I twice reported they did not.** The first check
+used `Object.keys(el).filter(k=>k.startsWith('on'))`, which cannot see an
+`addEventListener` handler. The second clicked a `ref` captured at a
+different viewport. Both readings were wrong and the listener is on line
+668. The real faults were that the tabs were 31px (below the 44px touch
+minimum), sat mid-canvas, and said nothing about what distinguished them.
+
+**Evidence was attributed to the wrong lane.** `renderModelLanes` built
+one global list and rendered it inside the rail headed CLAUDE LANE. The
+rows were byte-identical across all three tabs — so the console asserted
+Claude had run `devstral:24b`, an Ollama tag that exists only on the
+local box. That panel is the one an operator uses to answer "am I
+burning a subscription or running free", and it was answering with
+another lane's evidence. `laneForModel()` now classifies each route and
+`renderAgentLens` redraws the rows with the lane.
+
+**The headline was an inventory.** While idle the largest type on the
+page — 35px — read "1522 active resources available to the planner. 9343
+archived references remain searchable", while the task it had just
+finished sat beneath it at 10px. Swapped.
+
+**Rails overflowed once the theater became a band.** They are absolutely
+positioned with `top:104px; bottom:72px`, sized against a 100dvh
+container; in a 400-640px band their boxes were 272px and their content
+was not. Measured: the boxes do not intersect, so the apparent collision
+was an overflow. They now scroll inside the band, and return to flow
+below 700px.
+
+**Verified after the change**, at 375 / 1024 / 1440:
+no horizontal overflow at any width; zero overlapping pairs among
+header, core, both rails, the run panel, the readout, the metrics and
+the tab band at 375 and 1440; at 1024 the only pairs are the rails over
+the canvas, which is the observatory's intended layering. Core height
+900 -> 504. Document 2784 -> 2474.
+
+`tests/test_lane_attribution.py` executes the shipped classifier under
+node rather than substring-matching it. Both mutations — classifier
+always returns `claude`, rows never redrawn — are caught.
+
+### A deploy trap worth remembering
+
+Two `-m dashboard.kaya_web` processes were alive at once. The first held
+8081 and kept serving the template it had imported before the deploy; the
+second could not bind and idled. `Stop-ScheduledTask` ends the task, not
+the python child, so restarting produced the spare rather than replacing
+the original. Three separate "the fix did not land" rounds came from
+this. Killing every process whose command line matches the module, then
+starting one, is the only reliable restart.
+
+Also: probing `http://127.0.0.1:8081/` from the desktop returns the
+**login page** (1,437 bytes), not the board. A deploy check that greps
+that response for board markup will report failure whatever is deployed.
