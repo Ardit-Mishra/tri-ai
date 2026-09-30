@@ -215,13 +215,27 @@ class TheAlphabetMustNotDecideWhatTheRoleLearnsTest(unittest.TestCase):
         self.assertEqual(emphasis[:2], ("taste", "frontend_engineering"),
                          f"the designer leads with {emphasis[:2]}")
 
-    def test_the_defining_skills_survive_the_real_budget(self):
-        """The failure as measured, at the budget the system actually runs.
+    def test_the_defining_skill_survives_the_real_budget(self):
+        """`frontend-design` must be inlined; `taste-skill` no longer can be.
 
-        Pinning 24,000 here would test a configuration nobody uses: that
-        was the old default, and `taste-skill` alone is 21,366 bytes, so
-        no ordering rule can fit both it and `frontend-design` inside it.
-        That is what raised the default and added the per-skill cap.
+        This asserted both until the budget met a harder limit than
+        prompt economy: the prompt travels as an argv element and Windows
+        caps a command line at 32,767 characters, so 40,000 of skill text
+        could not be sent at all (see
+        test_prompt_fits_the_command_line). At the 13,000 that does fit,
+        `taste-skill` at 21,366 bytes cannot be inlined by any ordering
+        rule.
+
+        Losing that one rather than `frontend-design` is the right way
+        round on the evidence. `taste-skill` bans Inter under an
+        ANTI-SLOP heading and then mandates Geist, Outfit, Cabinet
+        Grotesk, Satoshi and JetBrains Mono — every one of which
+        `taste.OVERUSED_FACES` rejects — so inlining it in full put the
+        agent in direct conflict with the gate. `frontend-design` names
+        the same clichés and prescribes no shortlist.
+
+        It must still be *offered*, though: dropped silently is the
+        failure this module exists to prevent.
         """
         contract = capabilities.resolve_contract("designer", None)
         block = capabilities.brief_block(contract)
@@ -229,19 +243,30 @@ class TheAlphabetMustNotDecideWhatTheRoleLearnsTest(unittest.TestCase):
                    for l in block.splitlines() if l.startswith("### Skill [")]
         self.assertIn("frontend-design", inlined,
                       f"the designer got {inlined} and not frontend-design")
-        self.assertIn("taste-skill", inlined,
-                      f"the designer got {inlined} and not taste-skill")
+        self.assertNotIn("taste-skill", inlined,
+                         "taste-skill is 21,366 bytes and cannot fit the "
+                         "command-line ceiling; if it now fits, the ceiling "
+                         "moved and this test should say so")
+        self.assertIn("taste-skill", block,
+                      "taste-skill was dropped entirely rather than offered "
+                      "as a reference")
 
     def test_a_keyword_match_never_outranks_the_role_s_own_emphasis(self):
-        """The catalog is the other half of what crowded them out."""
+        """The catalog is the other half of what crowded them out.
+
+        Asserted on `taste-skill` until the command-line ceiling put it
+        out of reach at any budget that fits. `frontend-design` carries
+        the same point: it is named by the role, so no keyword match may
+        take its place.
+        """
         contract = capabilities.resolve_contract("designer", None)
         block = capabilities.brief_block(
             contract,
             task_prompt="portfolio website with animations, not machine made")
         inlined = [l.split("[", 1)[1].split("]", 1)[0]
                    for l in block.splitlines() if l.startswith("### Skill [")]
-        self.assertIn("taste-skill", inlined,
-                      f"a catalog keyword match displaced taste-skill: {inlined}")
+        self.assertIn("frontend-design", inlined,
+                      f"a catalog keyword match displaced frontend-design: {inlined}")
 
 
 if __name__ == "__main__":

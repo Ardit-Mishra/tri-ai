@@ -710,6 +710,44 @@ def answered_without_tools(api_calls: Optional[int]) -> Optional[bool]:
     return int(api_calls) <= 1
 
 
+class PromptTooLong(ValueError):
+    """The assembled prompt cannot fit in a command line."""
+
+
+# Windows caps an entire command line at 32,767 characters and
+# `CreateProcess` refuses rather than truncating, with
+# `FileNotFoundError: [WinError 206] The filename or extension is too long`.
+# Hermes takes the prompt positionally (`-z PROMPT`) and offers no file or
+# stdin alternative - `-z -` was tested and is treated as a literal prompt -
+# so the prompt travels as one argv element and the ceiling is real.
+#
+# 30,000 leaves room for the interpreter path, the executable path and the
+# model, provider and usage-file flags.
+#
+# This was not theoretical. Inlining skill text took the designer's prompt
+# to 41,789 characters; every task then died at spawn, was recorded as an
+# *environment* failure so it never counted against the task, and the board
+# showed `blocked` with `consecutive_failures: 0` and no reason on the row.
+MAX_COMMAND_LINE = 30_000
+
+
+def check_prompt_fits(prompt: str) -> None:
+    """Refuse an oversized prompt here, where the reason can be stated.
+
+    WinError 206 mentions filenames and says nothing about prompts. A
+    refusal raised before the spawn names the actual cause and the actual
+    number, which is the difference between reading it and guessing.
+    """
+    size = len(prompt or "")
+    if size > MAX_COMMAND_LINE:
+        raise PromptTooLong(
+            f"assembled prompt is {size:,} characters, over the "
+            f"{MAX_COMMAND_LINE:,} command-line ceiling by "
+            f"{size - MAX_COMMAND_LINE:,}. Lower "
+            f"capabilities.DEFAULT_SKILL_BUDGET or shorten the task."
+        )
+
+
 def run_agent(
     repo: Path | str,
     prompt: str,
@@ -736,7 +774,14 @@ def run_agent(
     """
     head_before = head_commit(repo)
     # `-z` takes the prompt positionally, so the overrides go after it.
-    argv = [str(hermes_bin()), "-z", build_prompt(repo, prompt)]
+    assembled = build_prompt(repo, prompt)
+    try:
+        check_prompt_fits(assembled)
+    except PromptTooLong as exc:
+        # Reported as a run failure with a legible reason rather than an
+        # exception through the worker: the operator needs the number.
+        return AgentResult(1, f"PromptTooLong: {exc}", 0.0)
+    argv = [str(hermes_bin()), "-z", assembled]
     if usage_path is not None:
         argv += ["--usage-file", str(usage_path)]
     # Absent by default: with no override the command is byte-for-byte what

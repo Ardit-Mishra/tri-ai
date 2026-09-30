@@ -323,7 +323,7 @@ def resolve_contract(
 #
 # So: inline until the budget is spent, in the order the capability named
 # them, and let the rest be references that at least say what they contain.
-DEFAULT_SKILL_BUDGET = 40_000
+DEFAULT_SKILL_BUDGET = 13_000
 # No single skill may take more than this share of the budget.
 #
 # With the budget at 24,000 and emphasis order finally correct, the
@@ -332,9 +332,34 @@ DEFAULT_SKILL_BUDGET = 40_000
 # allowance and the next one down did not fit. Truncating it would have
 # been worse - half a rule reads as a whole one - so an oversized skill is
 # deferred to a reference instead, and the budget was raised to fit the
-# designer's real set (taste 21.4 KB + frontend-design 9.4 KB +
-# web-design-guidelines 1.3 KB) with room for a catalog match.
-MAX_SHARE_PER_SKILL = 0.6
+# designer's real set. Then WinError 206: the prompt travels as one argv
+# element and Windows caps the command line at 32,767, so 40,000 could
+# not be sent at all. 16,000 keeps the assembled brief under
+# executor.MAX_COMMAND_LINE with the taste brief and the task beside it.
+#
+# What drops out is taste-skill, at 21,366 the largest by far - and on
+# the evidence that is the right one to lose. It bans Inter under an
+# ANTI-SLOP heading and then mandates Geist, Outfit, Satoshi and
+# JetBrains Mono, every one of which the gate rejects. frontend-design
+# names the same clichés and prescribes no shortlist, and it still fits.
+# 0.75, not 0.6: at a 13,000 budget the 60% cap was 7,800 and
+# `frontend-design` is 9,390, so the one skill that names the
+# machine-made defaults without prescribing a shortlist was the one being
+# dropped. 0.75 admits it and still refuses anything that would leave no
+# room for a second.
+MAX_SHARE_PER_SKILL = 0.75
+
+# The whole brief, not just the inlined skills.
+#
+# DEFAULT_SKILL_BUDGET bounds one part of the output; the capability
+# instruction lines, the deferred reference list and up to twelve catalog
+# match lines are not counted by it. The `lead` role allows every
+# capability and assembled 37,281 characters with a 13,000 skill budget -
+# refused at spawn, so a role that could never run.
+#
+# Everything the brief emits has to fit the channel, so the cap applies to
+# the finished text.
+MAX_BRIEF = 20_000
 
 _FRONTMATTER = re.compile(r"\A---[ \t]*\n(.*?)\n---[ \t]*\n", re.S)
 _DESCRIPTION = re.compile(r"^description:[ \t]*(.+?)[ \t]*$", re.M)
@@ -495,4 +520,31 @@ def brief_block(
         "Completion is decided only by the external verifier; never claim that your own report proves success.",
         "--- END TRI-AI SPECIALIST CONTRACT ---",
     ))
-    return "\n".join(lines)
+    return _within_budget(lines)
+
+
+def _within_budget(lines: Sequence[str], cap: int = MAX_BRIEF) -> str:
+    """Drop the least valuable lines until the brief fits its channel.
+
+    Sacrificed in order: deferred references, the heading above them, then
+    catalog match lines, then their heading. Inlined skill text and
+    capability instructions are never dropped — a brief that fits by
+    discarding its guidance has not solved anything, it has moved the
+    failure somewhere quieter.
+    """
+    if len("\n".join(lines)) <= cap:
+        return "\n".join(lines)
+    kept = list(lines)
+
+    def drop(matches) -> None:
+        for index in range(len(kept) - 1, -1, -1):
+            if len("\n".join(kept)) <= cap:
+                return
+            if matches(kept[index]):
+                kept.pop(index)
+
+    drop(lambda line: " — read at " in line)
+    drop(lambda line: line.startswith("Further skills are installed"))
+    drop(lambda line: line.startswith("- ") and "] at " in line)
+    drop(lambda line: line.startswith("Automatically matched resources"))
+    return "\n".join(kept)
