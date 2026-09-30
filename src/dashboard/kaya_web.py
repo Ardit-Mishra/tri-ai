@@ -397,7 +397,13 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .orchestration-foot b { color:var(--text); font-weight:650; }
     /* Cortex Theater is intentionally a new visual system: one large live
        topology with sparse, inspectable edges instead of dashboard tiles. */
-    .cortex-theater { border-bottom:1px solid var(--line); display:grid; gap:0; grid-template-columns:190px minmax(0,1fr) 250px; grid-template-rows:minmax(660px,calc(100dvh - 112px)) auto; margin-top:18px; min-height:700px; }
+    /* The graph is one panel, not the page.
+       At 1440x900 the canvas measured 1377x900 and the document ran to
+       2784px, so 68% of the console - the run in flight, the metrics,
+       the inspector - sat below a field of moving dots. Capping the row
+       at 62dvh puts the current run back on the first screen without
+       taking the topology away from anyone who wants it. */
+    .cortex-theater { border-bottom:1px solid var(--line); display:grid; gap:0; grid-template-columns:190px minmax(0,1fr) 250px; grid-template-rows:minmax(480px,62dvh) auto; margin-top:18px; min-height:480px; }
     .theater-rail { border-top:1px solid var(--line); color:var(--muted); min-width:0; padding:22px 16px; position:relative; }
     .theater-sources { border-right:1px solid var(--line); }
     .theater-control { border-left:1px solid var(--line); }
@@ -413,16 +419,38 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .cortex-core { background:#050b09; border:0; min-height:0; overflow:hidden; padding:0; position:relative; }
     .cortex-core::before { background:transparent; display:none; }
     .cortex-core > * { position:absolute; }
-    .core-topline { color:var(--muted); display:flex; font-family:ui-monospace,"Cascadia Code",monospace; font-size:8px; font-weight:700; gap:18px; justify-content:center; left:0; letter-spacing:.11em; padding:16px 20px; right:0; text-transform:uppercase; top:0; z-index:4; }
+    /* Below the lane band, which now owns the top of the panel. */
+    .core-topline { color:var(--muted); display:flex; font-family:ui-monospace,"Cascadia Code",monospace; font-size:8px; font-weight:700; gap:18px; justify-content:center; left:0; letter-spacing:.11em; padding:10px 20px; right:0; text-transform:uppercase; top:52px; z-index:4; }
     .core-topline span { align-items:center; display:flex; gap:6px; }
     .core-topline i { background:var(--cyan); border-radius:50%; box-shadow:0 0 12px var(--cyan); display:inline-block; height:5px; width:5px; }
-    .theater-tabs { border:1px solid var(--line); display:flex; flex-direction:row; gap:0; left:50%; margin:0; padding:3px; position:absolute; top:40px; transform:translateX(-50%); width:auto; z-index:5; }
-    .theater-tabs .agent-tab { border:0; font-size:10px; min-height:31px; padding:0 13px; text-align:center; white-space:nowrap; }
+    /* The lane picker is a control, not a caption.
+       It used to float in the middle of the canvas at 31px tall, below the
+       44px touch minimum and with no indication that the three options
+       differ in cost. It now sits on its own band above the graph, full
+       width, with the role of each lane printed on the control itself. */
+    .theater-tabs { background:var(--panel,#070f0c); border:0; border-bottom:1px solid var(--line); display:grid;
+      gap:0; grid-template-columns:repeat(3,minmax(0,1fr)); left:0; margin:0; padding:0; position:absolute;
+      right:0; top:0; transform:none; width:100%; z-index:5; }
+    .theater-tabs .agent-tab { align-items:center; border:0; border-right:1px solid var(--line); display:flex;
+      flex-direction:column; font-size:10px; gap:3px; justify-content:center; min-height:52px; padding:8px 10px;
+      text-align:center; white-space:nowrap; }
+    .theater-tabs .agent-tab:last-child { border-right:0; }
+    .theater-tabs .agent-tab i { color:var(--muted); font-family:ui-monospace,"Cascadia Code",monospace;
+      font-size:7px; font-style:normal; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
     .theater-tabs .agent-tab[aria-selected="true"] { background:#eef3ee; color:#102319; }
-    .core-title { bottom:48px; display:grid; justify-items:center; left:0; pointer-events:none; right:0; text-align:center; z-index:3; }
+    .theater-tabs .agent-tab[aria-selected="true"] i { color:#3c5a4b; }
+    /* The caption sits under the graph rather than on top of it.
+       The old `.core-title` painted a 54px wordmark and a 44ch paragraph
+       across the middle of a live, moving node field - the text was
+       unreadable against the nodes and the nodes unreadable behind the
+       text. The wordmark itself is gone: it restated the tab already
+       selected two inches above it. */
+    .core-title { bottom:44px; display:grid; gap:4px; justify-items:center; left:0; pointer-events:none;
+      right:0; text-align:center; z-index:3; }
     .core-title span { color:var(--cyan); font-family:ui-monospace,"Cascadia Code",monospace; font-size:9px; font-weight:720; letter-spacing:.18em; }
-    .core-title strong { color:#f3f6f0; font-size:clamp(36px,3.4vw,54px); font-weight:760; letter-spacing:0; line-height:.95; margin-top:6px; text-transform:uppercase; }
-    .core-title em { color:#b6c8be; font-size:10px; font-style:normal; line-height:1.4; margin-top:8px; max-width:44ch; }
+    .core-title strong { display:none; }
+    .core-title em { background:color-mix(in srgb,#050b09 82%,transparent); color:#cdddd3; font-size:10px;
+      font-style:normal; line-height:1.45; max-width:62ch; padding:5px 10px; }
     .cortex-core #spatialGraph,.cortex-core #neuralGraph { bottom:0; height:100%; left:0; right:0; top:0; width:100%; z-index:1; }
     .cortex-core .spatial-tooltip { z-index:8; }
     .core-bottom { align-items:center; bottom:14px; color:var(--muted); display:flex; font-family:ui-monospace,"Cascadia Code",monospace; font-size:8px; justify-content:space-between; left:18px; letter-spacing:.08em; right:18px; text-transform:uppercase; z-index:4; }
@@ -452,7 +480,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
     body[data-theme="light"] .cortex-stage-label em,body[data-theme="light"] .graph-hint,body[data-theme="light"] .model-lane .lane-kind { color:#c6d7cd; }
     body[data-theme="light"] .model-lane strong { color:#f3f6f0; }
     @media (max-width:1100px) { .cortex-theater { grid-template-columns:180px minmax(0,1fr); grid-template-rows:minmax(590px,calc(100vh - 112px)) auto auto; } .theater-control { border-left:0; border-top:1px solid var(--line); grid-column:1 / -1; } .theater-control .map-proof-list { grid-template-columns:repeat(3,minmax(0,1fr)); } .theater-control .model-lanes { display:flex; } .theater-control .model-lane { border-bottom:0; border-right:1px solid var(--line); padding:0 10px 0 0; } .theater-control .model-lane:not(:first-child) { padding-left:10px; } .hud-aside { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-    @media (max-width:700px) { .shell { padding:12px; } header { align-items:flex-start; display:grid; gap:14px; grid-template-columns:1fr; } .header-right { align-items:center; display:grid; gap:8px; grid-template-columns:1fr auto; justify-content:stretch; width:100%; } .demo-badge { min-width:0; text-align:center; } .stream-badge { justify-content:center; } .theme-toggle { grid-column:1 / -1; min-height:42px; width:100%; } .services { display:none; } .cortex-theater { display:flex; flex-direction:column; margin-left:-12px; margin-right:-12px; } .cortex-core { min-height:440px; order:-1; } .theater-sources,.theater-control { border-left:0; border-right:0; padding:16px 14px; } .theater-sources { display:grid; gap:8px; grid-template-columns:repeat(2,minmax(0,1fr)); } .theater-sources .rail-head,.theater-sources .rail-rule,.theater-sources .rail-copy { grid-column:1 / -1; } .source-cluster { margin-top:0; } .core-topline { font-size:7px; gap:8px; padding:12px 8px; } .core-topline span:nth-child(2) { display:none; } .theater-tabs { top:36px; width:calc(100% - 32px); } .theater-tabs .agent-tab { font-size:9px; padding:0 7px; } .core-title { bottom:49px; } .core-title strong { font-size:42px; } .core-title em { font-size:9px; max-width:30ch; } .core-bottom { bottom:13px; font-size:7px; left:10px; right:10px; } .core-bottom > span:first-child { display:none; } .theater-control .map-proof-list { grid-template-columns:1fr; } .theater-control .model-lanes { display:block; } .theater-control .model-lane { border-bottom:1px solid var(--line); border-right:0; padding:10px 0; } .hud-aside { display:block; } .hud-aside .hud-panel + .hud-panel { border-left:0; border-top:1px solid var(--line); margin-top:18px; padding:18px 0 0; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } }
+    @media (max-width:700px) { .shell { padding:12px; } header { align-items:flex-start; display:grid; gap:14px; grid-template-columns:1fr; } .header-right { align-items:center; display:grid; gap:8px; grid-template-columns:1fr auto; justify-content:stretch; width:100%; } .demo-badge { min-width:0; text-align:center; } .stream-badge { justify-content:center; } .theme-toggle { grid-column:1 / -1; min-height:42px; width:100%; } .services { display:none; } .cortex-theater { display:flex; flex-direction:column; margin-left:-12px; margin-right:-12px; } .cortex-core { min-height:440px; order:-1; } .theater-sources,.theater-control { border-left:0; border-right:0; padding:16px 14px; } .theater-sources { display:grid; gap:8px; grid-template-columns:repeat(2,minmax(0,1fr)); } .theater-sources .rail-head,.theater-sources .rail-rule,.theater-sources .rail-copy { grid-column:1 / -1; } .source-cluster { margin-top:0; } .core-topline { font-size:7px; gap:8px; padding:12px 8px; } .core-topline span:nth-child(2) { display:none; } .theater-tabs { top:0; width:100%; } .theater-tabs .agent-tab { font-size:9px; min-height:48px; padding:6px 6px; } .core-title { bottom:46px; } .core-title em { font-size:9px; max-width:34ch; } .core-bottom { bottom:13px; font-size:7px; left:10px; right:10px; } .core-bottom > span:first-child { display:none; } .theater-control .map-proof-list { grid-template-columns:1fr; } .theater-control .model-lanes { display:block; } .theater-control .model-lane { border-bottom:1px solid var(--line); border-right:0; padding:10px 0; } .hud-aside { display:block; } .hud-aside .hud-panel + .hud-panel { border-left:0; border-top:1px solid var(--line); margin-top:18px; padding:18px 0 0; } .cortex-intent { grid-template-columns:1fr; } .cortex-readout { border-left:0; border-top:1px solid var(--line); min-width:0; padding:14px 0 0; } .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } .metric:nth-child(3) { border-right:0; } .metric:nth-child(n+4) { border-top:1px solid var(--line); } .metric { min-height:70px; } }
 
     /* Neural observatory: the file universe is the interface. Edge telemetry
        floats over the field and never boxes the organism into a dashboard. */
@@ -551,15 +579,15 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <div id="sourceIndex" aria-live="polite"></div>
         <div class="brain-search"><label for="fileSearch">Find a node</label><input id="fileSearch" type="search" autocomplete="off" placeholder="file or folder name"><div class="brain-search-results" id="fileSearchResults"></div></div>
         <div class="rail-rule"></div>
-        <div class="rail-head"><span>Ingress</span><b>bounded</b></div>
-        <p class="rail-copy">Telegram and voice requests become a scoped brief before any model receives context.</p>
+        <div class="rail-head"><span>Ingress</span><b id="ingressState">telegram</b></div>
+        <p class="rail-copy">A Telegram or voice request becomes a scoped brief before any model receives context.</p>
       </aside>
       <section class="cortex-core graph-panel">
         <div class="core-topline"><span><i></i> cortex online</span><span id="brainIndexState">authorized index awaiting data</span><span>motion enabled</span></div>
         <div class="agent-tabs theater-tabs" role="tablist" aria-label="Choose an execution lane">
-          <button class="agent-tab" id="lensClaude" type="button" role="tab" aria-selected="true" aria-controls="agentContext" data-lane="claude">Claude Code</button>
-          <button class="agent-tab" id="lensCodex" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="codex">Codex</button>
-          <button class="agent-tab" id="lensLocal" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="local">Local + free</button>
+          <button class="agent-tab" id="lensLocal" type="button" role="tab" aria-selected="true" aria-controls="agentContext" data-lane="local">Local + free <i>default</i></button>
+          <button class="agent-tab" id="lensClaude" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="claude">Claude <i>escalation</i></button>
+          <button class="agent-tab" id="lensCodex" type="button" role="tab" aria-selected="false" aria-controls="agentContext" data-lane="codex">Codex <i>escalation</i></button>
         </div>
         <div class="core-title"><span>TRI-AI PRIVATE NEURAL FIELD</span><strong id="activeLaneLabel">CLAUDE</strong><em id="brainIndexSummary">Every authorized file becomes a provenance-linked node.</em></div>
         <div id="spatialGraph" role="img" aria-label="Interactive three-dimensional Tri-AI system topology"><div class="spatial-tooltip" id="spatialTooltip"></div></div>
@@ -588,8 +616,12 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <div class="now-files" id="nowFiles"></div>
       </section>
       <aside class="cortex-readout" aria-label="Cortex state">
-        <div><span class="readout-label">Private intelligence</span><div class="readout-value">Evidence-led <span>only</span></div></div>
-        <div><span class="readout-label">Execution posture</span><div class="readout-value">Verify before release</div></div>
+        <!-- These two were "Private intelligence: Evidence-led only" and
+             "Execution posture: Verify before release" - slogans with no
+             datum behind them, and the footer one section up already says
+             both. They now carry the two numbers that change. -->
+        <div><span class="readout-label">Acceptance</span><div class="readout-value" id="readoutAccept">-</div></div>
+        <div><span class="readout-label">Last verified</span><div class="readout-value" id="readoutVerified">-</div></div>
       </aside>
     </section>
     <section class="metrics" aria-label="System metrics">
@@ -640,14 +672,42 @@ _HTML_TEMPLATE = r"""<!doctype html>
     themeToggle.addEventListener('click',()=>setTheme(document.body.dataset.theme==='light'?'dark':'light'));
     const clear = node => { while (node.firstChild) node.removeChild(node.firstChild); };
     const make = (tag, text, cls) => { const node=document.createElement(tag); node.textContent=text; if(cls) node.className=cls; return node; };
+    // What each lane is FOR, in the terms an operator needs: when it gets
+    // chosen, what it costs, and what it is not.
+    //
+    // The previous copy read like a brochure - "Claude receives an approved
+    // brief, source boundaries, and the project constraints" - which is true
+    // of every lane and answers none of the questions someone opens this
+    // panel with. `when` and `cost` are the two lines that earn the panel.
+    //
+    // Local leads because it is the default, not the fallback: hermes
+    // config.yaml routes `model.base_url` at OmniRoute and lists
+    // devstral:24b and qwen2.5-coder:14b beneath it. Claude and Codex are
+    // accelerators on flat subscriptions, and the $0-marginal-cost rule
+    // makes that ordering a constraint rather than a preference.
     const AGENT_LENSES={
-      claude:{label:'Claude lane',title:'Research and planning',summary:'Claude receives an approved brief, source boundaries, and the project constraints. It returns a plan that can be challenged, cited research, and explicit acceptance checks.',received:'Approved brief + source pack',tools:'Research, files, documentation',returns:'Plan, citations, acceptance checks'},
-      codex:{label:'Codex lane',title:'Implementation and verification',summary:'Codex receives a build contract, repository context, and review notes. It returns an inspectable diff, test evidence, and a release packet rather than an unverified claim.',received:'Build contract + repository scope',tools:'Code, browser checks, test harness',returns:'Diff, tests, rollback-ready packet'},
-      local:{label:'Local and free-route lane',title:'Local and free-route execution',summary:'Ollama handles eligible local work with no per-token charge. OmniRoute and FreeLLMAPI are separate policy-gated free routes, each required to retain its requested model, resolved model, provider, and usage evidence.',received:'Bounded subtask + approved context',tools:'Ollama, OmniRoute, FreeLLMAPI, route policy',returns:'Resolved model, usage record, transcript, verifier input'},
+      local:{label:'Local + free lane',title:'The default path, and the floor',
+        summary:'Every task starts here. OmniRoute takes the request first and Ollama runs underneath it, so a build completes with no metered spend and no dependency on a subscription being available.',
+        when:'Chosen unless a task is escalated',cost:'No metered cost. Unlimited.',
+        limits:'Ceiling near 14 GB of VRAM; larger local models fail to load',
+        received:'Bounded subtask + approved context',tools:'OmniRoute, Ollama, FreeLLMAPI',
+        returns:'Resolved model, usage record, transcript, verifier input'},
+      claude:{label:'Claude lane',title:'Escalation for research and planning',
+        summary:'Used when a task needs judgement the local models get wrong: reading an unfamiliar codebase, planning a build, or deciding what the acceptance check should be. It is an accelerator, not the engine.',
+        when:'Escalated to, never the default',cost:'Flat subscription. Capped, not metered.',
+        limits:'Subscription limits apply; exhaustion degrades back to the free lane',
+        received:'Approved brief + source pack',tools:'Research, files, documentation',
+        returns:'Plan, citations, acceptance checks'},
+      codex:{label:'Codex lane',title:'Escalation for implementation',
+        summary:'Used when a change is too large or too interlocking for the local lane to land in one turn. Returns an inspectable diff and test evidence; the verifier still decides, and a claim from the agent is never the evidence.',
+        when:'Escalated to, never the default',cost:'Flat subscription. Capped, not metered.',
+        limits:'Subscription limits apply; exhaustion degrades back to the free lane',
+        received:'Build contract + repository scope',tools:'Code, browser checks, test harness',
+        returns:'Diff, tests, rollback-ready packet'},
     };
-    let activeAgentLens='claude';
+    let activeAgentLens='local';
     function renderAgentLens(lane) {
-      const detail=AGENT_LENSES[lane]||AGENT_LENSES.claude; activeAgentLens=lane;
+      const detail=AGENT_LENSES[lane]||AGENT_LENSES.local; activeAgentLens=lane;
       document.querySelectorAll('.agent-tab').forEach(button=>{
         const selected=button.dataset.lane===lane;
         button.setAttribute('aria-selected',String(selected));
@@ -657,11 +717,20 @@ _HTML_TEMPLATE = r"""<!doctype html>
       setText(byId('mapAgentTitle'),detail.title);
       setText(byId('mapAgentSummary'),detail.summary);
       const proof=byId('mapProofList'); clear(proof);
-      [['Receives',detail.received],['Tool permissions',detail.tools],['Evidence returned',detail.returns]].forEach(([label,value])=>{
+      // `When` and `Cost` come first because they are the two facts that
+      // distinguish the lanes from one another; the rest is shape.
+      [['When it runs',detail.when],['Cost',detail.cost],['Limits',detail.limits],
+       ['Receives',detail.received],['Tool permissions',detail.tools],
+       ['Evidence returned',detail.returns]].forEach(([label,value])=>{
+        if(!value)return;
         const row=make('div',''); row.append(make('span',label),make('b',value)); proof.append(row);
       });
       const graph=byId('spatialGraph');
       if(graph) graph.dataset.activeLane=lane;
+      // The routes below the fold belong to the selected lane, so they have
+      // to be redrawn with it. Without this the panel kept whichever lane's
+      // rows were rendered last, which is how the misattribution survived.
+      if(hud&&hud.data)renderModelLanes(hud.data);
       window.dispatchEvent(new CustomEvent('tri-ai:lane',{detail:{lane}}));
     }
     document.querySelectorAll('.agent-tab').forEach(button=>button.addEventListener('click',()=>renderAgentLens(button.dataset.lane)));
@@ -915,6 +984,27 @@ _HTML_TEMPLATE = r"""<!doctype html>
         });
       }
     }
+    // Which execution lane actually ran a given model.
+    //
+    // This list used to be global and render unchanged inside the rail
+    // headed "CLAUDE LANE", so the console asserted that Claude had run
+    // `devstral:24b` - a model that only exists on the local Ollama box.
+    // Selecting a different tab changed the prose above it and not one row
+    // here. Evidence attributed to the wrong lane is worse than no
+    // evidence: it is the one panel an operator would use to answer "is
+    // this actually running free?".
+    //
+    // The mapping is by model name because that is what the usage file
+    // records. `auto/*` aliases belong to OmniRoute, which is a free route
+    // whatever it resolves to downstream; a bare Ollama tag is local.
+    function laneForModel(model, provider) {
+      const name=String(model||'').toLowerCase();
+      if(name.startsWith('claude')||name.includes('sonnet')||name.includes('opus')||name.includes('haiku'))return 'claude';
+      if(name.startsWith('gpt-')||name.startsWith('o1')||name.startsWith('o3')||name.includes('codex'))return 'codex';
+      // Everything else this system routes is a free lane: OmniRoute's
+      // `auto/*` aliases, FreeLLMAPI, and Ollama tags like `devstral:24b`.
+      return 'local';
+    }
     function renderModelLanes(data) {
       const root=byId('modelLanes'); clear(root);
       const observed=new Map();
@@ -922,16 +1012,25 @@ _HTML_TEMPLATE = r"""<!doctype html>
         const telemetry=task.telemetry||{};
         if(!telemetry.model)return;
         const key=`${telemetry.provider||'unspecified'}::${telemetry.model}`;
-        const lane=observed.get(key)||{model:telemetry.model,provider:telemetry.provider||'provider not recorded',count:0,running:0};
+        const lane=observed.get(key)||{
+          model:telemetry.model,
+          provider:telemetry.provider||'provider not recorded',
+          lane:laneForModel(telemetry.model,telemetry.provider),
+          count:0,running:0,
+        };
         lane.count+=1; if(task.status==='running')lane.running+=1; observed.set(key,lane);
       });
-      const observedLanes=[...observed.values()].slice(0,4);
-      if(!observedLanes.length){
+      const mine=[...observed.values()].filter(lane=>lane.lane===activeAgentLens);
+      const elsewhere=observed.size-mine.length;
+      if(!mine.length){
         const lane=make('div','','model-lane');
-        lane.append(make('span','Observed model lane','lane-kind'),make('strong','No routed run recorded'));
+        lane.append(
+          make('span','Observed model lane','lane-kind'),
+          make('strong','No run recorded on this lane'),
+          make('b',elsewhere?`${elsewhere} route${elsewhere===1?'':'s'} recorded on other lanes`:'the ledger holds no routed run yet'));
         root.append(lane); return;
       }
-      observedLanes.forEach(lane=>{
+      mine.slice(0,4).forEach(lane=>{
         const card=make('div','','model-lane');
         card.append(make('span',lane.provider,'lane-kind'),make('strong',lane.model),make('b',lane.running?`${lane.running} active`: `${lane.count} retained run${lane.count===1?'':'s'}`));
         root.append(card);
@@ -1451,6 +1550,15 @@ _HTML_TEMPLATE = r"""<!doctype html>
     function render(data) {
       hud.data=data; setText(byId('total'),data.metrics.total_tasks);setText(byId('active'),data.metrics.active_runs);setText(byId('ledger'),data.metrics.ledger_entries);setText(byId('rules'),data.metrics.accepted_rules);setText(byId('capabilityCount'),data.capabilities?.total??0);setText(byId('radarCount'),data.radar?.candidate_count??0);
       const demoBadge=byId('demoBadge'); demoBadge.hidden=!data.demo; if(data.demo)setText(demoBadge,'Demonstration data // no live work');
+      // The two readouts beside the current run. They replaced a pair of
+      // slogans, so they have to carry something the page does not say
+      // elsewhere: how the last runs were judged, and when.
+      const passed=data.ledger_events.filter(e=>e.outcome==='passed').length;
+      const judged=data.ledger_events.filter(e=>e.outcome==='passed'||e.outcome==='failed').length;
+      setText(byId('readoutAccept'),judged?`${passed} of ${judged} passed the verifier`:'no judged run retained');
+      const lastPass=data.ledger_events.filter(e=>e.verify_exit===0)
+        .reduce((best,e)=>(!best||e.timestamp>best.timestamp)?e:best,null);
+      setText(byId('readoutVerified'),lastPass?timeAgo(lastPass.timestamp):'never');
       renderSourceIndex(data.file_graph);
       renderFileSearch(data.file_graph);
       const boundary=byId('privacyBoundary'); clear(boundary);
