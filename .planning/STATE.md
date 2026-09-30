@@ -375,3 +375,92 @@ larger than a 3060 can hold.
   to HTTP, and gets 401. This is why the desktop Cortex reports **1
   source cluster** where the laptop reports 9. Parsing the table needs no
   credential and would fix it.
+
+## 2026-09-30 — a catalog is an advertisement
+
+The operator said plainly: *"I feel like we have a lot of models available,
+but I don't think we particularly have access to them."* Correct, and the
+probe found two separate failures that no catalog listing could reveal.
+
+**`auto/*` serves whatever it likes.** Asked for `auto/best-coding`,
+the gateway returned HTTP 200 in 31.1s and reported served model
+`google/diffusiongemma-26b-a4b-it` — a diffusion model — whose reply
+ignored a two-word instruction. An `auto/` alias resolves downstream at
+request time, so it can never name a tested identity, which is the one
+thing the route registry exists to record.
+
+The consequence reaches backwards: **29 ledger runs recorded
+`auto/best-coding`**, meaning they recorded the alias and not what served
+them. That history says nothing about any model, and some of the output
+quality complaints may simply be this. `taste.py` was rejecting work that
+a diffusion model may have produced.
+
+Both `auto/` routes withdrawn. A test now refuses to admit any route whose
+model begins `auto/`, permanently.
+
+**All 110 `github/*` models return HTTP 466:**
+
+    This version of the Copilot CLI is no longer supported.
+    Please upgrade to the latest version.
+
+A version gate, not an entitlement wall — the Copilot subscription is
+fine. `@github/copilot` on the laptop was 1.0.83, upgraded to 1.0.90.
+That alone did not clear it; OmniRoute holds the binary, so it was
+restarted too (up after 100s). OmniRoute itself is one patch behind,
+3.8.50 against 3.8.51, which is the next lever.
+
+**`cxa/*` returns HTTP 503:** `Codex app-server transport is not
+configured (missing url or token)`. Installing the CLI is necessary and
+not sufficient — the transport is an OmniRoute setting.
+
+### What the probe technique was, and why it matters
+
+Each probe asks for one token and records the model named in the
+**response**, not the request. A gateway that silently downgrades returns
+HTTP 200 either way; `served` is the only field that distinguishes a
+working lane from a substituted one. Without it, `auto/best-coding` looks
+like a healthy route with 29 successful runs.
+
+Probes are `max_tokens: 4` with a two-word prompt, because a
+premium-request-metered provider charges per request and a sweep should
+cost the smallest unit that exists. `openrouter` (1,215 models) and
+`aihorde` (207) are excluded from the default sweep: neither is a lane
+this system would route a build to.
+
+### Verified state of every lane, 2026-09-30
+
+| lane | result |
+|---|---|
+| `deskollama/qwen2.5-coder:14b` | **ok**, 22.2s, served as itself, replied correctly |
+| `auto/best-coding` | 200, served a diffusion model — withdrawn |
+| `auto/best-free` | withdrawn by the same reasoning |
+| every `github/*` | HTTP 466, Copilot CLI version gate |
+| `cxa/*` | HTTP 503, transport not configured |
+| `freellmapi` | 0 keys configured, serves nothing |
+
+**Three routes admitted, all local, all of which answered as themselves.**
+All seven roles pinned to one of them. Nothing metered is admitted,
+because nothing metered answered.
+
+### What the two subscriptions actually are
+
+Neither a Claude nor a ChatGPT subscription includes API access; they
+ship CLIs. `hermes auth.json` holds a credential pool of `copilot` and
+`openrouter` only — there is no `anthropic` or `openai` provider.
+
+- **Claude** — no OmniRoute bridge exists (all 21 providers enumerated).
+  Usable only by running the `claude` CLI as an agent, which Hermes
+  already does. Not routable as a model.
+- **ChatGPT** — reachable through OmniRoute's `codex-app-server` bridge
+  as `cxa/*`. Codex CLI 0.159.2 installed on the desktop, reports
+  *Logged in using ChatGPT*. Blocked only on the transport setting.
+- **Copilot** — the one that actually exposes Opus 5 and GPT-5.6 as
+  routable models, currently behind the 466 gate.
+
+### Needs the operator
+
+- **Desktop OmniRoute gateway key.** Each instance mints its own inside
+  encrypted `storage.sqlite`; the laptop's key returns 401 there and was
+  removed rather than left lying about. Generate one in the desktop UI,
+  then `python ~/.tri-ai/ops/set-omniroute-key.py`.
+- **Codex app-server transport** url and token, in the OmniRoute UI.
