@@ -299,3 +299,79 @@ starting one, is the only reliable restart.
 Also: probing `http://127.0.0.1:8081/` from the desktop returns the
 **login page** (1,437 bytes), not the board. A deploy check that greps
 that response for board markup will report failure whatever is deployed.
+
+## 2026-09-30 — the lane you run on is now a thing you choose
+
+`model_routes` parses an operator registry, `board.py:1407` writes
+`model_override`/`provider_override` from a resolved route, and
+`TelegramControl` accepts a `model_routes_config`. All three were built
+and tested, and **nothing supplied the config** — no daemon declared a
+flag, so `self._model_routing` was None on every run. The laptop has
+carried `~/.tri-ai/model-routes.json` since 2026-09-26 and the running
+system never read a byte of it; the desktop had no such file.
+
+Fifth instance of written, tested, called by nothing. Now wired:
+
+    daemon_supervisor --model-routes -> telegram_daemon --model-routes
+      -> load_model_routes()   validates at start, fails closed
+      -> TelegramControl(model_routes_config=...)
+
+Verified on the running desktop, which is the only proof that counts:
+
+    telegram child running, --model-routes present: True
+      C:\Users\Ardit II\.tri-ai\model-routes.json
+
+### The registry, and why each line is there
+
+Every admission cites `lane-bench.json` or a ledger run; a test asserts
+no entry is declared without evidence.
+
+| admitted | evidence |
+|---|---|
+| `qwen2.5-coder:14b` | 3/3, 1.66s, 27.6 tok/s, 128k ctx for the 40k brief |
+| `qwen2.5-coder:7b` | 3/3, 0.82s, 41.6 tok/s — fastest correct lane |
+| `devstral:24b` | 3/3, and one completed ledger run (proven through Hermes) |
+| `auto/best-coding` | 3/3, 4.21s, codestral-2508, **29 ledger runs** |
+| `auto/best-free` | 3/3, 0.33s, Llama-3.2-3B — fast but 3B |
+
+Refused: `qwen3:14b`, `gemma4:31b` (0/3); `freellmapi auto` (2/3 — held
+on accuracy, not cost). Not admitted: both subscription routes, per the
+operator's decision that nothing escalates until a build completes on
+the free tier alone.
+
+Default `local-qwen-coder-14b`. Roles: builder/designer/reviewer →
+14b, operator → 7b, researcher/lead/product_strategist →
+`auto/best-coding`. Every one of those is free.
+
+### What the subscription actually is
+
+Not two subscriptions. `hermes auth.json` holds a credential pool of
+`copilot` and `openrouter`, and OmniRoute exposes **112 models** over
+three providers on those credentials:
+
+- **`gh`** (Copilot): Claude Fable 5, Opus 5 / 4.8 / 4.7 / 4.6 / 4.5,
+  Sonnet 5 / 4.6 / 4.5, Haiku 4.5; GPT-5.6 Sol/Terra/Luna, 5.5, 5.4,
+  5.4 mini/nano, 5.3-Codex, 4o; Gemini 3.1 Pro and 3.x Flash; Grok 4.6.
+- **`groq`**: Llama 4 Scout, Llama 3.3 70B, GPT-OSS 120B/20B, Qwen3 32B.
+- **`nvidia`**: GLM 5.2, MiniMax M2.7, Mistral Large 3 675B,
+  **Devstral 2 123B**, Qwen3.5-397B-A17B.
+
+So the Codex CLI not being installed on the desktop does not block
+anything — `GPT-5.3-Codex` is routable through OmniRoute. And `groq` and
+`nvidia` are two free lanes that were never counted, carrying models far
+larger than a 3060 can hold.
+
+### Two blockers that need the operator
+
+- **Exact model IDs are unavailable to an agent.** `omniroute models
+  --json` is accepted and ignored by v3.8.50 — it prints the table
+  regardless — and `/v1/models` on 20129 returns 401 without the API
+  key. The table's "Model ID" column shows display names
+  (`Claude Opus 5`), which may not be the literal API string. Resolve by
+  setting `OMNIROUTE_API_KEY` from the OmniRoute UI. Probing by firing a
+  completion was not done: it would spend a metered credit.
+- **`source_collectors.omniroute_catalog` is dead.** It runs
+  `omniroute models --output json`, which is not a valid flag, falls back
+  to HTTP, and gets 401. This is why the desktop Cortex reports **1
+  source cluster** where the laptop reports 9. Parsing the table needs no
+  credential and would fix it.
