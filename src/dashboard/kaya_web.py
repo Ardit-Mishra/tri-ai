@@ -585,11 +585,26 @@ _HTML_TEMPLATE = r"""<!doctype html>
       height:auto; margin:14px 0 0; max-height:none;
       min-height:0; overflow:visible; position:relative;
     }
+    .cortex-theater.cortex-theater { height:clamp(400px,58dvh,640px); }
     .cortex-core {
-      /* In flow, with a height of its own, so the rails and the sections
-         beneath it are laid out rather than stacked on top. */
-      height:clamp(380px,56dvh,620px); inset:auto; min-height:0;
-      position:relative; width:auto;
+      /* In flow, filling the band, so the rails and the sections beneath
+         it are laid out rather than stacked on top. */
+      height:100%; inset:auto; min-height:0; position:relative; width:auto;
+    }
+    .theater-rail {
+      /* The rails are absolutely positioned inside the theater and were
+         sized by `top:104px; bottom:72px` against a 100dvh container.
+         Once the theater became a band their boxes shrank to 272px while
+         their content did not, and the Observed-routes list spilled out
+         over the readout below - which read as a collision and was in
+         fact an overflow. They now start under the lane band, reach the
+         bottom of the band, and scroll inside it. */
+      bottom:0; overflow-x:hidden; overflow-y:auto; top:53px;
+      overscroll-behavior:contain;
+    }
+    @media (max-width:700px) {
+      .cortex-theater.cortex-theater { height:auto; }
+      .theater-rail { bottom:auto; overflow:visible; top:auto; }
     }
     .cortex-core > *:not(canvas):not(#spatialGraph) { pointer-events:auto; }
     .theater-tabs {
