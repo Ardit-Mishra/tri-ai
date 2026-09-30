@@ -31,6 +31,18 @@ class RoleSpec:
     label: str
     mission: str
     allowed: frozenset[str]
+    # What defines this role, in the order the prompt budget should be spent.
+    #
+    # `allowed` is a set and carries no order, so the brief used to iterate
+    # `sorted(...)` and the alphabet decided what a specialist learned. On
+    # the desktop that meant a designer received `codebase-memory` and
+    # `marketing-competitor-profiling` in full and neither `frontend-design`
+    # nor `taste-skill`, because `codebase_memory` sorts before
+    # `frontend_engineering` and is large.
+    #
+    # Anything not named here still reaches the agent; it just queues behind
+    # the capabilities the role exists for.
+    emphasis: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -140,36 +152,48 @@ ROLES: dict[str, RoleSpec] = {
         "Lead Orchestrator",
         "Coordinate specialist evidence, resolve conflicts, and deliver one coherent result that satisfies the verifier.",
         _BUILD,
+        ("agent_orchestration", "codebase_memory", "web_research"),
     ),
     "researcher": RoleSpec(
         "Researcher",
         "Investigate the task before implementation and produce decision-ready, cited evidence.",
         _RESEARCH,
+        ("web_research", "scientific_research", "competitor_research"),
     ),
     "product_strategist": RoleSpec(
         "Product Strategist",
         "Translate evidence into audience, positioning, scope, and measurable product decisions.",
         frozenset({"web_research", "competitor_research", "marketing", "diagram_design"}),
+        ("marketing", "competitor_research"),
     ),
     "designer": RoleSpec(
         "Designer",
         "Turn the research and product intent into a distinctive, usable, implementable experience.",
         _DESIGN,
+        # Taste first, then how it gets built. These two are the whole job,
+        # and they are the two the alphabet was dropping.
+        ("taste", "frontend_engineering", "motion_design", "diagram_design"),
     ),
     "builder": RoleSpec(
         "Builder",
         "Implement the assigned change completely inside the task workspace.",
         _BUILD,
+        # Builder allows everything, which expresses no preference, so
+        # `resolve_contract` leaves its contract empty and the catalog
+        # match carries the prompt. Nothing to emphasise.
+        (),
     ),
     "reviewer": RoleSpec(
         "Reviewer",
         "Find correctness, security, usability, and evidence gaps before the verifier is run.",
         _REVIEW,
+        ("security_review", "taste", "codebase_memory"),
     ),
     "operator": RoleSpec(
         "Release Operator",
         "Prepare a reproducible release and its operational evidence while respecting external-action gates.",
         frozenset({"codebase_memory", "security_review", "browser_qa", "deployment_prepare", "cloud_infrastructure"}),
+        ("deployment_prepare", "security_review"),
     ),
 }
 
@@ -299,7 +323,18 @@ def resolve_contract(
 #
 # So: inline until the budget is spent, in the order the capability named
 # them, and let the rest be references that at least say what they contain.
-DEFAULT_SKILL_BUDGET = 24_000
+DEFAULT_SKILL_BUDGET = 40_000
+# No single skill may take more than this share of the budget.
+#
+# With the budget at 24,000 and emphasis order finally correct, the
+# designer still lost `frontend-design`: `taste-skill` is 21,366 bytes and
+# went first, leaving 2,634. One skill had eaten 89% of the prompt's
+# allowance and the next one down did not fit. Truncating it would have
+# been worse - half a rule reads as a whole one - so an oversized skill is
+# deferred to a reference instead, and the budget was raised to fit the
+# designer's real set (taste 21.4 KB + frontend-design 9.4 KB +
+# web-design-guidelines 1.3 KB) with room for a catalog match.
+MAX_SHARE_PER_SKILL = 0.6
 
 _FRONTMATTER = re.compile(r"\A---[ \t]*\n(.*?)\n---[ \t]*\n", re.S)
 _DESCRIPTION = re.compile(r"^description:[ \t]*(.+?)[ \t]*$", re.M)
@@ -381,9 +416,16 @@ def brief_block(
     # things it might read.
     deferred: list[str] = []
     remaining = max(0, int(skill_budget))
+    per_skill_cap = int(remaining * MAX_SHARE_PER_SKILL)
+    # Every capability is announced, in the contract's own order, so the
+    # agent sees the whole scope. The *budget* is spent in the role's
+    # emphasis order, which is why the two loops are separate.
     for name in contract.capabilities:
+        lines.append(f"Capability [{name}]: {CAPABILITIES[name].instruction}")
+    ordered = [n for n in role.emphasis if n in contract.capabilities]
+    ordered += [n for n in contract.capabilities if n not in ordered]
+    for name in ordered:
         spec = CAPABILITIES[name]
-        lines.append(f"Capability [{name}]: {spec.instruction}")
         for skill in spec.skills:
             found = read_skill(skill, roots)
             if found is None:
@@ -391,7 +433,7 @@ def brief_block(
                 # as guidance the agent failed to consult. Say nothing.
                 continue
             path, description, body = found
-            if body and len(body) <= remaining:
+            if body and len(body) <= min(remaining, per_skill_cap):
                 remaining -= len(body)
                 lines.append(f"### Skill [{skill}] - apply this, it is not optional reading")
                 lines.append(body)
@@ -428,7 +470,7 @@ def brief_block(
                 action = "Read and apply"
                 if resource.path is not None and remaining > 0:
                     body = _body_of(resource.path)
-                    if body and len(body) <= remaining:
+                    if body and len(body) <= min(remaining, per_skill_cap):
                         remaining -= len(body)
                         inlined_now.append(
                             f"### Skill [{resource.name}] - matched on {match.reason}\n"

@@ -166,3 +166,64 @@ being emptied under it:
 
 The last one is not a disk problem and not an agent's to fix: the free
 API lane serves nothing until a key exists.
+
+### The alphabet was deciding what a specialist learned
+
+Caught by measuring the deploy rather than trusting it. The first version
+of the inlining spent its budget in `sorted(contract.capabilities)` order,
+because `RoleSpec.allowed` is a frozenset and carries none. On the desktop,
+the moment the catalog came back, a designer's brief held
+`codebase-memory`, `marketing-competitor-profiling`,
+`web-design-guidelines` and one keyword match — and neither
+`frontend-design` nor `taste-skill`. `codebase_memory` sorts before
+`frontend_engineering` and `taste`, and it is large.
+
+`RoleSpec.emphasis` now names what defines each role and the budget is
+spent in that order; every capability is still announced, in the
+contract's own order, so scope is unchanged. Two further facts fell out
+of fixing it:
+
+- `taste-skill` is 21,366 bytes and ate 89% of a 24,000 budget on its
+  own, so `frontend-design` still did not fit. `MAX_SHARE_PER_SKILL = 0.6`
+  defers any skill that would take more than its share — deferring beats
+  truncating, because half a rule reads as a whole one — and
+  `DEFAULT_SKILL_BUDGET` rose to 40,000 to hold the designer's real set.
+- A task that names capabilities explicitly has its order preserved by
+  `resolve_contract`, so the operator's order is the budget order. Only
+  the silent default sorts, and that path now goes through `emphasis`.
+
+Measured on the desktop, the user's own blocked portfolio task
+(`t_4b46ec92`, role builder, capabilities named explicitly):
+41,789 chars carrying `taste-skill`, `design-motion-principles`,
+`frontend-design` and `web-design-guidelines` as text.
+
+### A skill that contradicts the gate
+
+`~/.claude/skills/taste-skill/SKILL.md` bans Inter under an **ANTI-SLOP**
+heading (lines 40, 108) and then mandates `Geist`, `Outfit`,
+`Cabinet Grotesk`, `Satoshi`, `Geist Mono` and `JetBrains Mono` instead
+(lines 40, 41). Every one is on `OVERUSED_FACES`, and `Satoshi +
+JetBrains Mono` is one step from what run 135 shipped.
+
+So the agent was not ignoring its guidance. Where it followed the
+guidance, the guidance named a fixed shortlist — and a shortlist applied
+to every subject is a default however it is headed. The taste brief is
+appended last and now says so explicitly; without that the gate would
+reject work for obeying the prompt. The skill file itself is the
+operator's and was left alone.
+
+### Desktop state after this session
+
+- `tri-ai` at the commit above, clean tree.
+- Capability catalog rebuilt: **10,886 resources** (9,343
+  archived-reference, 1,522 active), 9.77 MB. It was absent, and the
+  Cortex read "0 active resources available to the planner."
+- Daemons restarted after the disk was freed; supervisor, worker and
+  telegram all up.
+- Dashboard serves `127.0.0.1:8081`, proxied by `tailscale serve` to
+  `https://desktop-jhq7hjm.tailc4ef4b.ts.net`. Port 3026 is the laptop's;
+  checking it on the desktop reported a false outage twice in one session.
+- OmniRoute serves **20129**, not 20128, and `hermes/config.yaml` already
+  points there with `devstral:24b` and `qwen2.5-coder:14b` beneath it as
+  fallbacks. `ensure_routers.ps1` matches it by process for this reason.
+  A bare port probe of 20128 is not a health check.

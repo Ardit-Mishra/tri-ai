@@ -173,7 +173,12 @@ class TheBuilderGetsTextTooTest(unittest.TestCase):
         block = capabilities.brief_block(
             contract,
             skill_root=self.root,
-            skill_budget=5_000,
+            # The window is narrow and both ends matter. Each fixture body
+            # is ~4,018 bytes, so the budget must clear 4,018/0.6 = 6,697
+            # for the named skill to pass the per-skill cap, and stay under
+            # 8,036 so the remainder cannot also hold the matched one.
+            # Outside that window this measures the cap, not the ordering.
+            skill_budget=7_000,
             task_prompt="build a pricing page",
             catalog_resources=[resource],
         )
@@ -181,6 +186,62 @@ class TheBuilderGetsTextTooTest(unittest.TestCase):
         self.assertNotIn("MATCHED-SKILL-BODY", block,
                          "a keyword match consumed budget the role's own "
                          "skill needed")
+
+
+class TheAlphabetMustNotDecideWhatTheRoleLearnsTest(unittest.TestCase):
+    """Budget order was `sorted(allowed)`, so `c` beat `f` and `t`.
+
+    Measured on the desktop the moment the catalog came back: a designer's
+    brief carried `codebase-memory`, `marketing-competitor-profiling`,
+    `web-design-guidelines` and one keyword match — and neither
+    `frontend-design` nor `taste-skill`, the two whose entire job is the
+    thing the designer keeps getting wrong. `codebase_memory` simply sorts
+    before `frontend_engineering` and `taste`, and it is large.
+
+    A role now declares what defines it, and that is served first. The set
+    of allowed capabilities is unchanged; only the order the budget is
+    spent in.
+    """
+
+    def test_every_role_s_emphasis_is_a_subset_of_what_it_allows(self):
+        for name, role in capabilities.ROLES.items():
+            self.assertTrue(
+                set(role.emphasis) <= set(role.allowed),
+                f"{name} emphasises a capability it does not allow: "
+                f"{sorted(set(role.emphasis) - set(role.allowed))}")
+
+    def test_the_designer_emphasises_how_the_thing_looks(self):
+        emphasis = capabilities.ROLES["designer"].emphasis
+        self.assertEqual(emphasis[:2], ("taste", "frontend_engineering"),
+                         f"the designer leads with {emphasis[:2]}")
+
+    def test_the_defining_skills_survive_the_real_budget(self):
+        """The failure as measured, at the budget the system actually runs.
+
+        Pinning 24,000 here would test a configuration nobody uses: that
+        was the old default, and `taste-skill` alone is 21,366 bytes, so
+        no ordering rule can fit both it and `frontend-design` inside it.
+        That is what raised the default and added the per-skill cap.
+        """
+        contract = capabilities.resolve_contract("designer", None)
+        block = capabilities.brief_block(contract)
+        inlined = [l.split("[", 1)[1].split("]", 1)[0]
+                   for l in block.splitlines() if l.startswith("### Skill [")]
+        self.assertIn("frontend-design", inlined,
+                      f"the designer got {inlined} and not frontend-design")
+        self.assertIn("taste-skill", inlined,
+                      f"the designer got {inlined} and not taste-skill")
+
+    def test_a_keyword_match_never_outranks_the_role_s_own_emphasis(self):
+        """The catalog is the other half of what crowded them out."""
+        contract = capabilities.resolve_contract("designer", None)
+        block = capabilities.brief_block(
+            contract,
+            task_prompt="portfolio website with animations, not machine made")
+        inlined = [l.split("[", 1)[1].split("]", 1)[0]
+                   for l in block.splitlines() if l.startswith("### Skill [")]
+        self.assertIn("taste-skill", inlined,
+                      f"a catalog keyword match displaced taste-skill: {inlined}")
 
 
 if __name__ == "__main__":
