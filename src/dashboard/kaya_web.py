@@ -557,6 +557,57 @@ _HTML_TEMPLATE = r"""<!doctype html>
       .core-bottom { left:10px; right:10px; }
       .theater-footer { bottom:auto; order:4; position:relative; }
     }
+
+    /* ------------------------------------------------------------------
+       Layout corrections, last so they are not overridden.
+
+       The stylesheet holds two layouts for the same markup: a grid, and a
+       later "neural observatory" that re-declares the same selectors as a
+       full-viewport stack. The second wins, so edits made to the first are
+       dead on arrival - which is how a 1377x900 canvas came to be painted
+       under an absolutely positioned header at z-index 20, with four text
+       layers floating on top of the node field and 68% of the console
+       below the fold.
+
+       Everything here does one thing: give each part of the console a
+       bounded place of its own, so nothing is painted over anything else.
+       ------------------------------------------------------------------ */
+    header {
+      /* Back in flow. Floating it over the canvas is what put the brand on
+         top of a moving node field, and forced `.core-topline` to carry a
+         91px padding to dodge it. */
+      background:linear-gradient(180deg,rgba(2,5,4,.98),rgba(2,5,4,.86));
+      left:auto; position:relative; right:auto; top:auto; z-index:3;
+    }
+    .cortex-theater {
+      /* A panel, not the page. 100dvh meant the operator scrolled past a
+         field of dots to reach the run in flight. */
+      height:auto; margin:14px 0 0; max-height:none;
+      min-height:0; overflow:visible; position:relative;
+    }
+    .cortex-core {
+      /* In flow, with a height of its own, so the rails and the sections
+         beneath it are laid out rather than stacked on top. */
+      height:clamp(380px,56dvh,620px); inset:auto; min-height:0;
+      position:relative; width:auto;
+    }
+    .cortex-core > *:not(canvas):not(#spatialGraph) { pointer-events:auto; }
+    .theater-tabs {
+      /* The lane picker owns the top edge of the graph panel: full width,
+         52px targets, and the role of each lane printed on the control. It
+         was a 31px chip floating in the middle of the canvas. */
+      background:rgba(3,8,6,.92); border-bottom:1px solid rgba(126,226,191,.2);
+      left:0; right:0; top:0; width:100%;
+    }
+    .theater-tabs .agent-tab { min-width:0; }
+    .core-topline { padding-top:10px; top:53px; }
+    .core-title { bottom:42px; }
+    .core-title strong { display:none; }
+    @media (max-width:700px) {
+      .cortex-core { height:clamp(320px,46dvh,460px); }
+      .theater-tabs .agent-tab { min-height:48px; }
+      .core-topline { top:49px; }
+    }
     </style>
 </head>
 <body data-theme="dark">
