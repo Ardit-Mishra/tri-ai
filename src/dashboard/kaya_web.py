@@ -800,6 +800,34 @@ _HTML_TEMPLATE = r"""<!doctype html>
         if(!value)return;
         const row=make('div',''); row.append(make('span',label),make('b',value)); proof.append(row);
       });
+      // What this lane is actually pinned to, read from the registry the
+      // daemon loads - not from the constant above it. Until today there
+      // was no registry on either machine and the panel still described
+      // three lanes confidently, which is the thing this replaces.
+      const routing=(hud&&hud.data&&hud.data.routing)||{status:'absent',routes:[],roles:{}};
+      const pinRow=make('div','');
+      if(routing.status!=='loaded'){
+        pinRow.append(make('span','Pinned route'),
+          make('b','no registry loaded - Hermes routes this lane unchecked'));
+      } else {
+        const mine=(routing.routes||[]).filter(r=>r.lane===lane);
+        const admitted=mine.filter(r=>r.admitted);
+        const roles=Object.entries(routing.roles||{}).filter(([,route])=>
+          admitted.some(r=>r.name===route)).map(([role])=>role);
+        if(!admitted.length){
+          pinRow.append(make('span','Pinned route'),
+            make('b',mine.length?`declared but not admitted (${mine.map(r=>r.name).join(', ')})`
+                                :'nothing admitted on this lane'));
+        } else {
+          pinRow.append(make('span','Admitted routes'),
+            make('b',admitted.map(r=>r.model).join(' · ')));
+          const roleRow=make('div','');
+          roleRow.append(make('span','Roles pinned here'),
+            make('b',roles.length?roles.sort().join(', '):'none'));
+          proof.append(roleRow);
+        }
+      }
+      proof.append(pinRow);
       const graph=byId('spatialGraph');
       if(graph) graph.dataset.activeLane=lane;
       // The routes below the fold belong to the selected lane, so they have
@@ -2132,6 +2160,49 @@ def _demo_file_graph() -> dict[str, object]:
     }
 
 
+def routing_policy_view(path: Path | None = None) -> dict:
+    """What the operator actually pinned, read straight from the registry.
+
+    The lane panel described each lane from a constant in the template, so
+    it said the same thing whatever the registry held - including when
+    there was no registry at all, which was the case on both machines
+    until today. A console that describes a policy it has not read is
+    describing a wish.
+
+    Read-only, like everything else here: this opens a JSON file and
+    reports what is in it. It cannot admit a route or change a pin.
+    """
+    source = path or (Path.home() / ".tri-ai" / "model-routes.json")
+    try:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"status": "absent", "source": str(source), "routes": [], "roles": {}}
+    routes = raw.get("routes") if isinstance(raw.get("routes"), dict) else {}
+    roles = raw.get("role_routes") if isinstance(raw.get("role_routes"), dict) else {}
+    rows = []
+    for name, entry in routes.items():
+        if not isinstance(entry, dict):
+            continue
+        rows.append({
+            "name": name,
+            "model": str(entry.get("model") or ""),
+            "provider": str(entry.get("provider") or "") or None,
+            "admitted": bool(entry.get("admitted")),
+            "evidence": str(entry.get("_evidence") or ""),
+            "lane": ("claude" if name.startswith("subscription-claude")
+                     else "codex" if name.startswith("subscription-codex")
+                     else "local"),
+        })
+    return {
+        "status": "loaded",
+        "source": str(source),
+        "version": str(raw.get("version") or ""),
+        "default_route": raw.get("default_route"),
+        "roles": {str(k): str(v) for k, v in roles.items()},
+        "routes": rows,
+    }
+
+
 def snapshot_payload(
     snapshot: kaya_terminal.DashboardSnapshot, *, demo: bool = False,
     private_file_graph: dict[str, object] | None = None,
@@ -2213,6 +2284,7 @@ def snapshot_payload(
                 for edge in snapshot.brain.edges
             ],
         },
+        "routing": routing_policy_view(),
         "capabilities": {
             "status": snapshot.capabilities.status,
             "total": snapshot.capabilities.total,

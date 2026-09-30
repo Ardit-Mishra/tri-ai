@@ -25,6 +25,7 @@ from interfaces import telegram_daemon
 LOG_LIMIT_BYTES = 5 * 1024 * 1024
 SHUTDOWN_SECONDS = 15.0
 DEFAULT_INTAKE_POLICY_PATH = Path.home() / ".tri-ai" / "intake_policy.json"
+DEFAULT_MODEL_ROUTES_PATH = Path.home() / ".tri-ai" / "model-routes.json"
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ def commands(
     dashboard_url: Optional[str] = None,
     reader_endpoint: Optional[str] = None,
     reader_model: Optional[str] = None,
+    model_routes: Optional[Path] = None,
 ) -> DaemonCommands:
     """Build the only two child argv forms the supervisor may execute."""
     worker = (
@@ -55,6 +57,11 @@ def commands(
     ]
     if intake_policy is not None:
         telegram.extend(("--intake-policy", str(intake_policy)))
+    # Which lane a task is pinned to is an intake decision, decided when the
+    # task is created, so the registry reaches the Telegram child and not
+    # the worker. Absent, Hermes routes as it always has.
+    if model_routes is not None:
+        telegram.extend(("--model-routes", str(model_routes)))
     if dashboard_url:
         telegram.extend(("--dashboard-url", str(dashboard_url)))
     # Reading a message before dispatching it is an intake concern, so it
@@ -74,6 +81,20 @@ def resolve_intake_policy(
 
     An explicit path remains authoritative so a typo fails in the Telegram
     daemon rather than being silently replaced by the default policy.
+    """
+    if requested is not None:
+        return requested
+    return default_path if default_path.is_file() else None
+
+
+def resolve_model_routes(
+    requested: Optional[Path], *, default_path: Path = DEFAULT_MODEL_ROUTES_PATH,
+) -> Optional[Path]:
+    """Same rule as the intake policy: present on disk means in use.
+
+    An explicit path stays authoritative so a typo fails in the Telegram
+    daemon - which validates the registry at start - rather than being
+    silently replaced by the default and routing somewhere else.
     """
     if requested is not None:
         return requested
@@ -358,6 +379,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--runs-dir", type=Path, required=True)
     parser.add_argument("--log-dir", type=Path, default=Path.home() / ".tri-ai" / "logs")
     parser.add_argument("--intake-policy", type=Path)
+    parser.add_argument("--model-routes", type=Path)
     parser.add_argument(
         "--dashboard-url",
         help="Read-only dashboard base URL; completion notices link artifacts through it",
@@ -373,6 +395,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--reader-model", default="qwen2.5-coder:7b")
     args = parser.parse_args(argv)
     intake_policy = resolve_intake_policy(args.intake_policy)
+    model_routes_path = resolve_model_routes(args.model_routes)
 
     try:
         validate_telegram_environment(os.environ)
@@ -442,6 +465,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 root=root, board_path=args.board.resolve(), ledger_path=args.ledger.resolve(),
                 runs_root=args.runs_dir.resolve(),
                 intake_policy=intake_policy.resolve() if intake_policy else None,
+                model_routes=model_routes_path.resolve() if model_routes_path else None,
                 dashboard_url=args.dashboard_url,
                 reader_endpoint=args.reader_endpoint,
                 reader_model=args.reader_model,

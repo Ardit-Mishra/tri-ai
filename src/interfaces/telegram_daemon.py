@@ -25,6 +25,7 @@ if __package__ in {None, ""}:
 import attachments
 import interpreter
 import telegram_read_surface
+import model_routes
 import telegram_control
 
 
@@ -898,7 +899,29 @@ class TelegramDaemon:
             failures = 0
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def load_model_routes(path: Optional[str]) -> Optional[dict]:
+    """Read and fully validate the operator's route registry, or nothing.
+
+    Validation happens here, at start, rather than when a task is
+    dispatched. A registry that does not parse - or that pins a role to a
+    route nobody admitted - must stop the daemon coming up, not surface at
+    3am as one unrouted run among many.
+
+    Returning None for a missing flag is deliberate: no registry means
+    Hermes routes as it always has, which is a comprehensible default. A
+    guessed registry would not be.
+    """
+    if not path:
+        return None
+    with open(path, "r", encoding="utf-8") as handle:
+        raw = json.load(handle)
+    # Raises ValueError on an unknown or unadmitted route, including one
+    # named by `role_routes`. That is the admission flag doing its job.
+    model_routes.policy_from_mapping(raw)
+    return raw
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the read-only Tri-AI Telegram long-poll daemon.")
     parser.add_argument("--board", required=True, help="Tri-AI board SQLite path")
     parser.add_argument("--ledger", required=True, help="Tri-AI ledger JSONL path")
@@ -926,6 +949,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
              "at 0.82s warm, which is what makes reading-before-acting cheap.",
     )
     parser.add_argument("--once", action="store_true", help="Process one long-poll response, then exit")
+    parser.add_argument(
+        "--model-routes",
+        help="operator-owned JSON route registry; without it Hermes routes "
+             "every task as it always has, and a pinned lane is not enforced",
+    )
+    return parser
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     try:
@@ -938,7 +971,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             if args.reader_endpoint else None
         )
         control = telegram_control.TelegramControl(
-            policy, dashboard_url=args.dashboard_url, completer=completer)
+            policy, dashboard_url=args.dashboard_url, completer=completer,
+            model_routes_config=load_model_routes(args.model_routes))
         handler = control.dispatch
         callback_handler = control.dispatch_callback
         notifier = control.pending_notifications
