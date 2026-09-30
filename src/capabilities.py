@@ -8,6 +8,7 @@ credentials, changes process permissions, or weakens the verifier gate.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional, Sequence
@@ -285,17 +286,87 @@ def resolve_contract(
     return CapabilityContract(normalized_role, values)
 
 
+# How much skill text may be pasted into one prompt, in bytes. These files run
+# from 1 KB to 21 KB each, and a designer names three of them.
+#
+# The budget exists because the alternative was worse in both directions. A
+# path alone is not guidance: the lanes that carry the volume here are local
+# Ollama models and free API models - the $0 lanes - and a 7B model handed a
+# filesystem path mid-build does not stop and open it. Run 135 proved it,
+# choosing Space Grotesk over JetBrains Mono on near-black while holding a
+# path to the one skill that forbids exactly that. But pasting every named
+# skill whole would put 50 KB of instruction in front of a 3 KB task.
+#
+# So: inline until the budget is spent, in the order the capability named
+# them, and let the rest be references that at least say what they contain.
+DEFAULT_SKILL_BUDGET = 24_000
+
+_FRONTMATTER = re.compile(r"\A---[ \t]*\n(.*?)\n---[ \t]*\n", re.S)
+_DESCRIPTION = re.compile(r"^description:[ \t]*(.+?)[ \t]*$", re.M)
+
+
+def _body_of(path: Path) -> str:
+    """The instruction text of a SKILL.md at a known path, frontmatter off."""
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    match = _FRONTMATTER.match(text)
+    if match:
+        text = text[match.end():]
+    return text.strip()
+
+
+def skill_roots(explicit: Optional[Path] = None) -> tuple[Path, ...]:
+    """Where a skill may live on this machine.
+
+    An explicit root is the only root - a test that builds a fixture skill
+    tree means that tree, and silently falling back to the real one would
+    make a missing-skill test pass against the installed library.
+    """
+    if explicit is not None:
+        return (Path(explicit),)
+    home = Path.home()
+    return (home / ".codex" / "skills", home / ".claude" / "skills")
+
+
+def read_skill(name: str, roots: Sequence[Path]) -> Optional[tuple[Path, str, str]]:
+    """Return ``(path, description, body)`` for the first root that has it.
+
+    The frontmatter is split off rather than pasted: `name:`, `license:` and
+    the rest are bookkeeping for the loader, and the description is worth
+    more as a one-line summary of a reference than as a line of YAML in the
+    middle of a prompt.
+    """
+    for root in roots:
+        path = Path(root) / name / "SKILL.md"
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        description = ""
+        match = _FRONTMATTER.match(text)
+        if match:
+            found = _DESCRIPTION.search(match.group(1))
+            if found:
+                description = found.group(1).strip().strip("\"'")
+            text = text[match.end():]
+        return path, description, text.strip()
+    return None
+
+
 def brief_block(
     contract: CapabilityContract,
     *,
     skill_root: Optional[Path] = None,
+    skill_budget: int = DEFAULT_SKILL_BUDGET,
     task_prompt: Optional[str] = None,
     catalog_path: Path = capability_catalog.DEFAULT_CATALOG_PATH,
     catalog_resources: Optional[Sequence[capability_catalog.CapabilityResource]] = None,
 ) -> str:
     """Render the governed specialist brief appended to the original request."""
     role = all_roles()[contract.role]
-    root = skill_root or (Path.home() / ".codex" / "skills")
+    roots = skill_roots(skill_root)
     lines = [
         "\n\n--- TRI-AI SPECIALIST CONTRACT ---",
         f"Specialist role: {role.label}",
@@ -304,11 +375,35 @@ def brief_block(
     ]
     if not contract.capabilities:
         lines.append("Enabled capabilities: none beyond the base repository tools.")
+    # Inlined first, in the order the capabilities named them, until the
+    # budget runs out. Deferred references are gathered and printed after,
+    # so the text an agent must read is not interleaved with a list of
+    # things it might read.
+    deferred: list[str] = []
+    remaining = max(0, int(skill_budget))
     for name in contract.capabilities:
         spec = CAPABILITIES[name]
         lines.append(f"Capability [{name}]: {spec.instruction}")
         for skill in spec.skills:
-            lines.append(f"Skill instructions: {root / skill / 'SKILL.md'}")
+            found = read_skill(skill, roots)
+            if found is None:
+                # A path that leads nowhere is worse than no path: it reads
+                # as guidance the agent failed to consult. Say nothing.
+                continue
+            path, description, body = found
+            if body and len(body) <= remaining:
+                remaining -= len(body)
+                lines.append(f"### Skill [{skill}] - apply this, it is not optional reading")
+                lines.append(body)
+                lines.append(f"### end skill [{skill}]")
+            else:
+                summary = description or "no description in its frontmatter"
+                deferred.append(f"- {skill}: {summary} — read at {path}")
+    if deferred:
+        lines.append(
+            "Further skills are installed but too long to include here. Open one "
+            "only if its description matches what you are stuck on:")
+        lines.extend(deferred)
     if task_prompt:
         try:
             resources = list(catalog_resources) if catalog_resources is not None else capability_catalog.load_catalog(catalog_path)
@@ -319,11 +414,26 @@ def brief_block(
         )
         if matches:
             lines.append("Automatically matched resources from the full local catalog:")
+        # Whatever the role's own skills left of the budget is spent here, on
+        # the highest-ranked matches that are actually instruction text. The
+        # order matters and is the reason for one shared budget rather than
+        # two: a capability the role declares is a considered choice, while a
+        # catalog hit is a keyword match, and the considered choice should
+        # never lose its place in the prompt to a keyword.
+        inlined_now: list[str] = []
         for match in matches:
             resource = match.resource
             location = str(resource.path) if resource.path is not None else "configured"
             if resource.kind in {"skill", "skill_bundle", "persona_library"} and resource.instruction_ready:
                 action = "Read and apply"
+                if resource.path is not None and remaining > 0:
+                    body = _body_of(resource.path)
+                    if body and len(body) <= remaining:
+                        remaining -= len(body)
+                        inlined_now.append(
+                            f"### Skill [{resource.name}] - matched on {match.reason}\n"
+                            f"{body}\n### end skill [{resource.name}]")
+                        continue
             elif resource.kind == "mcp_server" and resource.availability in {"registered", "configured"}:
                 action = "Use only after confirming this worker can reach the configured MCP server"
             elif resource.entrypoint and resource.availability == "executable":
@@ -337,6 +447,7 @@ def brief_block(
                 f"health={resource.health_status}; risk={resource.risk_status}] at "
                 f"{location}; {match.reason}."
             )
+        lines.extend(inlined_now)
     lines.extend((
         "Record material research sources and specialist decisions in the task output or declared artifacts so downstream agents can inspect them.",
         "Completion is decided only by the external verifier; never claim that your own report proves success.",

@@ -89,3 +89,80 @@ A test names the condition that reverses this: two or more lanes with
 
 Environment failures no longer count against a lane — a lane is not bad
 because the harness was broken.
+
+## 2026-09-30 — the guidance was never in the prompt
+
+The system had 752 skills installed and a designer that produced the
+machine-made look anyway. Both halves of that turned out to be one
+mechanism.
+
+**A path is not guidance.** `capabilities.brief_block` wrote
+
+    Skill instructions: <root>/frontend-design/SKILL.md
+
+and trusted the agent to open it. Claude and Codex usually do. They are
+not what this system runs on — the standing constraint is `$0 marginal
+cost`, so the lanes carrying the volume are local Ollama models and free
+API models behind OmniRoute and FreeLLMAPI, and a 7B model handed a
+filesystem path mid-build does not stop to read it.
+
+The evidence is `runs/t_4b46ec92/135/rejected/BRIEF.md` on the desktop.
+Display face **Space Grotesk**, body face **JetBrains Mono**, background
+**#09090b**, accent **#38bdf8** — the machine-made look almost exactly,
+written confidently, while the one skill whose job is to forbid it sat in
+the prompt as a path.
+
+`brief_block` now inlines the skill text itself, frontmatter stripped,
+under one shared byte budget (`DEFAULT_SKILL_BUDGET`, 24,000). Role-named
+capabilities spend it first because they are a considered choice; catalog
+keyword matches spend what is left. A skill that does not fit becomes a
+reference carrying its own `description`, so the model can judge whether
+opening it is worth a turn. A skill that does not exist is no longer
+announced at all — a dead path reads as guidance the agent ignored.
+
+Measured: designer 25,206 chars, 3 inlined, 6 deferred. Builder, which
+names no capability and previously got twelve bare paths, now spends the
+whole budget on its catalog matches.
+
+**The gate asked "did you choose?" when the question is "did you choose
+this?"** `_has_chosen_type` rejects the framework default stack, which
+catches an agent that decided nothing. It said nothing about an agent
+that decides the same thing every time — Space Grotesk is not in
+`DEFAULT_FONT_NAMES`, so run 135 passed that check comfortably.
+
+`taste.OVERUSED_FACES` names seventeen faces that are a decision, but
+always the same decision. `reads_as_machine_made()` fires only when
+*every* non-generic face on the page comes off that list: one of them
+beside a face with a voice is an ordinary well-made page, and a gate that
+condemned Inter outright would spend its credibility on an argument it
+cannot win. `Standard.reject_default_pairing` switches it off for a task
+whose house style genuinely is one of these.
+
+The brief now names them and asks for one line on **why these two and not
+the obvious pair**. Naming clichés without demanding a justification just
+moves the agent to the next default.
+
+### Desktop, brought level with the laptop
+
+`.claude/skills-archive` 0 → **8,730**, `.claude/agents` 0 → **36**,
+`.claude/commands/gsd` 0 → **67**, `.claude/gsd` → 14 trees. Text only:
+43,338 files, 138.6 MB packed, 4,068 binaries and checkouts skipped.
+Blocked for a day by a full C: drive; the drive now has ~31 GB.
+
+### What the full disk had already broken
+
+Found in the desktop logs, all predating the cleanup and none of it
+self-healing, because a running Python process does not notice a disk
+being emptied under it:
+
+- `worker.log` — `learning pass failed: OperationalError: database or
+  disk is full`, repeating.
+- Nothing listening on **20128**; the `OmniRoute Router` task last exited
+  **1**. Started by hand it comes up fine, so this is the boot path, not
+  the binary.
+- Nothing listening on **3026** although `Tri-AI Dashboard` reported
+  *Running*.
+- `freellmapi.stdout.log` — `[Health] Checking 0 keys...` on every pass.
+
+The last one is not a disk problem and not an agent's to fix: the free
+API lane serves nothing until a key exists.

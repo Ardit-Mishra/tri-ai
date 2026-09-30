@@ -112,8 +112,16 @@ class ASpecialistGetsItsCapabilitiesByDefaultTest(unittest.TestCase):
     def test_the_designer_default_carries_skill_lines_into_the_prompt(self):
         contract = capabilities.resolve_contract("designer", None)
         block = capabilities.brief_block(contract, task_prompt="build a landing page")
-        lines = [l for l in block.splitlines() if l.startswith("Skill instructions:")]
-        self.assertTrue(lines, "the brief names no skill for a designer")
+        # The brief used to cite `Skill instructions: <path>` and leave the
+        # reading to the agent. It now inlines the text instead, because the
+        # lanes that carry the volume here do not stop to open a path - see
+        # test_skill_text_reaches_the_model. What this test still guards is
+        # unchanged: a designer with no explicit request must arrive holding
+        # design guidance rather than a bare role label.
+        inlined = [l for l in block.splitlines() if l.startswith("### Skill [")]
+        deferred = [l for l in block.splitlines() if " — read at " in l]
+        self.assertTrue(inlined or deferred,
+                        "the brief carries no skill for a designer")
 
     def test_builder_stays_empty_because_it_allows_everything(self):
         contract = capabilities.resolve_contract("builder", None)

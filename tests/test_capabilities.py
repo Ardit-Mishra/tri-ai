@@ -13,29 +13,56 @@ import capabilities  # noqa: E402
 
 
 class CapabilityContracts(unittest.TestCase):
+    def _fixture_root(self, *names: str) -> Path:
+        """A skill tree that exists, because the brief now reads the files.
+
+        These two tests used to pass `C:/skills`, a path with nothing behind
+        it, and assert that the string came back out. That worked while the
+        brief was a list of citations. It stopped being a useful check the
+        moment the brief started inlining what it finds: a root with no
+        skills in it is now correctly silent, so asserting on a made-up path
+        was asserting that a dead reference is still printed.
+        """
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        for name in names:
+            folder = root / name
+            folder.mkdir(parents=True)
+            (folder / "SKILL.md").write_text(
+                f"---\nname: {name}\ndescription: what {name} is for\n---\n\n"
+                f"BODY OF {name}\n",
+                encoding="utf-8")
+        return root
+
     def test_researcher_gets_research_tools_and_citation_requirements(self):
+        root = self._fixture_root("science-literature-review",
+                                  "science-bioservices", "science-biopython")
         contract = capabilities.resolve_contract(
             "researcher", ["web_research", "scientific_research"]
         )
-        brief = capabilities.brief_block(contract, skill_root=Path("C:/skills"))
+        brief = capabilities.brief_block(contract, skill_root=root)
 
         self.assertEqual(contract.role, "researcher")
         self.assertEqual(contract.capabilities, ("web_research", "scientific_research"))
         self.assertIn("Specialist role: Researcher", brief)
         self.assertIn("source URL", brief)
         self.assertIn("Do not invent citations", brief)
-        self.assertIn("C:\\skills\\science-literature-review\\SKILL.md", brief)
+        self.assertIn("BODY OF science-literature-review", brief)
 
     def test_designer_gets_taste_diagram_and_motion_skill_sources(self):
+        root = self._fixture_root("taste-skill", "diagram-design",
+                                  "design-motion-principles")
         contract = capabilities.resolve_contract(
             "designer", ["taste", "diagram_design", "motion_design"]
         )
-        brief = capabilities.brief_block(contract, skill_root=Path("C:/skills"))
+        brief = capabilities.brief_block(contract, skill_root=root)
 
         self.assertIn("form an evidence-backed visual direction", brief.lower())
-        self.assertIn("C:\\skills\\taste-skill\\SKILL.md", brief)
-        self.assertIn("C:\\skills\\diagram-design\\SKILL.md", brief)
-        self.assertIn("C:\\skills\\design-motion-principles\\SKILL.md", brief)
+        self.assertIn("BODY OF taste-skill", brief)
+        self.assertIn("BODY OF diagram-design", brief)
+        self.assertIn("BODY OF design-motion-principles", brief)
 
     def test_unknown_or_role_forbidden_capabilities_fail_closed(self):
         with self.assertRaisesRegex(capabilities.CapabilityError, "unknown capability"):

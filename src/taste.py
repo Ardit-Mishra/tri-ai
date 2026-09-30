@@ -175,6 +175,26 @@ DEFAULT_FONT_NAMES = frozenset({
     "apple color emoji", "segoe ui emoji", "segoe ui symbol",
     "noto color emoji", "emoji", "math", "fangsong",
 })
+# Faces that are a decision, but always the same decision. Every one of
+# these is a good typeface; that is exactly why a model reaches for it
+# whatever the subject, and why finding a page set entirely in them says the
+# subject had no influence on how it looks. Kept short on purpose: a long
+# list would start condemning ordinary work.
+# Ordered by how reliably a model reaches for it, because this tuple is
+# what the brief prints and an alphabetical slice cut off the worst
+# offender - Space Grotesk sorts near the end.
+OVERUSED_ORDER = (
+    "Inter", "Space Grotesk", "JetBrains Mono", "Plus Jakarta Sans",
+    "DM Sans", "Manrope", "Poppins", "Montserrat", "Playfair Display",
+    "Sora", "Outfit", "Satoshi", "Geist", "General Sans", "Cal Sans",
+    "Clash Display", "DM Serif Display",
+)
+OVERUSED_FACES = frozenset({
+    "inter", "space grotesk", "jetbrains mono", "plus jakarta sans",
+    "dm sans", "dm serif display", "manrope", "sora", "outfit",
+    "poppins", "montserrat", "playfair display", "satoshi", "geist",
+    "geist mono", "general sans", "cal sans", "clash display",
+})
 # Something to look at. A gradient counts, and that is not a concession: run 68
 # of t_92cd3d3c answered "Self-contained, no external assets" with a page
 # painted in four CSS gradients, two box-shadows, five radii and a Playfair
@@ -216,6 +236,11 @@ class Standard:
     max_generic_headings: int = 1
     min_palette: int = 3
     require_typeface: bool = True
+    # Separate from `require_typeface` so it can be switched off for a
+    # task where the house style genuinely is one of these - a client
+    # brand book naming Inter is a reason, and the gate should lose that
+    # argument rather than block the work.
+    reject_default_pairing: bool = True
     require_imagery: bool = True
     min_must_appear: int = 5
     min_references: int = 3
@@ -284,6 +309,8 @@ def _from_mapping(raw: Mapping[str, Any]) -> Standard:
             raw.get("max_generic_headings", base.max_generic_headings)),
         min_palette=int(raw.get("min_palette", base.min_palette)),
         require_typeface=bool(raw.get("require_typeface", base.require_typeface)),
+        reject_default_pairing=bool(
+            raw.get("reject_default_pairing", base.reject_default_pairing)),
         require_imagery=bool(raw.get("require_imagery", base.require_imagery)),
         min_must_appear=int(raw.get("min_must_appear", base.min_must_appear)),
         min_references=int(raw.get("min_references", base.min_references)),
@@ -429,6 +456,7 @@ def brief_block(
     ways will be, on an unattended turn, with nobody to ask.
     """
     std = standard or Standard()
+    overused = ", ".join(OVERUSED_ORDER)
     where = (
         f"at this exact path: {Path(workspace) / BRIEF_FILENAME}"
         if workspace is not None else
@@ -461,6 +489,27 @@ with these headings:
   network, like Georgia or Iowan Old Style, and say so. What is not accepted
   is no choice at all - the framework's default system stack and nothing
   else.
+
+  There is a second way to choose nothing, and it is the one you will
+  reach for. These faces turn up on machine-made pages whatever the page
+  is about: {overused}. They are good typefaces. That is the problem — a
+  page set in them looks like every other page a model has produced, and
+  tells a reader nothing about the subject. One of them as the body face,
+  under a display face with a voice of its own, is fine. Both halves off
+  that list is not.
+
+  So name your two faces, and say in one line WHY these two and not the
+  obvious pair — what it is about this subject, this trade, this audience
+  that these faces carry. If you cannot write that line, you picked the
+  default and should pick again. The same test applies to the palette:
+  near-black with one bright accent is the house style of nothing.
+
+  This overrides any shortlist a skill hands you. Some of the skills in
+  this prompt carry a fixed list of "approved" faces and call it
+  anti-slop; a shortlist applied to every subject IS the default, whatever
+  it is headed. Take the reasoning from those skills and leave the list.
+  The one above is what NOT to reach for, not a menu to pick the opposite
+  end of.
 
   The same applies to pictures. If the task rules out external assets, you are
   not expected to produce one, and an inline SVG or a gradient is a fine way to
@@ -625,6 +674,51 @@ def _has_chosen_type(markup: str) -> bool:
             if cleaned and cleaned not in DEFAULT_FONT_NAMES:
                 return True
     return False
+
+
+def overused_faces(markup: str) -> tuple[str, ...]:
+    """Which of the worn-out faces this page names, lowercased and sorted.
+
+    `DEFAULT_FONT_NAMES` is the absence of a decision. This is a different
+    thing: a decision so common it carries no information about the subject.
+    Run 135's rejected brief paired Space Grotesk with JetBrains Mono on
+    `#09090b` — a confident, specific-sounding brief describing the single
+    most recognisable machine-made look there is.
+
+    The list stays deliberately short and is faces only. Colour is the other
+    half of the tell, but a hex value has legitimate reasons to be
+    near-black, and a gate that argued with palettes would spend its
+    credibility on arguments it cannot win.
+    """
+    found = set()
+    for declaration in _FONT_FAMILY.findall(markup or ""):
+        for name in declaration.split(","):
+            cleaned = name.strip().strip("\"'").lower()
+            if cleaned in OVERUSED_FACES:
+                found.add(cleaned)
+    return tuple(sorted(found))
+
+
+def reads_as_machine_made(markup: str) -> bool:
+    """Is every face on this page one of the worn-out ones?
+
+    One is fine. Plenty of well-made interfaces set body copy in Inter and
+    put something with a voice above it. Two is the tell: it means the page
+    has no face that was chosen for what it is about.
+
+    A page that named no real face at all is not this failure — it is
+    `_has_chosen_type`'s, and reporting both would be one mistake counted
+    twice.
+    """
+    chosen = set()
+    for declaration in _FONT_FAMILY.findall(markup or ""):
+        for name in declaration.split(","):
+            cleaned = name.strip().strip("\"'").lower()
+            if cleaned and cleaned not in DEFAULT_FONT_NAMES:
+                chosen.add(cleaned)
+    if len(chosen) < 2:
+        return False
+    return chosen.issubset(OVERUSED_FACES)
 
 
 def _visible_promise(item: str, visible: str) -> bool:
@@ -839,6 +933,14 @@ def check_work(
         problems.append(
             "no typeface chosen - every font-family here is the stack a "
             "framework hands you when nobody picked one"
+        )
+    elif std.reject_default_pairing and reads_as_machine_made(markup):
+        problems.append(
+            "every typeface here is one of the worn-out ones ("
+            + ", ".join(overused_faces(markup))
+            + ") - this is the look a model produces whatever the subject "
+            "is, so nothing about how the page reads came from what it is "
+            "about; keep one if you like it, give the other a voice"
         )
 
     if std.require_imagery and expects_imagery:
