@@ -1016,12 +1016,22 @@ _HTML_TEMPLATE = r"""<!doctype html>
       }
       const task=finished[0],tel=task.telemetry;
       const capability=data.capabilities||{active:0,archived:0};
-      setText(byId('nowKicker'),'System idle // last verified run retained');
-      setText(byId('nowWhat'),`${capability.active||0} active resources available to the planner. ${capability.archived||0} archived references remain searchable.`);
+      setText(byId('nowKicker'),'System idle // last run retained');
+      // The headline is the work, running or not.
+      //
+      // While idle this slot carried "1522 active resources available to
+      // the planner. 9343 archived references remain searchable." at 35px
+      // - a capability inventory set as the largest type on the page,
+      // while the task it describes sat in 10px below it. An operator
+      // opening the console wants to know what it last did, not how many
+      // skills are installed. The inventory keeps its place in the rail,
+      // where a count belongs.
+      setText(byId('nowWhat'),taskLabel(task));
       const sub=byId('nowSub'); clear(sub);
       const verdict=task.status==='done'?'Finished':task.status==='cancelled'?'Cancelled':'Stopped';
       sub.append(make('b',verdict),make('span',` ${timeAgo(tel.ended_at)}`));
-      setText(say,`Last run // ${taskLabel(task)}`); say.hidden=false;
+      setText(say,`${capability.active||0} skills ready // ${capability.archived||0} archived and searchable`);
+      say.hidden=false;
       (tel.phases||[]).forEach(p=>steps.append(make('span',PHASE_PLAIN[p.key]||p.key,`now-step ${p.state}`)));
       const made=(tel.artifacts||[]);
       if(made.length){
