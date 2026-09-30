@@ -194,6 +194,41 @@ def pick_ready_task(conn) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
+def previous_rejection(runs_root, task_id: str, *, current_run_id) -> tuple[str, ...]:
+    """Why the most recent earlier attempt at this task was rejected.
+
+    The board records only "verify exit 1"; the reasons live in each run's
+    verify.log, which until now nobody read. Task t_627c9496 failed twice in
+    a row on 2026-09-29 because the second attempt had no idea the first had
+    happened.
+
+    Never raises. This is feedback, and a run must not fail because its
+    feedback could not be gathered.
+    """
+    try:
+        folder = Path(runs_root) / str(task_id)
+        if not folder.is_dir():
+            return ()
+        attempts = []
+        for child in folder.iterdir():
+            if not child.is_dir() or not child.name.isdigit():
+                continue
+            number = int(child.name)
+            if current_run_id is not None and number >= int(current_run_id):
+                continue
+            attempts.append((number, child / "verify.log"))
+        for _, log in sorted(attempts, reverse=True):
+            if not log.is_file():
+                continue
+            reasons = taste.rejection_reasons(
+                log.read_text(encoding="utf-8", errors="replace"))
+            if reasons:
+                return reasons
+        return ()
+    except OSError:
+        return ()
+
+
 def execute_task(
     conn,
     claimed,
@@ -432,6 +467,16 @@ def _execute_task(
     taste_required = taste.applies_to(
         request, standard, touches_existing=touches_existing
     )
+    # What the verifier said about the last attempt, before the brief
+     # instruction, so the agent reads the complaint and then the standard
+     # it is being held to.
+    rejected_for = previous_rejection(runs_root, task_id, current_run_id=run_id)
+    if rejected_for:
+        task_prompt += taste.rejection_block(rejected_for)
+        _write_log(agent_log,
+                   f"worker: carrying {len(rejected_for)} rejection reason(s) "
+                   "from the previous attempt\n")
+
     taste_snapshot: Optional[Path] = None
     if taste_required:
         task_prompt += taste.brief_block(standard, workspace=repo)

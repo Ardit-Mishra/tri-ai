@@ -368,6 +368,52 @@ def allows_external_assets(prompt: str) -> bool:
     return not any(marker in text for marker in NO_ASSET_MARKERS)
 
 
+def rejection_reasons(verify_output) -> tuple[str, ...]:
+    """The verifier's complaints, pulled out of one run's verify log.
+
+    A passing log is mostly statements of fact - what parsed, what was
+    produced, how many promises were kept. Only the indented lines under
+    "this does not look like it was made for its subject:" are complaints,
+    and those are what a retry needs.
+    """
+    text = str(verify_output or "")
+    reasons: list[str] = []
+    collecting = False
+    for raw_line in text.splitlines():
+        line = raw_line.rstrip()
+        if not line:
+            continue
+        if line.lstrip().startswith("verify:"):
+            # A new verify: line ends any complaint block that was open.
+            collecting = "does not look like it was made for its subject" in line
+            continue
+        if collecting and (raw_line.startswith((" ", "\t"))):
+            reasons.append(line.strip())
+    return tuple(reasons)
+
+
+def rejection_block(reasons) -> str:
+    """What the next attempt is told about the last one.
+
+    The verifier's words, verbatim and nothing else. Advice invented about
+    them would be a second opinion competing with the thing that actually
+    decides, and the agent has already shown it will argue with advice: the
+    brief instruction told it to check its own promises before stopping and
+    it did not.
+    """
+    items = tuple(str(r).strip() for r in (reasons or ()) if str(r).strip())
+    if not items:
+        return ""
+    lines = "\n".join(f"  - {item}" for item in items[:8])
+    return (
+        "\n\nYOUR LAST ATTEMPT AT THIS TASK WAS REJECTED. The verifier said:\n"
+        f"{lines}\n"
+        "These are the verifier's words, not a suggestion. It runs again on "
+        "what you produce this time and will reject the same thing twice. "
+        "Fix each one, in the page a reader sees.\n"
+    )
+
+
 def brief_block(
     standard: Optional[Standard] = None,
     *,
