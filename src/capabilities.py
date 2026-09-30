@@ -67,7 +67,18 @@ CAPABILITIES: dict[str, CapabilitySpec] = {
         ("design-motion-principles",),
     ),
     "frontend_engineering": CapabilitySpec(
-        "Implement the complete responsive interface, including loading, empty, error, keyboard, and accessibility states."
+        "Implement the complete responsive interface, including loading, empty, error, keyboard, and accessibility states.",
+        # This is the capability most directly about how a page ends up
+        # looking, and it named no skill at all - so a designer received one
+        # sentence of instruction and no guidance on the thing it was being
+        # judged on. The taste gate then rejected the result for being
+        # generic, which it had no help avoiding.
+        #
+        # `frontend-design` is the direction-setting one: palette, type
+        # pairing, and an explicit warning against the handful of looks that
+        # read as machine-made. `web-design-guidelines` is the review pass.
+        # `ui-ux-pro-max` is searchable reference for a specific question.
+        ("frontend-design", "web-design-guidelines", "ui-ux-pro-max"),
     ),
     "backend_engineering": CapabilitySpec(
         "Implement explicit API contracts, validation, failure handling, observability, and tests at system boundaries."
@@ -242,6 +253,21 @@ def resolve_contract(
     normalized_role = (role or "builder").strip()
     if normalized_role not in roles:
         raise CapabilityError(f"unknown agent role: {normalized_role!r}")
+
+    # Silence means "the role's own capabilities"; an empty list means
+    # "none". They were the same thing, and the consequence was that every
+    # task created from a phone message - which names no capabilities -
+    # reached its agent with "Enabled capabilities: none" and not one skill
+    # line. The roles, capabilities and skills all existed and were tested;
+    # nothing ever asked for them.
+    #
+    # Builder is excluded deliberately: its allowed set is every capability,
+    # which expresses no preference, and defaulting it would paste two dozen
+    # skill paths into every ordinary build.
+    if requested is None and normalized_role != "builder":
+        allowed = roles[normalized_role].allowed
+        if allowed and set(allowed) != set(capabilities_):
+            requested = sorted(allowed)
 
     values = tuple(str(item).strip() for item in (requested or ()))
     if any(not item for item in values):
