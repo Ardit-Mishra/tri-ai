@@ -11,19 +11,16 @@
     "Tri-AI records only which tested model identity a task was pinned to."
   ],
   "version": "operator-routes-v2",
-
   "default_route": "local-qwen-coder-14b",
-
   "role_routes": {
     "builder": "local-qwen-coder-14b",
     "designer": "local-qwen-coder-14b",
     "reviewer": "local-qwen-coder-14b",
     "operator": "local-qwen-coder-7b",
-    "researcher": "omniroute-best-coding",
-    "lead": "omniroute-best-coding",
-    "product_strategist": "omniroute-best-coding"
+    "researcher": "local-qwen-coder-14b",
+    "lead": "local-qwen-coder-14b",
+    "product_strategist": "local-qwen-coder-14b"
   },
-
   "routes": {
     "local-qwen-coder-14b": {
       "_evidence": "lane-bench: 3/3 correct, median 1.66s, 27.6 tok/s. Listed in hermes fallback_model with 131072 context, which the 40k-char specialist brief needs.",
@@ -44,18 +41,17 @@
       "admitted": true
     },
     "omniroute-best-coding": {
-      "_evidence": "lane-bench: 3/3 correct, median 4.21s, served as codestral-2508. 29 completed runs in the ledger - the most-exercised route on this system. Free through OmniRoute.",
+      "_evidence": "WITHDRAWN 2026-09-30. Probed directly: HTTP 200 in 31.1s, but the response reported served model google/diffusiongemma-26b-a4b-it - a diffusion model - and the reply ignored the instruction. `auto/*` is a router alias that selects its own downstream model, so it cannot name a tested identity. The 29 ledger runs recorded the alias, not what served them, so that history proves nothing about any model. Re-admit only as a specific downstream id.",
       "model": "auto/best-coding",
       "provider": "custom",
-      "admitted": true
+      "admitted": false
     },
     "omniroute-best-free": {
-      "_evidence": "lane-bench: 3/3 correct, median 0.33s, served as koboldcpp/Llama-3.2-3B. 7 completed runs. Fastest lane measured, but a 3B model - fit for classification and quick checks, not for a build.",
+      "_evidence": "WITHDRAWN 2026-09-30 for the same reason as omniroute-best-coding: `auto/*` resolves downstream at request time, so the bench's 3/3 measured whatever it happened to select that day.",
       "model": "auto/best-free",
       "provider": "custom",
-      "admitted": true
+      "admitted": false
     },
-
     "freellmapi-auto": {
       "_evidence": "lane-bench: 2/3 correct, median 37.56s, served as koboldcpp/gemma-4-31B-it-heretic. Held back on accuracy, not on cost: one failure in three is not a lane to pin a role to. Separately, freellmapi.stdout.log reports 'Checking 0 keys' on every pass, so it currently serves nothing.",
       "model": "auto",
@@ -74,16 +70,21 @@
       "provider": "custom",
       "admitted": false
     },
-
-    "subscription-claude": {
-      "_evidence": "Not measured on this stack and not pinned. Operator decision 2026-09-30: nothing escalates until a whole build is seen to complete on the free tier alone. Fill in the exact model identity from the OmniRoute UI before admitting.",
-      "model": "PLACEHOLDER-set-from-omniroute-ui",
+    "github-claude-opus-5": {
+      "_evidence": "Real id confirmed live in the catalog (ctx 1,000,000 / out 64,000). NOT admitted: probed 2026-09-30 and returned HTTP 466 'This version of the Copilot CLI is no longer supported.' A version gate, not an entitlement wall - re-probe after the Copilot CLI is upgraded.",
+      "model": "github/claude-opus-5",
       "provider": "custom",
       "admitted": false
     },
-    "subscription-codex": {
-      "_evidence": "Not measured on this stack and not pinned. Same operator decision as subscription-claude.",
-      "model": "PLACEHOLDER-set-from-omniroute-ui",
+    "github-gpt-5-6-sol": {
+      "_evidence": "Real id confirmed live (ctx 1,050,000 / out 128,000). NOT admitted: HTTP 466, same Copilot CLI version gate.",
+      "model": "github/gpt-5.6-sol",
+      "provider": "custom",
+      "admitted": false
+    },
+    "codex-gpt-5-6-sol": {
+      "_evidence": "The ChatGPT subscription's road in, via OmniRoute's codex-app-server bridge. Codex CLI 0.159.2 installed on the desktop and reports 'Logged in using ChatGPT'. NOT admitted: probed HTTP 503 'Codex app-server transport is not...' - OmniRoute had not yet seen the newly installed CLI. Re-probe after restarting OmniRoute.",
+      "model": "cxa/gpt-5.6-sol",
       "provider": "custom",
       "admitted": false
     }

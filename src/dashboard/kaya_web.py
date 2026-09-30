@@ -2160,6 +2160,22 @@ def _demo_file_graph() -> dict[str, object]:
     }
 
 
+def _lane_of_model(model: str) -> str:
+    """Which execution lane a model identity belongs to.
+
+    `github/`+`gh/` is the Copilot bridge and `cxa/` the Codex app-server;
+    both are metered subscriptions. Everything else this system routes -
+    Ollama tags, `deskollama/`, `nvidia/`, `groq/`, the `auto/` aliases -
+    is a free lane.
+    """
+    name = (model or "").lower()
+    if name.startswith(("github/claude", "gh/claude")):
+        return "claude"
+    if name.startswith("cxa/") or name.startswith(("github/gpt", "gh/gpt")):
+        return "codex"
+    return "local"
+
+
 def routing_policy_view(path: Path | None = None) -> dict:
     """What the operator actually pinned, read straight from the registry.
 
@@ -2189,9 +2205,11 @@ def routing_policy_view(path: Path | None = None) -> dict:
             "provider": str(entry.get("provider") or "") or None,
             "admitted": bool(entry.get("admitted")),
             "evidence": str(entry.get("_evidence") or ""),
-            "lane": ("claude" if name.startswith("subscription-claude")
-                     else "codex" if name.startswith("subscription-codex")
-                     else "local"),
+            # Classified by the model string, not the route name. Names are
+            # the operator's to choose and a rename would silently move a
+            # metered route onto the free tab; the model string is what the
+            # gateway actually bills against.
+            "lane": _lane_of_model(str(entry.get("model") or "")),
         })
     return {
         "status": "loaded",

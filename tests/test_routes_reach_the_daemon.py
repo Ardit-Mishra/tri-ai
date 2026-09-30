@@ -114,13 +114,41 @@ class TheShippedRegistryIsCoherentTest(unittest.TestCase):
         Encoded as a test because the whole point of the file is that a
         lane cannot be spent by accident.
         """
+        # Renamed from `subscription-*` placeholders once the real ids were
+        # confirmed live. A metered lane is any route whose model is served
+        # by the Copilot bridge or the Codex app-server, so the test matches
+        # on the model string rather than on a naming convention that a
+        # future edit could quietly sidestep.
+        metered = {name for name, route in self.raw["routes"].items()
+                   if str(route.get("model", "")).startswith(("github/", "gh/", "cxa/"))}
+        self.assertTrue(metered, "no metered route is declared to guard against")
         for role, name in self.policy.role_routes.items():
+            self.assertNotIn(
+                name, metered,
+                f"{role} is pinned to {name}, a metered lane; nothing should "
+                "escalate yet")
+        for name in sorted(metered):
             self.assertFalse(
-                name.startswith("subscription-"),
-                f"{role} is pinned to {name}; nothing should escalate yet")
-        for name in ("subscription-claude", "subscription-codex"):
-            self.assertFalse(self.raw["routes"][name]["admitted"],
-                             f"{name} is admitted but was not measured")
+                self.raw["routes"][name]["admitted"],
+                f"{name} is admitted, but every metered route probed HTTP 466 "
+                "or 503 on 2026-09-30 and none has been re-measured")
+
+    def test_an_alias_that_picks_its_own_model_is_not_a_route(self):
+        """`auto/best-coding` answered 200 and served a diffusion model.
+
+        Probed 2026-09-30: HTTP 200 in 31.1s, response reported served
+        model `google/diffusiongemma-26b-a4b-it`, and the reply ignored a
+        two-word instruction. A route names a tested identity; an alias
+        that resolves downstream at request time cannot. Its 29 ledger
+        runs recorded the alias, so they say nothing about any model.
+        """
+        for name, route in self.raw["routes"].items():
+            if str(route.get("model", "")).startswith("auto/"):
+                self.assertFalse(
+                    route["admitted"],
+                    f"{name} pins the alias {route['model']}, which selects "
+                    "its own downstream model and has been observed serving "
+                    "a diffusion model to a coding request")
 
     def test_the_lanes_that_failed_the_bench_are_refused(self):
         """0/3 correct is not a lane. 2/3 is not one either."""
@@ -274,15 +302,18 @@ class TheConsoleReadsTheRegistryItDescribesTest(unittest.TestCase):
         self.assertNotIn("subscription-claude", admitted)
         self.assertNotIn("freellmapi-auto", admitted)
 
-    def test_subscription_routes_are_classified_to_their_own_lanes(self):
-        """So the Claude tab reports on Claude, not on everything."""
+    def test_metered_routes_are_classified_to_their_own_lanes(self):
+        """So the Claude tab reports on Claude, not on everything.
+
+        The placeholder `subscription-*` names were replaced once the real
+        ids were confirmed live, so classification is by model string.
+        """
         from dashboard import kaya_web
         view = kaya_web.routing_policy_view(REAL)
         lanes = {r["name"]: r["lane"] for r in view["routes"]}
-        self.assertEqual(lanes["subscription-claude"], "claude")
-        self.assertEqual(lanes["subscription-codex"], "codex")
+        self.assertEqual(lanes["github-claude-opus-5"], "claude")
+        self.assertEqual(lanes["codex-gpt-5-6-sol"], "codex")
         self.assertEqual(lanes["local-qwen-coder-14b"], "local")
-        self.assertEqual(lanes["omniroute-best-coding"], "local")
 
 
 if __name__ == "__main__":
