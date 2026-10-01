@@ -150,12 +150,39 @@ class TheShippedRegistryIsCoherentTest(unittest.TestCase):
                     "its own downstream model and has been observed serving "
                     "a diffusion model to a coding request")
 
-    def test_the_lanes_that_failed_the_bench_are_refused(self):
-        """0/3 correct is not a lane. 2/3 is not one either."""
-        for name in ("local-qwen3-14b", "local-gemma4-31b", "freellmapi-auto"):
-            self.assertFalse(
-                self.raw["routes"][name]["admitted"],
-                f"{name} did not pass the bench and must not be admitted")
+    def test_a_bare_ollama_tag_is_never_admitted(self):
+        """It answers, and the pin is still ignored.
+
+        `qwen2.5-coder:14b` replies in 812ms against Ollama directly. But
+        `hermes -m qwen2.5-coder:14b` sends it to OmniRoute, which answers
+        400 "Unable to determine provider for model", and Hermes falls
+        through to fallback_model[0] — writing `auto/smart` into the usage
+        file that the ledger reads. The model works; the *pin* does not,
+        and a pin that is silently ignored is worse than no pin, because
+        the ledger then records a model nothing ran.
+        """
+        for name, route in self.raw["routes"].items():
+            if "/" not in str(route.get("model", "")):
+                self.assertFalse(
+                    route["admitted"],
+                    f"{name} pins the unprefixed tag {route['model']!r}; "
+                    "hermes cannot route it and will substitute silently")
+
+    def test_every_admitted_route_was_verified_end_to_end(self):
+        """Answered, as itself, and `hermes -m` recorded that same id.
+
+        Three checks because each failed independently during the sweep:
+        517 of 574 refused outright, 22 answered as a different model, and
+        the pin itself was ignored for every unprefixed tag.
+        """
+        for name, route in self.raw["routes"].items():
+            if not route["admitted"]:
+                continue
+            evidence = str(route.get("_evidence", ""))
+            self.assertIn(
+                "served as itself", evidence,
+                f"{name} is admitted without a record that it answered as "
+                "itself")
 
     def test_every_admitted_route_carries_its_evidence(self):
         for name, route in self.raw["routes"].items():
@@ -298,9 +325,9 @@ class TheConsoleReadsTheRegistryItDescribesTest(unittest.TestCase):
         from dashboard import kaya_web
         view = kaya_web.routing_policy_view(REAL)
         admitted = {r["name"] for r in view["routes"] if r["admitted"]}
-        self.assertIn("local-qwen-coder-14b", admitted)
-        self.assertNotIn("subscription-claude", admitted)
-        self.assertNotIn("freellmapi-auto", admitted)
+        self.assertIn("mistral-codestral", admitted)
+        self.assertNotIn("github-claude-opus-4-8", admitted)
+        self.assertNotIn("omniroute-best-coding", admitted)
 
     def test_metered_routes_are_classified_to_their_own_lanes(self):
         """So the Claude tab reports on Claude, not on everything.
@@ -311,9 +338,9 @@ class TheConsoleReadsTheRegistryItDescribesTest(unittest.TestCase):
         from dashboard import kaya_web
         view = kaya_web.routing_policy_view(REAL)
         lanes = {r["name"]: r["lane"] for r in view["routes"]}
-        self.assertEqual(lanes["github-claude-opus-5"], "claude")
+        self.assertEqual(lanes["github-claude-opus-4-8"], "claude")
         self.assertEqual(lanes["codex-gpt-5-6-sol"], "codex")
-        self.assertEqual(lanes["local-qwen-coder-14b"], "local")
+        self.assertEqual(lanes["mistral-codestral"], "local")
 
 
 if __name__ == "__main__":

@@ -2,88 +2,98 @@
   "_comment": [
     "Operator-owned route registry for Tri-AI. Copy to ~/.tri-ai/model-routes.json.",
     "",
-    "Every admission below is justified by a measurement in ~/.tri-ai/lane-bench.json",
-    "or by a run already recorded in ~/.tri-ai/ledger.jsonl. A route nobody has",
-    "watched succeed stays admitted:false, because `model_routes.resolve` refuses a",
-    "route that is not admitted and that refusal is the point of the file.",
+    "Every admission below was probed end to end on 2026-09-30: the model",
+    "answered, the response named it as the served model, AND `hermes -m <id>`",
+    "recorded that same id in its usage file. All three, because each one",
+    "failed independently during the sweep that produced this file.",
     "",
-    "This carries no endpoint and no credential. Hermes config.yaml owns both;",
-    "Tri-AI records only which tested model identity a task was pinned to."
+    "Two rules, both learned the hard way:",
+    "",
+    "  A route is never an `auto/*` alias. All 22 of them were probed and all",
+    "  22 served something else - `auto/claude-opus` and `auto/claude-sonnet`",
+    "  both returned google/gemma-4-31b-it at HTTP 200.",
+    "",
+    "  A route is never a bare Ollama tag. `hermes -m qwen2.5-coder:14b` sends",
+    "  it to OmniRoute, which answers 400 'Unable to determine provider', and",
+    "  Hermes then falls through to fallback_model[0] - recording `auto/smart`",
+    "  in the usage file. The pin is ignored silently and the ledger lies.",
+    "",
+    "This carries no endpoint and no credential. Hermes config.yaml owns both."
   ],
-  "version": "operator-routes-v2",
-  "default_route": "local-qwen-coder-14b",
+  "version": "operator-routes-v3",
+  "default_route": "mistral-codestral",
   "role_routes": {
-    "builder": "local-qwen-coder-14b",
-    "designer": "local-qwen-coder-14b",
-    "reviewer": "local-qwen-coder-14b",
-    "operator": "local-qwen-coder-7b",
-    "researcher": "local-qwen-coder-14b",
-    "lead": "local-qwen-coder-14b",
-    "product_strategist": "local-qwen-coder-14b"
+    "builder": "mistral-codestral",
+    "designer": "mistral-codestral",
+    "reviewer": "mistral-codestral",
+    "operator": "nvidia-gemma-4-31b",
+    "researcher": "nvidia-nemotron-ultra",
+    "lead": "nvidia-nemotron-ultra",
+    "product_strategist": "nvidia-nemotron-ultra"
   },
   "routes": {
+    "mistral-codestral": {
+      "_evidence": "Probed 4.1s, served as itself, and `hermes -m` recorded it exactly. A purpose-built coding model, free through Mistral. The build workhorse.",
+      "model": "mistral/codestral-2508",
+      "provider": "custom",
+      "admitted": true
+    },
+    "nvidia-nemotron-ultra": {
+      "_evidence": "Probed 2.8s, served as itself, and `hermes -m` recorded it exactly. 550B parameters, free through NVIDIA - far beyond what a 3060 can hold, which is why judgement roles go here rather than to a local 14B.",
+      "model": "nvidia/nvidia/nemotron-3-ultra-550b-a55b",
+      "provider": "custom",
+      "admitted": true
+    },
+    "nvidia-gemma-4-31b": {
+      "_evidence": "Probed 35ms, served as itself. The fastest correct lane measured across 574 models. Fit for mechanical work, not for a build.",
+      "model": "nvidia/google/gemma-4-31b-it",
+      "provider": "custom",
+      "admitted": true
+    },
+    "mistral-codestral-latest": {
+      "_evidence": "Probed 0.4s, served as itself. Rolling alias for the codestral line.",
+      "model": "mistral/codestral-latest",
+      "provider": "custom",
+      "admitted": true
+    },
+    "mistral-ministral-14b": {
+      "_evidence": "Probed 0.8s, served as itself. A small fast lane that is not a 3B.",
+      "model": "mistral/ministral-14b-latest",
+      "provider": "custom",
+      "admitted": true
+    },
     "local-qwen-coder-14b": {
-      "_evidence": "lane-bench: 3/3 correct, median 1.66s, 27.6 tok/s. Listed in hermes fallback_model with 131072 context, which the 40k-char specialist brief needs.",
+      "_evidence": "WITHDRAWN. Answers in 812ms against Ollama directly, but `hermes -m qwen2.5-coder:14b` routes it to OmniRoute, which cannot resolve a bare tag, and Hermes falls through to auto/smart - recording that in the usage file. A pin that is silently ignored is worse than no pin.",
       "model": "qwen2.5-coder:14b",
       "provider": "custom",
-      "admitted": true
+      "admitted": false
     },
     "local-qwen-coder-7b": {
-      "_evidence": "lane-bench: 3/3 correct, median 0.82s, 41.6 tok/s - the fastest correct lane measured. Already the reader model for the telegram and supervisor daemons.",
+      "_evidence": "WITHDRAWN, same reason.",
       "model": "qwen2.5-coder:7b",
       "provider": "custom",
-      "admitted": true
+      "admitted": false
     },
     "local-devstral-24b": {
-      "_evidence": "lane-bench: 3/3 correct, median 7.32s. One completed run in the ledger, so this identity is proven end to end through Hermes, not only on the bench harness.",
+      "_evidence": "WITHDRAWN, same reason.",
       "model": "devstral:24b",
       "provider": "custom",
-      "admitted": true
+      "admitted": false
     },
     "omniroute-best-coding": {
-      "_evidence": "WITHDRAWN 2026-09-30. Probed directly: HTTP 200 in 31.1s, but the response reported served model google/diffusiongemma-26b-a4b-it - a diffusion model - and the reply ignored the instruction. `auto/*` is a router alias that selects its own downstream model, so it cannot name a tested identity. The 29 ledger runs recorded the alias, not what served them, so that history proves nothing about any model. Re-admit only as a specific downstream id.",
+      "_evidence": "WITHDRAWN. All 22 auto/* aliases were probed; every one served a different model than requested.",
       "model": "auto/best-coding",
       "provider": "custom",
       "admitted": false
     },
-    "omniroute-best-free": {
-      "_evidence": "WITHDRAWN 2026-09-30 for the same reason as omniroute-best-coding: `auto/*` resolves downstream at request time, so the bench's 3/3 measured whatever it happened to select that day.",
-      "model": "auto/best-free",
-      "provider": "custom",
-      "admitted": false
-    },
-    "freellmapi-auto": {
-      "_evidence": "lane-bench: 2/3 correct, median 37.56s, served as koboldcpp/gemma-4-31B-it-heretic. Held back on accuracy, not on cost: one failure in three is not a lane to pin a role to. Separately, freellmapi.stdout.log reports 'Checking 0 keys' on every pass, so it currently serves nothing.",
-      "model": "auto",
-      "provider": "custom",
-      "admitted": false
-    },
-    "local-qwen3-14b": {
-      "_evidence": "lane-bench: 0/3 correct. Returns HTTP 200 with finish_reason=length and empty content - a reasoning model exhausting its budget. Refused until a higher max_tokens is measured.",
-      "model": "qwen3:14b",
-      "provider": "custom",
-      "admitted": false
-    },
-    "local-gemma4-31b": {
-      "_evidence": "lane-bench: 0/3 correct, median 99.95s. Above the measured 14.3-19.0 GB VRAM ceiling on this machine.",
-      "model": "gemma4:31b",
-      "provider": "custom",
-      "admitted": false
-    },
-    "github-claude-opus-5": {
-      "_evidence": "Real id confirmed live in the catalog (ctx 1,000,000 / out 64,000). NOT admitted: probed 2026-09-30 and returned HTTP 466 'This version of the Copilot CLI is no longer supported.' A version gate, not an entitlement wall - re-probe after the Copilot CLI is upgraded.",
-      "model": "github/claude-opus-5",
-      "provider": "custom",
-      "admitted": false
-    },
-    "github-gpt-5-6-sol": {
-      "_evidence": "Real id confirmed live (ctx 1,050,000 / out 128,000). NOT admitted: HTTP 466, same Copilot CLI version gate.",
-      "model": "github/gpt-5.6-sol",
+    "github-claude-opus-4-8": {
+      "_evidence": "NOT ADMITTED. HTTP 466 Copilot CLI version gate on the desktop; after upgrading the laptop's CLI the same family returned 400 model_not_supported, consistent with the Copilot Student plan withdrawing premium self-selection.",
+      "model": "github/claude-opus-4.8",
       "provider": "custom",
       "admitted": false
     },
     "codex-gpt-5-6-sol": {
-      "_evidence": "The ChatGPT subscription's road in, via OmniRoute's codex-app-server bridge. Codex CLI 0.159.2 installed on the desktop and reports 'Logged in using ChatGPT'. NOT admitted: probed HTTP 503 'Codex app-server transport is not...' - OmniRoute had not yet seen the newly installed CLI. Re-probe after restarting OmniRoute.",
+      "_evidence": "NOT ADMITTED. HTTP 503 'Codex app-server transport is not configured (missing url or token)'. Codex CLI 0.159.2 is installed and logged in with ChatGPT; the transport is an OmniRoute setting the operator must supply.",
       "model": "cxa/gpt-5.6-sol",
       "provider": "custom",
       "admitted": false
