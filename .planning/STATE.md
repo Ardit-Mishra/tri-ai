@@ -464,3 +464,76 @@ ship CLIs. `hermes auth.json` holds a credential pool of `copilot` and
   removed rather than left lying about. Generate one in the desktop UI,
   then `python ~/.tri-ai/ops/set-omniroute-key.py`.
 - **Codex app-server transport** url and token, in the OmniRoute UI.
+
+## 2026-09-30 — three layers of substitution, found by probing
+
+574 models swept through the desktop gateway. **45 answered, 23 answered
+as themselves, 517 refused.** Four percent of the catalog is usable.
+
+Each layer was invisible to the one above it, and reading code would not
+have found any of them:
+
+**1. Listed but not entitled.** 517 refusals. Largest groups: 109 "not
+available in the active live catalog", 105 Devin bridge sandbox errors,
+49 Copilot CLI version gates, 26 Codex transport 503s, 44 404s.
+
+**2. Answered as something else.** All 22 `auto/*` aliases served a
+different model than requested, at HTTP 200, replying "ok" —
+`auto/claude-opus` and `auto/claude-sonnet` both returned
+`google/gemma-4-31b-it`. On the laptop `auto/best-coding` served
+`google/diffusiongemma-26b-a4b-it`, a diffusion model, to a coding
+request. An alias resolves downstream at request time and can never name
+a tested identity.
+
+**3. Answered honestly, and the pin still ignored.** This is the one that
+invalidated a whole commit:
+
+    asked:    hermes -m qwen2.5-coder:14b
+    recorded: auto/smart @ custom
+    served:   google/gemma-4-31b-it
+
+`qwen2.5-coder:14b` replies in **812ms against Ollama directly**. But
+Hermes sends a `-m` override to `model.base_url`, which is OmniRoute;
+OmniRoute answers 400 *"Unable to determine provider for model"*; Hermes
+falls through to `fallback_model[0]` and writes `auto/smart` into the
+usage file — the file `executor.run_agent` reads for ledger provenance.
+The model works. The *pin* does not, silently, and the ledger records a
+model that nothing ran.
+
+### Admission now requires three things
+
+Answered · named itself in the response · `hermes -m <id>` recorded that
+same id. Each failed independently above, so each is checked.
+
+| route | measured | roles |
+|---|---|---|
+| `mistral/codestral-2508` | 4.1s | builder, designer, reviewer |
+| `nvidia/nvidia/nemotron-3-ultra-550b-a55b` | 2.8s, **550B** | researcher, lead, product_strategist |
+| `nvidia/google/gemma-4-31b-it` | **35ms** | operator |
+| `mistral/codestral-latest` | 0.4s | |
+| `mistral/ministral-14b-latest` | 0.8s | |
+
+Neither Mistral nor NVIDIA featured in any earlier reasoning about this
+system. A free 550B model answering in 2.8s beats anything a 3060 holds,
+and it was found by probing, not by reading the catalog.
+
+**A bare Ollama tag can never be admitted** — tested and enforced. It
+works against `127.0.0.1:11434` and is unroutable through Hermes.
+
+### The ledger has never known what ran
+
+It stores what Hermes reported, which was an alias or a fallback. The 29
+runs attributed to `auto/best-coding` describe nothing real. Do not draw
+conclusions from historical model attribution before 2026-09-30.
+
+### Still open for the operator
+
+- `hermes config.yaml` still has `model.default: auto/best-coding`, so
+  anything bypassing the registry still gets a lottery. One line, both
+  machines.
+- Copilot plan tier — 8 of 10 premium models return 400
+  `model_not_supported`, consistent with the Student plan withdrawing
+  premium self-selection.
+- Codex app-server transport url + token, in the OmniRoute UI. The CLI is
+  installed (0.159.2) and reports *Logged in using ChatGPT*.
+- Desktop session passphrase.
