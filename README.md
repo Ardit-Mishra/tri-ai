@@ -177,6 +177,7 @@ Asked to count a 17-row list by eye, the same model answered 15, then 18. Given
 | [docs/BRAIN_ARCHITECTURE.md](docs/BRAIN_ARCHITECTURE.md) | retained evidence: provenance, trust labels, recall |
 | [docs/CAPABILITY_CATALOG.md](docs/CAPABILITY_CATALOG.md) | how a role acquires the skills it is given |
 | [docs/PUBLIC_DEMO.md](docs/PUBLIC_DEMO.md) | run and deploy the sealed public demo from a clean clone |
+| [DECISIONS.md](DECISIONS.md) | why it is built this way, and what is still unknown |
 | [SECURITY.md](SECURITY.md) | public-release boundary and vulnerability reporting |
 
 ## Running the tests

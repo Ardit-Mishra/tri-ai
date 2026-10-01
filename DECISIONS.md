@@ -77,6 +77,42 @@ normal case, not the exception:
 - **Watchdog self-heal**, verified by killing all four services and confirming
   unattended recovery.
 
+## A route must prove itself, because a name proves nothing
+
+The routing section above says work goes to the cheapest lane that can finish
+it. That is only a decision if "the lane" means something, and for a long time
+it did not.
+
+Three roles were pinned to `auto/best-coding` and ran **29 recorded tasks**
+there. The pin was chosen from the alias name. Calling all 574 models the router
+advertised, once each, and comparing the **served** model name against the
+requested one showed what the name was worth: `auto/best-coding` resolves to a
+diffusion model, and all 22 `auto/*` aliases serve something other than what they
+name — `auto/claude-opus` returns a 31B Gemma at HTTP 200.
+
+A request can be substituted at three layers, each invisible to the one above:
+
+1. **Listed but not entitled.** 517 of 574 refused outright.
+2. **Answered as something else.** HTTP 200 proves a response arrived, not that
+   the named model produced it.
+3. **The pin was dropped in transit.** A bare Ollama tag is routed to the
+   gateway, refused, and replaced by the first fallback — which is then written
+   into the usage file the ledger reads. The request vanishes and the run
+   succeeds.
+
+So admission requires all three to hold: it answered, the response named what was
+asked for, and the usage file recorded that same id. Twenty models clear that
+bar. The rest are not routes, whatever the catalogue calls them.
+
+The cost of having assumed otherwise is stated rather than quietly fixed:
+**model attribution in ledger entries before 2026-09-30 is not evidence.** Exit
+codes are unaffected, because a verify command's result does not depend on
+knowing which model did the work. That is the strongest argument for the gate
+this document opens with — the one fact that stayed true while the other one
+turned out to be fiction.
+
+Reading: [`evidence/MODEL_SWEEP.md`](evidence/MODEL_SWEEP.md).
+
 ## Evidence
 
 `evidence/ledger.jsonl` holds one entry per verified task: the repository, the
@@ -92,3 +128,8 @@ the badge and the file agree, which is the point of keeping the file.
 - Verification quality is entirely the operator's: the system enforces that a
   check ran and passed, never that the check was a good one. A weak test passes
   just as convincingly as a strong one.
+- Three agent runtimes are implemented and nothing selects between them per
+  task. Until something does, the two paid subscriptions the design reserves for
+  judgement work are not reachable from the system at all.
+- The sweep is one account on one day. A route admitted today can be withdrawn
+  by a provider tomorrow, and nothing re-probes on a schedule.
