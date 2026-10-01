@@ -16,6 +16,8 @@ research, plan, build, verify, and prepare the release decision. It routes work 
 specialists, retains evidence, and refuses to accept a delegated result on an agent's word alone.
 
 > **Live visual demo:** [Open the interactive dashboard](https://tri-ai-demo.onrender.com/).
+> It sleeps on Render's free tier, so the first load spends **30–60 seconds** on Render's own
+> waking screen before the board appears. That wait is the hosting, not the application.
 > It is intentionally a labeled simulation that illustrates
 > the task graph, retained memory, capability routing, verification loop, and human release gate
 > without exposing an operator's live tasks, logs, machines, or credentials. See
