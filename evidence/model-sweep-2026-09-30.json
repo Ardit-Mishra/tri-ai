@@ -1,0 +1,5742 @@
+[
+ {
+  "id": "auto/best-coding",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 45016,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "auto/best-reasoning",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 45016,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "auto/best-fast",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 45015,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "auto/best-vision",
+  "provider": "auto",
+  "claimed_context": 1050000,
+  "claimed_max_output": 1048576,
+  "ms": 45015,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "auto/best-chat",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 45015,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "auto/best-coding-fast",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 45029,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "auto/pro-coding",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 31216,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/pro-reasoning",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 32139,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/pro-vision",
+  "provider": "auto",
+  "claimed_context": 1050000,
+  "claimed_max_output": 1048576,
+  "ms": 32169,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/pro-chat",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 25555,
+  "status": "ok",
+  "served": "mistral-code-latest",
+  "detail": ""
+ },
+ {
+  "id": "auto/pro-fast",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 35674,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/coding",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 29722,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/fast",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 10118,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/chat",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 3935,
+  "status": "ok",
+  "served": "mistral-code-latest",
+  "detail": ""
+ },
+ {
+  "id": "auto/cheap",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 6958,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/offline",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 3483,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/smart",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 4995,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/claude-opus",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 6321,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/claude-sonnet",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 5480,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/best-free",
+  "provider": "auto",
+  "claimed_context": 1000000,
+  "claimed_max_output": 384000,
+  "ms": 13307,
+  "status": "http_502",
+  "served": null,
+  "detail": "groq/openai/gpt-oss-120b: auth \u2014 [403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\""
+ },
+ {
+  "id": "auto/best-chaos",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 3608,
+  "status": "JSONDecodeError",
+  "served": null,
+  "detail": "Expecting value: line 1 column 1 (char 0)"
+ },
+ {
+  "id": "auto/chaos",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 5342,
+  "status": "JSONDecodeError",
+  "served": null,
+  "detail": "Expecting value: line 1 column 1 (char 0)"
+ },
+ {
+  "id": "auto/coding:fast",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 8567,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/coding:cheap",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 7460,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/coding:free",
+  "provider": "auto",
+  "claimed_context": 1000000,
+  "claimed_max_output": 384000,
+  "ms": 5800,
+  "status": "http_403",
+  "served": null,
+  "detail": "groq/openai/gpt-oss-120b: auth \u2014 [403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\""
+ },
+ {
+  "id": "auto/coding:pro",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 800,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/coding:reliable",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 1749,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/reasoning",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 2507,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/reasoning:pro",
+  "provider": "auto",
+  "claimed_context": 2000000,
+  "claimed_max_output": 1048576,
+  "ms": 11259,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/vision",
+  "provider": "auto",
+  "claimed_context": 1050000,
+  "claimed_max_output": 1048576,
+  "ms": 9182,
+  "status": "ok",
+  "served": "meta/llama-3.2-11b-vision-instruct",
+  "detail": ""
+ },
+ {
+  "id": "auto/multimodal",
+  "provider": "auto",
+  "claimed_context": 1050000,
+  "claimed_max_output": 1048576,
+  "ms": 8404,
+  "status": "ok",
+  "served": "meta/llama-3.2-11b-vision-instruct",
+  "detail": ""
+ },
+ {
+  "id": "auto/glm",
+  "provider": "auto",
+  "claimed_context": 1048576,
+  "claimed_max_output": 131072,
+  "ms": 9760,
+  "status": "http_502",
+  "served": null,
+  "detail": "zc/glm-5.1: provider \u2014 [502]: spawn zcode ENOENT (HTTP 502); dva/glm-5-2-max-1m: provider \u2014 [500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge"
+ },
+ {
+  "id": "auto/minimax",
+  "provider": "auto",
+  "claimed_context": 1048576,
+  "claimed_max_output": 8192,
+  "ms": 6860,
+  "status": "ok",
+  "served": "mistral-code-latest",
+  "detail": ""
+ },
+ {
+  "id": "auto/mimo",
+  "provider": "auto",
+  "claimed_context": 1050000,
+  "claimed_max_output": 131072,
+  "ms": 381,
+  "status": "http_403",
+  "served": null,
+  "detail": "oc/mimo-v2.5-free: auth \u2014 [403]: Error from provider (Console): OpenCode's free tier can only be used from within OpenCode (HTTP 403)"
+ },
+ {
+  "id": "auto/zai",
+  "provider": "auto",
+  "claimed_context": 128000,
+  "claimed_max_output": 8192,
+  "ms": 5763,
+  "status": "ok",
+  "served": "mistral-code-latest",
+  "detail": ""
+ },
+ {
+  "id": "auto/gemma",
+  "provider": "auto",
+  "claimed_context": 262144,
+  "claimed_max_output": 8192,
+  "ms": 76,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "auto/llama",
+  "provider": "auto",
+  "claimed_context": 1310720,
+  "claimed_max_output": 8192,
+  "ms": 518,
+  "status": "ok",
+  "served": "meta/llama-3.2-11b-vision-instruct",
+  "detail": ""
+ },
+ {
+  "id": "auto/gemini",
+  "provider": "auto",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 34599,
+  "status": "http_502",
+  "served": null,
+  "detail": "aug/gemini-3.1-pro-preview: provider \u2014 [502]: Auggie CLI exited with code 1: 'auggie' is not recognized as an internal or external command,\r (HTTP 502); gemini/"
+ },
+ {
+  "id": "github/claude-opus-4.6",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 66,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.6' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-4.6",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 58,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-4.6' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.5",
+  "provider": "github",
+  "claimed_context": 200000,
+  "claimed_max_output": 64000,
+  "ms": 17,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4-5-20251101' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-4.5",
+  "provider": "github",
+  "claimed_context": 200000,
+  "claimed_max_output": 32000,
+  "ms": 139,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-4.5' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/gemini-3.1-pro-preview",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 137,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'gemini-3.1-pro-preview' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/gpt-4-0125-preview",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": 4096,
+  "ms": 51,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'gpt-4-0125-preview' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/mai-code-1-flash",
+  "provider": "github",
+  "claimed_context": 256000,
+  "claimed_max_output": 128000,
+  "ms": 35,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mai-code-1-flash' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/mai-code-1-flash-picker",
+  "provider": "github",
+  "claimed_context": 256000,
+  "claimed_max_output": 128000,
+  "ms": 89,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mai-code-1-flash-picker' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/grok-4.6",
+  "provider": "github",
+  "claimed_context": 500000,
+  "claimed_max_output": 128000,
+  "ms": 21,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'grok-4.6' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/grok-4.5",
+  "provider": "github",
+  "claimed_context": 500000,
+  "claimed_max_output": 128000,
+  "ms": 70,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'grok-4.5' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/oswe-vscode-prime",
+  "provider": "github",
+  "claimed_context": 264000,
+  "claimed_max_output": 64000,
+  "ms": 39,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'oswe-vscode-prime' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-fable-5.1",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 15939,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-fable-5.1] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-fable-5",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 15913,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-fable-5] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-opus-4.7",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 15589,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-opus-4.7] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-opus-4.8-fast",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 15369,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-opus-4.8-fast] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-opus-4.8",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 14001,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-opus-4.8] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-opus-5.5",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 15628,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-opus-5.5] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-opus-5",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 15628,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-opus-5] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-sonnet-5.5",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 15636,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-sonnet-5.5] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-sonnet-5",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 15627,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-sonnet-5] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/copilot-search-a",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15619,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/copilot-search-a] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/copilot-search-b",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15711,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/copilot-search-b] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/copilot-search-c",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15714,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/copilot-search-c] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/exec-agent-a",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15697,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/exec-agent-a] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/exec-agent-b",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15696,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/exec-agent-b] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/exec-agent-c",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15662,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/exec-agent-c] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gemini-3.5-flash",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 13033,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gemini-3.5-flash] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gemini-3.6-flash",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 5024,
+  "status": "empty",
+  "served": "gemini-3.6-flash",
+  "detail": ""
+ },
+ {
+  "id": "github/gemini-3.7-flash",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 15685,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gemini-3.7-flash] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gemini-3.8-flash",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 4999,
+  "status": "empty",
+  "served": "gemini-3.8-flash",
+  "detail": ""
+ },
+ {
+  "id": "github/gpt-5.3-codex",
+  "provider": "github",
+  "claimed_context": 400000,
+  "claimed_max_output": 128000,
+  "ms": 15631,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5.3-codex] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-5.4-mini",
+  "provider": "github",
+  "claimed_context": 400000,
+  "claimed_max_output": 128000,
+  "ms": 15635,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5.4-mini] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-5.4-nano",
+  "provider": "github",
+  "claimed_context": 400000,
+  "claimed_max_output": 128000,
+  "ms": 15628,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5.4-nano] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-5.4",
+  "provider": "github",
+  "claimed_context": 1050000,
+  "claimed_max_output": 128000,
+  "ms": 15889,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5.4] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-5.5",
+  "provider": "github",
+  "claimed_context": 1050000,
+  "claimed_max_output": 128000,
+  "ms": 15842,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5.5] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-5.6-luna",
+  "provider": "github",
+  "claimed_context": 1050000,
+  "claimed_max_output": 128000,
+  "ms": 15690,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5.6-luna] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-5.6-sol",
+  "provider": "github",
+  "claimed_context": 1050000,
+  "claimed_max_output": 128000,
+  "ms": 15669,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5.6-sol] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-5.6-terra",
+  "provider": "github",
+  "claimed_context": 1050000,
+  "claimed_max_output": 128000,
+  "ms": 15671,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5.6-terra] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-5.6-luna-utility",
+  "provider": "github",
+  "claimed_context": 1050000,
+  "claimed_max_output": 128000,
+  "ms": 15639,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5.6-luna-utility] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-6.1-sol",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15703,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-6.1-sol] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-6-astra",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15641,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-6-astra] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-6-luna",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15651,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-6-luna] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-6-sol",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15661,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-6-sol] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/kimi-k2.7-code",
+  "provider": "github",
+  "claimed_context": 256000,
+  "claimed_max_output": 32000,
+  "ms": 15649,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/kimi-k2.7-code] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/kimi-k3",
+  "provider": "github",
+  "claimed_context": 1048576,
+  "claimed_max_output": 1048576,
+  "ms": 15641,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/kimi-k3] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/mai-code-1.1-flash",
+  "provider": "github",
+  "claimed_context": 256000,
+  "claimed_max_output": 128000,
+  "ms": 15756,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/mai-code-1.1-flash] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/trajectory-compaction",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15742,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/trajectory-compaction] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-5-mini",
+  "provider": "github",
+  "claimed_context": 264000,
+  "claimed_max_output": 64000,
+  "ms": 15807,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-5-mini] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4o-mini-2024-07-18",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": 16384,
+  "ms": 15793,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4o-mini-2024-07-18] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4o-2024-11-20",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": 16384,
+  "ms": 15785,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4o-2024-11-20] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4o-2024-08-06",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": 16384,
+  "ms": 15816,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4o-2024-08-06] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-haiku-4.5",
+  "provider": "github",
+  "claimed_context": 200000,
+  "claimed_max_output": 32000,
+  "ms": 15707,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/claude-haiku-4.5] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4.1-2025-04-14",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15693,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4.1-2025-04-14] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-3.5-turbo-0613",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15679,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-3.5-turbo-0613] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15660,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4-0613",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15661,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4-0613] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4o-2024-05-13",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": 16384,
+  "ms": 15641,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4o-2024-05-13] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4-o-preview",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15689,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4-o-preview] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4.1",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15684,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4.1] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-3.5-turbo",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15623,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-3.5-turbo] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4o-mini",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": 4096,
+  "ms": 15624,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4o-mini] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/gpt-4o",
+  "provider": "github",
+  "claimed_context": 128000,
+  "claimed_max_output": 16384,
+  "ms": 15616,
+  "status": "http_466",
+  "served": null,
+  "detail": "[github/gpt-4o] [466]: This version of the Copilot CLI is no longer supported. Please upgrade to the latest version. (reset after 5s)"
+ },
+ {
+  "id": "github/claude-opus-4.6-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 37,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.6-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.6-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 21,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.6-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.6-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.6-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-4.6-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-4.6-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-4.6-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-4.6-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-4.6-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-4.6-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-4.5-low",
+  "provider": "github",
+  "claimed_context": 200000,
+  "claimed_max_output": 32000,
+  "ms": 29,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-4.5-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-4.5-medium",
+  "provider": "github",
+  "claimed_context": 200000,
+  "claimed_max_output": 32000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-4.5-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-4.5-high",
+  "provider": "github",
+  "claimed_context": 200000,
+  "claimed_max_output": 32000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-4.5-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-fable-5.1-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 27,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-fable-5.1-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-fable-5.1-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 22,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-fable-5.1-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-fable-5.1-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 26,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-fable-5.1-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-fable-5.1-xhigh",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-fable-5.1-xhigh' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-fable-5-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-fable-5-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-fable-5-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-fable-5-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-fable-5-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 33,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-fable-5-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-fable-5-xhigh",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 28,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-fable-5-xhigh' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.7-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.7-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.7-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 29,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.7-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.7-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.7-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.7-xhigh",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.7-xhigh' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.8-fast-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.8-fast-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.8-fast-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.8-fast-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.8-fast-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.8-fast-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.8-fast-xhigh",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.8-fast-xhigh' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.8-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.8-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.8-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.8-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.8-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.8-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-4.8-xhigh",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-4.8-xhigh' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-5.5-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-5.5-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-5.5-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-5.5-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-5.5-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-5.5-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-5.5-xhigh",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-5.5-xhigh' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-5-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-5-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-5-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 7,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-5-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-5-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 23,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-5-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-opus-5-xhigh",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-opus-5-xhigh' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-5.5-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-5.5-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-5.5-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-5.5-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-5.5-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-5.5-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-5.5-xhigh",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-5.5-xhigh' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-5-low",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-5-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-5-medium",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-5-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-5-high",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-5-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-sonnet-5-xhigh",
+  "provider": "github",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-sonnet-5-xhigh' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-haiku-4.5-low",
+  "provider": "github",
+  "claimed_context": 200000,
+  "claimed_max_output": 32000,
+  "ms": 33,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-haiku-4.5-low' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-haiku-4.5-medium",
+  "provider": "github",
+  "claimed_context": 200000,
+  "claimed_max_output": 32000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-haiku-4.5-medium' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "github/claude-haiku-4.5-high",
+  "provider": "github",
+  "claimed_context": 200000,
+  "claimed_max_output": 32000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'claude-haiku-4.5-high' is not available in the active live catalog for provider 'github'."
+ },
+ {
+  "id": "dva/swe-1-7-lightning",
+  "provider": "dva",
+  "claimed_context": 202752,
+  "claimed_max_output": null,
+  "ms": 41,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/swe-1-7",
+  "provider": "dva",
+  "claimed_context": 262000,
+  "claimed_max_output": null,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/swe-1-6-fast",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 28,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/swe-1-6",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 33,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-5-fable-max",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 20,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-5-fable-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 71,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-5-fable-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 28,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-5-fable-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-5-fable-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-5-max",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 56,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-5"
+ },
+ {
+  "id": "dva/claude-opus-5-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 37,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-5"
+ },
+ {
+  "id": "dva/claude-opus-5-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-5"
+ },
+ {
+  "id": "dva/claude-opus-5-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 28,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-5"
+ },
+ {
+  "id": "dva/claude-opus-5-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-5"
+ },
+ {
+  "id": "dva/claude-opus-4-8-max",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-8"
+ },
+ {
+  "id": "dva/claude-opus-4-8-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-8"
+ },
+ {
+  "id": "dva/claude-opus-4-8-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-8"
+ },
+ {
+  "id": "dva/claude-opus-4-8-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-8"
+ },
+ {
+  "id": "dva/claude-opus-4-8-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-8"
+ },
+ {
+  "id": "dva/claude-opus-4-7-max",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-7"
+ },
+ {
+  "id": "dva/claude-opus-4-7-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-7"
+ },
+ {
+  "id": "dva/claude-opus-4-7-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-7"
+ },
+ {
+  "id": "dva/claude-opus-4-7-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-7"
+ },
+ {
+  "id": "dva/claude-opus-4-7-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-opus-4-7"
+ },
+ {
+  "id": "dva/claude-opus-4-6-thinking-1m",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-thinking",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-1m",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": 128000,
+  "ms": 55,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-5-max",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 38,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-sonnet-5"
+ },
+ {
+  "id": "dva/claude-sonnet-5-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-sonnet-5"
+ },
+ {
+  "id": "dva/claude-sonnet-5-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-sonnet-5"
+ },
+ {
+  "id": "dva/claude-sonnet-5-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 38,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-sonnet-5"
+ },
+ {
+  "id": "dva/claude-sonnet-5-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 38,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Model is not present in the current Devin catalog: claude-sonnet-5"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-thinking-1m",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-thinking",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": 64000,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-1m",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": 64000,
+  "ms": 17,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-sol-max",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 27,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-sol-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 17,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-sol-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-sol-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-sol-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-terra-max",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-terra-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-terra-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-terra-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 52,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-terra-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 40,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-luna-max",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-luna-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-luna-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 33,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-luna-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-6-luna-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-5-xhigh",
+  "provider": "dva",
+  "claimed_context": 272000,
+  "claimed_max_output": null,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-5-high",
+  "provider": "dva",
+  "claimed_context": 272000,
+  "claimed_max_output": null,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-5-medium",
+  "provider": "dva",
+  "claimed_context": 272000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gpt-5-5-low",
+  "provider": "dva",
+  "claimed_context": 272000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gemini-3-1-pro-high",
+  "provider": "dva",
+  "claimed_context": 1048576,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gemini-3-1-pro-low",
+  "provider": "dva",
+  "claimed_context": 1048576,
+  "claimed_max_output": null,
+  "ms": 42,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gemini-3-7-flash-high",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 34,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gemini-3-7-flash-medium",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gemini-3-7-flash-low",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/gemini-3-7-flash-minimal",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/grok-4-5-high",
+  "provider": "dva",
+  "claimed_context": 500000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/grok-4-5-medium",
+  "provider": "dva",
+  "claimed_context": 500000,
+  "claimed_max_output": null,
+  "ms": 74,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/grok-4-5-low",
+  "provider": "dva",
+  "claimed_context": 500000,
+  "claimed_max_output": null,
+  "ms": 34,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/glm-5-2-max-1m",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/glm-5-2-max",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/glm-5-2-1m",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/glm-5-2",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/kimi-k3-max",
+  "provider": "dva",
+  "claimed_context": 1048576,
+  "claimed_max_output": 1048576,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/kimi-k3-high",
+  "provider": "dva",
+  "claimed_context": 1048576,
+  "claimed_max_output": 1048576,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/kimi-k3-low",
+  "provider": "dva",
+  "claimed_context": 1048576,
+  "claimed_max_output": 1048576,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/kimi-k2-7",
+  "provider": "dva",
+  "claimed_context": 262144,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/inkling-max",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/inkling-xhigh",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/inkling-high",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/inkling-medium",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/inkling-low",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/inkling-none",
+  "provider": "dva",
+  "claimed_context": 200000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/deepseek-v4",
+  "provider": "dva",
+  "claimed_context": 1048576,
+  "claimed_max_output": null,
+  "ms": 33,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/nemotron-3-ultra-nvfp4",
+  "provider": "dva",
+  "claimed_context": 262144,
+  "claimed_max_output": null,
+  "ms": 28,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-5-max-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 55,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-5-max-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 42,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-5-max-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 27,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-5-max-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-8-max-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-8-max-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-8-max-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-8-max-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-7-max-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-7-max-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-7-max-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-7-max-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-thinking-1m-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 27,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-thinking-1m-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-thinking-1m-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-thinking-1m-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-thinking-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-thinking-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-thinking-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 52,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-1m-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 38,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-1m-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-1m-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-1m-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 38,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 68,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-opus-4-6-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-5-max-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 30,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-5-max-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 31,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-5-max-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 29,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-5-max-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 128000,
+  "ms": 32,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-thinking-1m-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 40,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-thinking-1m-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 44,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-thinking-1m-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 57,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-thinking-1m-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 53,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-thinking-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 52,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-thinking-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 79,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-thinking-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 78,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-1m-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 79,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-1m-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 53,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-1m-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 55,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-1m-xhigh",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 55,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-low",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 55,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-medium",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 61,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "dva/claude-sonnet-4-6-high",
+  "provider": "dva",
+  "claimed_context": 1000000,
+  "claimed_max_output": 64000,
+  "ms": 75,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox"
+ },
+ {
+  "id": "cfp/zai-org/glm-5.2",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2447,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/moonshotai/kimi-k2.7-code",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2771,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/moonshotai/kimi-k2.6",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2927,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/deepseek-ai/deepseek-v4-pro-0813",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2973,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/deepseek-ai/deepseek-v4-flash-0731",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 3017,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/zai-org/glm-4.7-flash",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2198,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/openai/gpt-oss-120b",
+  "provider": "cfp",
+  "claimed_context": 400000,
+  "claimed_max_output": null,
+  "ms": 3024,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/openai/gpt-oss-20b",
+  "provider": "cfp",
+  "claimed_context": 400000,
+  "claimed_max_output": null,
+  "ms": 2363,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/meta-llama/llama-3.3-70b-instruct-fp8-fast",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2919,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/meta/llama-3.1-8b-instruct-fp8",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2457,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/meta/llama-4-scout-17b-16e-instruct",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2863,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/nvidia/nemotron-3-120b-a12b",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2498,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/qwen/qwen2.5-coder-32b-instruct",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2399,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/qwen/qwen3-30b-a3b-fp8",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2723,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/qwen/qwq-32b",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2341,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/deepseek-ai/deepseek-r1-distill-qwen-32b",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2452,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/google/gemma-4-26b-a4b-it",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2341,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/mistralai/mistral-small-3.1-24b-instruct",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2509,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/ibm-granite/granite-4.0-h-micro",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2189,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "cfp/aisingapore/gemma-sea-lion-v4-27b-it",
+  "provider": "cfp",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2826,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: Cloudflare Playground browser session failed: browserType.launch: Executable doesn't exist at <home>\\AppData\\Local\\ms-playwright\\chromium_head"
+ },
+ {
+  "id": "zc/glm-5.3",
+  "provider": "zc",
+  "claimed_context": 1000000,
+  "claimed_max_output": 131072,
+  "ms": 2360,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-5.3-max",
+  "provider": "zc",
+  "claimed_context": 1000000,
+  "claimed_max_output": 131072,
+  "ms": 2702,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-5.2",
+  "provider": "zc",
+  "claimed_context": 1000000,
+  "claimed_max_output": 131072,
+  "ms": 2765,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-5.1",
+  "provider": "zc",
+  "claimed_context": 204800,
+  "claimed_max_output": 131072,
+  "ms": 2451,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-5",
+  "provider": "zc",
+  "claimed_context": 200000,
+  "claimed_max_output": 131072,
+  "ms": 2492,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-5-turbo",
+  "provider": "zc",
+  "claimed_context": 200000,
+  "claimed_max_output": 131072,
+  "ms": 2757,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-4.7-flash",
+  "provider": "zc",
+  "claimed_context": 200000,
+  "claimed_max_output": 131072,
+  "ms": 2372,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-4.7",
+  "provider": "zc",
+  "claimed_context": 200000,
+  "claimed_max_output": 131072,
+  "ms": 3001,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-4.6v",
+  "provider": "zc",
+  "claimed_context": 128000,
+  "claimed_max_output": 32768,
+  "ms": 2690,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-4.6",
+  "provider": "zc",
+  "claimed_context": 200000,
+  "claimed_max_output": 32768,
+  "ms": 2818,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-4.5v",
+  "provider": "zc",
+  "claimed_context": 16000,
+  "claimed_max_output": 32768,
+  "ms": 2308,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-4.5",
+  "provider": "zc",
+  "claimed_context": 128000,
+  "claimed_max_output": 32768,
+  "ms": 2567,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "zc/glm-4.5-air",
+  "provider": "zc",
+  "claimed_context": 128000,
+  "claimed_max_output": 32768,
+  "ms": 2301,
+  "status": "http_502",
+  "served": null,
+  "detail": "[502]: spawn zcode ENOENT"
+ },
+ {
+  "id": "cxa/gpt-5.6-sol",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2861,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-sol-ultra",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2312,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-sol-max",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2311,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-sol-xhigh",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2268,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-sol-high",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2150,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-sol-medium",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2724,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-sol-low",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2440,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-terra",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2791,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-terra-ultra",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2365,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-terra-max",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 3006,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-terra-xhigh",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2303,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-terra-high",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2385,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-terra-medium",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2233,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-terra-low",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2066,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-luna",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2147,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-luna-max",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2932,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-luna-xhigh",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2558,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-luna-high",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2989,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-luna-medium",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2429,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.6-luna-low",
+  "provider": "cxa",
+  "claimed_context": 872000,
+  "claimed_max_output": 128000,
+  "ms": 2282,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.5",
+  "provider": "cxa",
+  "claimed_context": 400000,
+  "claimed_max_output": 128000,
+  "ms": 2787,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.5-xhigh",
+  "provider": "cxa",
+  "claimed_context": 400000,
+  "claimed_max_output": 128000,
+  "ms": 2386,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.5-high",
+  "provider": "cxa",
+  "claimed_context": 400000,
+  "claimed_max_output": 128000,
+  "ms": 2130,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.5-medium",
+  "provider": "cxa",
+  "claimed_context": 400000,
+  "claimed_max_output": 128000,
+  "ms": 2084,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.5-low",
+  "provider": "cxa",
+  "claimed_context": 400000,
+  "claimed_max_output": 128000,
+  "ms": 2571,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "cxa/gpt-5.3-codex-spark",
+  "provider": "cxa",
+  "claimed_context": 400000,
+  "claimed_max_output": null,
+  "ms": 2889,
+  "status": "http_503",
+  "served": null,
+  "detail": "[503]: Codex app-server transport is not configured (missing url or token)"
+ },
+ {
+  "id": "gemini/gemini-2.5-flash",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 230,
+  "status": "http_404",
+  "served": null,
+  "detail": "[gemini/gemini-2.5-flash] [404]: This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash "
+ },
+ {
+  "id": "gemini/gemini-2.5-pro",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 293,
+  "status": "http_404",
+  "served": null,
+  "detail": "[gemini/gemini-2.5-pro] [404]: This model models/gemini-2.5-pro is no longer available to new users. Please update your code to use models/gemini-3.1-pro-previe"
+ },
+ {
+  "id": "gemini/gemini-2.5-flash-preview-tts",
+  "provider": "gemini",
+  "claimed_context": 8192,
+  "claimed_max_output": 16384,
+  "ms": 284,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Thinking is not enabled for models/gemini-2.5-flash-preview-tts"
+ },
+ {
+  "id": "gemini/gemini-2.5-pro-preview-tts",
+  "provider": "gemini",
+  "claimed_context": 8192,
+  "claimed_max_output": 16384,
+  "ms": 12504,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-2.5-pro-preview-tts are cooling down"
+ },
+ {
+  "id": "gemini/gemma-4-26b-a4b-it",
+  "provider": "gemini",
+  "claimed_context": 262144,
+  "claimed_max_output": 32768,
+  "ms": 486,
+  "status": "empty",
+  "served": "gemma-4-26b-a4b-it",
+  "detail": ""
+ },
+ {
+  "id": "gemini/gemma-4-31b-it",
+  "provider": "gemini",
+  "claimed_context": 262144,
+  "claimed_max_output": 32768,
+  "ms": 14,
+  "status": "empty",
+  "served": "gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "gemini/gemini-flash-latest",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 24,
+  "status": "empty",
+  "served": "gemini-flash-latest",
+  "detail": ""
+ },
+ {
+  "id": "gemini/gemini-flash-lite-latest",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 31,
+  "status": "empty",
+  "served": "gemini-flash-lite-latest",
+  "detail": ""
+ },
+ {
+  "id": "gemini/gemini-pro-latest",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 12323,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-pro-latest are cooling down"
+ },
+ {
+  "id": "gemini/gemini-2.5-flash-lite",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 207,
+  "status": "http_404",
+  "served": null,
+  "detail": "[gemini/gemini-2.5-flash-lite] [404]: This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-"
+ },
+ {
+  "id": "gemini/gemini-2.5-flash-image",
+  "provider": "gemini",
+  "claimed_context": 32768,
+  "claimed_max_output": 32768,
+  "ms": 11921,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-2.5-flash-image are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3-flash-preview",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 29606,
+  "status": "http_502",
+  "served": null,
+  "detail": "[gemini/gemini-3-flash-preview] upstream returned an empty response without usable output"
+ },
+ {
+  "id": "gemini/gemini-3.1-pro-preview",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 11302,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-3.1-pro-preview are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3.1-pro-preview-customtools",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 10904,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-3.1-pro-preview-customtools are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3.1-flash-lite-preview",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 11394,
+  "status": "http_502",
+  "served": null,
+  "detail": "[gemini/gemini-3.1-flash-lite-preview] upstream returned an empty response without usable output"
+ },
+ {
+  "id": "gemini/gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 9474,
+  "status": "http_502",
+  "served": null,
+  "detail": "[gemini/gemini-3.1-flash-lite] upstream returned an empty response without usable output"
+ },
+ {
+  "id": "gemini/gemini-3-pro-image-preview",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 32768,
+  "ms": 4565,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-3-pro-image-preview are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3-pro-image",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 32768,
+  "ms": 4491,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-3-pro-image are cooling down"
+ },
+ {
+  "id": "gemini/nano-banana-pro-preview",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 32768,
+  "ms": 4567,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model nano-banana-pro-preview are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3.1-flash-image-preview",
+  "provider": "gemini",
+  "claimed_context": 65536,
+  "claimed_max_output": 65536,
+  "ms": 4597,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-3.1-flash-image-preview are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3.1-flash-image",
+  "provider": "gemini",
+  "claimed_context": 65536,
+  "claimed_max_output": 65536,
+  "ms": 4560,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-3.1-flash-image are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3.1-flash-lite-image",
+  "provider": "gemini",
+  "claimed_context": 65536,
+  "claimed_max_output": 65536,
+  "ms": 4507,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-3.1-flash-lite-image are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3.5-flash-lite",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 42,
+  "status": "empty",
+  "served": "gemini-3.5-flash-lite",
+  "detail": ""
+ },
+ {
+  "id": "gemini/gemini-omni-flash-preview",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 65536,
+  "ms": 4574,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-omni-flash-preview are cooling down"
+ },
+ {
+  "id": "gemini/gemini-omni-1.1-flash",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 65536,
+  "ms": 4576,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-omni-1.1-flash are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3.5-transcribe",
+  "provider": "gemini",
+  "claimed_context": 98304,
+  "claimed_max_output": 32768,
+  "ms": 251,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Thinking is not enabled for this model"
+ },
+ {
+  "id": "gemini/gemini-3.6-flash",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 26,
+  "status": "empty",
+  "served": "gemini-3.6-flash",
+  "detail": ""
+ },
+ {
+  "id": "gemini/gemini-3.7-flash",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 14872,
+  "status": "http_502",
+  "served": null,
+  "detail": "[gemini/gemini-3.7-flash] upstream returned an empty response without usable output"
+ },
+ {
+  "id": "gemini/gemini-3.8-flash",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 12,
+  "status": "empty",
+  "served": "gemini-3.8-flash",
+  "detail": ""
+ },
+ {
+  "id": "gemini/lyria-3-clip-preview",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 4508,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model lyria-3-clip-preview are cooling down"
+ },
+ {
+  "id": "gemini/lyria-3-pro-preview",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 4555,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model lyria-3-pro-preview are cooling down"
+ },
+ {
+  "id": "gemini/lyria-3.5",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 4484,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model lyria-3.5 are cooling down"
+ },
+ {
+  "id": "gemini/gemini-3.1-flash-tts-preview",
+  "provider": "gemini",
+  "claimed_context": 8192,
+  "claimed_max_output": 16384,
+  "ms": 220,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Thinking is not enabled for this model"
+ },
+ {
+  "id": "gemini/gemini-3.8-flash-tts",
+  "provider": "gemini",
+  "claimed_context": 8192,
+  "claimed_max_output": 16384,
+  "ms": 249,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Thinking is not enabled for this model"
+ },
+ {
+  "id": "gemini/gemini-3.8-flash-lite-tts",
+  "provider": "gemini",
+  "claimed_context": 8192,
+  "claimed_max_output": 16384,
+  "ms": 266,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Thinking is not enabled for this model"
+ },
+ {
+  "id": "gemini/gemini-robotics-er-2-preview",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 65536,
+  "ms": 3523,
+  "status": "http_502",
+  "served": null,
+  "detail": "[gemini/gemini-robotics-er-2-preview] upstream returned an empty response without usable output"
+ },
+ {
+  "id": "gemini/gemini-2.5-computer-use-preview-10-2025",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 65536,
+  "ms": 4656,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model gemini-2.5-computer-use-preview-10-2025 are cooling down"
+ },
+ {
+  "id": "gemini/antigravity-preview-05-2026",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 189,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: This model only supports Interactions API."
+ },
+ {
+  "id": "gemini/antigravity-preview-09-2026",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 218,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: This model only supports Interactions API."
+ },
+ {
+  "id": "gemini/antigravity-preview-latest",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 279,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: This model only supports Interactions API."
+ },
+ {
+  "id": "gemini/deep-research-max-preview-04-2026",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 65536,
+  "ms": 4668,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model deep-research-max-preview-04-2026 are cooling down"
+ },
+ {
+  "id": "gemini/deep-research-preview-04-2026",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 65536,
+  "ms": 4605,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model deep-research-preview-04-2026 are cooling down"
+ },
+ {
+  "id": "gemini/deep-research-pro-preview-12-2025",
+  "provider": "gemini",
+  "claimed_context": 131072,
+  "claimed_max_output": 65536,
+  "ms": 4536,
+  "status": "http_429",
+  "served": null,
+  "detail": "All credentials for model deep-research-pro-preview-12-2025 are cooling down"
+ },
+ {
+  "id": "gemini/aqa",
+  "provider": "gemini",
+  "claimed_context": 7168,
+  "claimed_max_output": 1024,
+  "ms": 154,
+  "status": "http_404",
+  "served": null,
+  "detail": "[gemini/aqa] [404]: models/aqa is not found for API version v1beta, or is not supported for generateContent. Call ModelService.ListModels to see the list of ava"
+ },
+ {
+  "id": "gemini/lyria-realtime-exp",
+  "provider": "gemini",
+  "claimed_context": 1048576,
+  "claimed_max_output": 65536,
+  "ms": 219,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: models/lyria-realtime-exp only supports real-time bidirectional streaming via WebSocket (bidiGenerateContent). Please use the Gemini Live API (bidiGenera"
+ },
+ {
+  "id": "gemini/gemini-embedding-2",
+  "provider": "gemini",
+  "claimed_context": 8192,
+  "claimed_max_output": null,
+  "ms": 24,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'gemini-embedding-2' is not available in the active live catalog for provider 'gemini'."
+ },
+ {
+  "id": "gemini/gemini-embedding-2-preview",
+  "provider": "gemini",
+  "claimed_context": 8192,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'gemini-embedding-2-preview' is not available in the active live catalog for provider 'gemini'."
+ },
+ {
+  "id": "gemini/gemini-embedding-001",
+  "provider": "gemini",
+  "claimed_context": 2048,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'gemini-embedding-001' is not available in the active live catalog for provider 'gemini'."
+ },
+ {
+  "id": "groq/meta-llama/llama-4-scout-17b-16e-instruct",
+  "provider": "groq",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'meta-llama/llama-4-scout-17b-16e-instruct' is not available in the active live catalog for provider 'groq'."
+ },
+ {
+  "id": "groq/llama-3.3-70b-versatile",
+  "provider": "groq",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 29,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'llama-3.3-70b-versatile' is not available in the active live catalog for provider 'groq'."
+ },
+ {
+  "id": "groq/qwen/qwen3-32b",
+  "provider": "groq",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 7,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'qwen/qwen3-32b' is not available in the active live catalog for provider 'groq'."
+ },
+ {
+  "id": "groq/groq/compound-mini",
+  "provider": "groq",
+  "claimed_context": 131072,
+  "claimed_max_output": null,
+  "ms": 134,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/groq/compound",
+  "provider": "groq",
+  "claimed_context": 131072,
+  "claimed_max_output": null,
+  "ms": 332,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/meta-llama/llama-prompt-guard-2-22m",
+  "provider": "groq",
+  "claimed_context": 512,
+  "claimed_max_output": null,
+  "ms": 654,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/allam-2-7b",
+  "provider": "groq",
+  "claimed_context": 4096,
+  "claimed_max_output": null,
+  "ms": 695,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/openai/gpt-oss-120b",
+  "provider": "groq",
+  "claimed_context": 131072,
+  "claimed_max_output": null,
+  "ms": 657,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/qwen/qwen3.8-27b",
+  "provider": "groq",
+  "claimed_context": 131042,
+  "claimed_max_output": null,
+  "ms": 711,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/canopylabs/orpheus-arabic-saudi",
+  "provider": "groq",
+  "claimed_context": 4000,
+  "claimed_max_output": null,
+  "ms": 713,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/meta-llama/llama-prompt-guard-2-86m",
+  "provider": "groq",
+  "claimed_context": 512,
+  "claimed_max_output": null,
+  "ms": 692,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/canopylabs/orpheus-v1-english",
+  "provider": "groq",
+  "claimed_context": 4000,
+  "claimed_max_output": null,
+  "ms": 678,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/openai/gpt-oss-safeguard-20b",
+  "provider": "groq",
+  "claimed_context": 131072,
+  "claimed_max_output": null,
+  "ms": 704,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/qwen/qwen3.6-27b",
+  "provider": "groq",
+  "claimed_context": 131072,
+  "claimed_max_output": null,
+  "ms": 1053,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/openai/gpt-oss-20b",
+  "provider": "groq",
+  "claimed_context": 131072,
+  "claimed_max_output": null,
+  "ms": 1072,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/whisper-large-v3",
+  "provider": "groq",
+  "claimed_context": 448,
+  "claimed_max_output": null,
+  "ms": 1051,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/whisper-large-v3-turbo",
+  "provider": "groq",
+  "claimed_context": 448,
+  "claimed_max_output": null,
+  "ms": 1074,
+  "status": "http_403",
+  "served": null,
+  "detail": "[403]: {\"type\":\"https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/\",\"title\":\"Error 1010: Access deni"
+ },
+ {
+  "id": "groq/distil-whisper-large-v3-en",
+  "provider": "groq",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 29,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'distil-whisper-large-v3-en' is not available in the active live catalog for provider 'groq'."
+ },
+ {
+  "id": "mistral/mistral-large-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 37,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mistral-large-latest' is not available in the active live catalog for provider 'mistral'."
+ },
+ {
+  "id": "mistral/devstral-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 23,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'devstral-latest' is not available in the active live catalog for provider 'mistral'."
+ },
+ {
+  "id": "mistral/codestral-2508",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 4138,
+  "status": "ok",
+  "served": "codestral-2508",
+  "detail": ""
+ },
+ {
+  "id": "mistral/codestral-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 388,
+  "status": "ok",
+  "served": "codestral-latest",
+  "detail": ""
+ },
+ {
+  "id": "mistral/mistral-code-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "ok",
+  "served": "mistral-code-latest",
+  "detail": ""
+ },
+ {
+  "id": "mistral/mistral-code-fim-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 772,
+  "status": "ok",
+  "served": "mistral-code-fim-latest",
+  "detail": ""
+ },
+ {
+  "id": "mistral/mistral-small-2603",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 28352,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-small-2603] [429]: Rate limit exceeded (reset after 2s)"
+ },
+ {
+  "id": "mistral/mistral-small-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 27082,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-small-latest] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/mistral-vibe-cli-fast",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 27031,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-vibe-cli-fast] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/magistral-small-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 27344,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/magistral-small-latest] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/voxtral-small-2507",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 987,
+  "status": "ok",
+  "served": "voxtral-small-2507",
+  "detail": ""
+ },
+ {
+  "id": "mistral/voxtral-small-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 483,
+  "status": "ok",
+  "served": "voxtral-small-latest",
+  "detail": ""
+ },
+ {
+  "id": "mistral/labs-leanstral-1-5-1",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 19403,
+  "status": "http_403",
+  "served": null,
+  "detail": "[mistral/labs-leanstral-1-5-1] [403]: Model labs-leanstral-1-5-1 is a Labs model. To use Labs models, an admin must enable them in your organization settings at"
+ },
+ {
+  "id": "mistral/labs-leanstral-1-5",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 18350,
+  "status": "http_403",
+  "served": null,
+  "detail": "[mistral/labs-leanstral-1-5] [403]: Model labs-leanstral-1-5 is a Labs model. To use Labs models, an admin must enable them in your organization settings at htt"
+ },
+ {
+  "id": "mistral/ministral-3b-2512",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 3385,
+  "status": "ok",
+  "served": "ministral-3b-2512",
+  "detail": ""
+ },
+ {
+  "id": "mistral/ministral-3b-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 3983,
+  "status": "ok",
+  "served": "ministral-3b-latest",
+  "detail": ""
+ },
+ {
+  "id": "mistral/ministral-8b-2512",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 676,
+  "status": "ok",
+  "served": "ministral-8b-2512",
+  "detail": ""
+ },
+ {
+  "id": "mistral/ministral-8b-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 417,
+  "status": "ok",
+  "served": "ministral-8b-latest",
+  "detail": ""
+ },
+ {
+  "id": "mistral/ministral-14b-2512",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 601,
+  "status": "ok",
+  "served": "ministral-14b-2512",
+  "detail": ""
+ },
+ {
+  "id": "mistral/ministral-14b-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 770,
+  "status": "ok",
+  "served": "ministral-14b-latest",
+  "detail": ""
+ },
+ {
+  "id": "mistral/mistral-medium-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 28446,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-medium-latest] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/mistral-medium",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 24605,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-medium] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/mistral-medium-3-5",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 25181,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-medium-3-5] [429]: Rate limit exceeded (reset after 2s)"
+ },
+ {
+  "id": "mistral/mistral-medium-3.5",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 24474,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-medium-3.5] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/mistral-medium-3",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 23380,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-medium-3] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/mistral-medium-2604",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 22779,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-medium-2604] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/mistral-vibe-cli-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 24625,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-vibe-cli-latest] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/mistral-vibe-cli-with-tools",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 24681,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/mistral-vibe-cli-with-tools] [429]: Rate limit exceeded (reset after 3s)"
+ },
+ {
+  "id": "mistral/magistral-medium-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 24906,
+  "status": "http_429",
+  "served": null,
+  "detail": "[mistral/magistral-medium-latest] [429]: Rate limit exceeded (reset after 2s)"
+ },
+ {
+  "id": "mistral/mistral-embed-2312",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 10168,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-embed-2312"
+ },
+ {
+  "id": "mistral/mistral-embed",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 11533,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-embed"
+ },
+ {
+  "id": "mistral/codestral-embed",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 3283,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: codestral-embed"
+ },
+ {
+  "id": "mistral/codestral-embed-2505",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 4284,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: codestral-embed-2505"
+ },
+ {
+  "id": "mistral/mistral-moderation-2603",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2733,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-moderation-2603"
+ },
+ {
+  "id": "mistral/mistral-ocr-2512",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1758,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-ocr-2512"
+ },
+ {
+  "id": "mistral/mistral-ocr-3-0",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1044,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-ocr-3-0"
+ },
+ {
+  "id": "mistral/mistral-ocr-3",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 681,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-ocr-3"
+ },
+ {
+  "id": "mistral/mistral-ocr-4-0",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 757,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-ocr-4-0"
+ },
+ {
+  "id": "mistral/mistral-ocr-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1056,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-ocr-latest"
+ },
+ {
+  "id": "mistral/mistral-ocr-4",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1057,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-ocr-4"
+ },
+ {
+  "id": "mistral/mistral-ocr-4-1",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1046,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: mistral-ocr-4-1"
+ },
+ {
+  "id": "mistral/voxtral-mini-2602",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1029,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: voxtral-mini-2602"
+ },
+ {
+  "id": "mistral/voxtral-mini-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1059,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: voxtral-mini-latest"
+ },
+ {
+  "id": "mistral/voxtral-mini-transcribe-realtime-2602",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 5136,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: voxtral-mini-transcribe-realtime-2602"
+ },
+ {
+  "id": "mistral/voxtral-mini-realtime-2602",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 3714,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: voxtral-mini-realtime-2602"
+ },
+ {
+  "id": "mistral/voxtral-mini-realtime-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 5058,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: voxtral-mini-realtime-latest"
+ },
+ {
+  "id": "mistral/voxtral-mini-tts-2603",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2096,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: voxtral-mini-tts-2603"
+ },
+ {
+  "id": "mistral/voxtral-mini-tts-latest",
+  "provider": "mistral",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1359,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Invalid model: voxtral-mini-tts-latest"
+ },
+ {
+  "id": "mistral/mistral-moderation-latest",
+  "provider": "mistral",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 26,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mistral-moderation-latest' is not available in the active live catalog for provider 'mistral'."
+ },
+ {
+  "id": "nvidia/z-ai/glm-5.2",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 29,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'z-ai/glm-5.2' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/minimaxai/minimax-m2.7",
+  "provider": "nvidia",
+  "claimed_context": 204800,
+  "claimed_max_output": 131072,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'minimaxai/minimax-m2.7' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/mistralai/mistral-small-4-119b-2603",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 33,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mistralai/mistral-small-4-119b-2603' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/mistralai/mistral-large-3-675b-instruct-2512",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 27,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mistralai/mistral-large-3-675b-instruct-2512' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/mistralai/devstral-2-123b-instruct-2512",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mistralai/devstral-2-123b-instruct-2512' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/qwen/qwen3.5-397b-a17b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'qwen/qwen3.5-397b-a17b' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/qwen/qwen3.5-122b-a10b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'qwen/qwen3.5-122b-a10b' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/stepfun-ai/step-3.5-flash",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 15,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'stepfun-ai/step-3.5-flash' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/stepfun-ai/step-3.7-flash",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 16,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'stepfun-ai/step-3.7-flash' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/openai/gpt-oss-120b",
+  "provider": "nvidia",
+  "claimed_context": 400000,
+  "claimed_max_output": null,
+  "ms": 15,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'openai/gpt-oss-120b' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/abacusai/dracarys-llama-3.1-70b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 6,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'abacusai/dracarys-llama-3.1-70b-instruct' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/google/gemma-2-2b-it",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 6,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'google/gemma-2-2b-it' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/google/gemma-3n-e2b-it",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 6,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'google/gemma-3n-e2b-it' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/meta/llama-3.1-8b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 26,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'meta/llama-3.1-8b-instruct' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/meta/llama-3.2-1b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'meta/llama-3.2-1b-instruct' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/meta/llama-3.2-3b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 34,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'meta/llama-3.2-3b-instruct' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/meta/llama-4-maverick-17b-128e-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 27,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'meta/llama-4-maverick-17b-128e-instruct' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/mistralai/ministral-14b-instruct-2512",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 7,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mistralai/ministral-14b-instruct-2512' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/mistralai/mistral-medium-3.5-128b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mistralai/mistral-medium-3.5-128b' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 24,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'mistralai/mixtral-8x7b-instruct-v0.1' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/ising-calibration-1-35b-a3b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 11,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/ising-calibration-1-35b-a3b' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.1-nemotron-nano-8b-v1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 38,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/llama-3.1-nemotron-nano-8b-v1' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 24,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 37,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/llama-3.3-nemotron-super-49b-v1' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1.5",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 22,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/llama-3.3-nemotron-super-49b-v1.5' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-3-content-safety",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 35,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/nemotron-3-content-safety' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-3-nano-30b-a3b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 23,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/nemotron-3-nano-30b-a3b' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-mini-4b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 36,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/nemotron-mini-4b-instruct' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-nano-12b-v2-vl",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 24,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/nemotron-nano-12b-v2-vl' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/nvidia/nvidia-nemotron-nano-9b-v2",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 36,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/nvidia-nemotron-nano-9b-v2' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/qwen/qwen3-next-80b-a3b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 25,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'qwen/qwen3-next-80b-a3b-instruct' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/sarvamai/sarvam-m",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 36,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'sarvamai/sarvam-m' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/stockmark/stockmark-2-100b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 25,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'stockmark/stockmark-2-100b-instruct' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/upstage/solar-10.7b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'upstage/solar-10.7b-instruct' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/01-ai/yi-large",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 166,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/01-ai/yi-large] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '23bd454d-b225-49a3-8118-582a62fc51b8': Not found for account 'yRJqlfhsHM3T9"
+ },
+ {
+  "id": "nvidia/adept/fuyu-8b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 492,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/adept/fuyu-8b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'e598bfc1-b058-41af-869d-556d3c7e1b48': Not found for account 'yRJqlfhsHM3T9B"
+ },
+ {
+  "id": "nvidia/ai21labs/jamba-1.5-large-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 773,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/ai21labs/jamba-1.5-large-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '6497fc2b-7ff8-4019-8946-123dccbfc863': Not found for acc"
+ },
+ {
+  "id": "nvidia/aisingapore/sea-lion-7b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1077,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/aisingapore/sea-lion-7b-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '02f84bf4-c1a1-489b-a9de-ac3e8dcdec14': Not found for acco"
+ },
+ {
+  "id": "nvidia/bigcode/starcoder2-15b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1025,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/bigcode/starcoder2-15b] [404]: 404 page not found (reset after 2m)"
+ },
+ {
+  "id": "nvidia/databricks/dbrx-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1062,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/databricks/dbrx-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '3d6c2ff8-8bfc-4d10-8fd0-b7337288e869': Not found for account 'yRJ"
+ },
+ {
+  "id": "nvidia/deepseek-ai/deepseek-coder-6.7b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1038,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/deepseek-ai/deepseek-coder-6.7b-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'e503b15c-62b0-4d69-b532-a88f0bfa2656': Not found "
+ },
+ {
+  "id": "nvidia/deepseek-ai/deepseek-v4-flash-0731",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1050,
+  "status": "http_410",
+  "served": null,
+  "detail": "[410]: {\"type\":\"about:blank\",\"title\":\"Gone\",\"status\":410,\"detail\":\"The model 'deepseek-ai/deepseek-v4-flash-0731' has reached its end of life on 2026-09-21T08:0"
+ },
+ {
+  "id": "nvidia/deepseek-ai/deepseek-v4-pro-0813",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1017,
+  "status": "http_410",
+  "served": null,
+  "detail": "[410]: {\"type\":\"about:blank\",\"title\":\"Gone\",\"status\":410,\"detail\":\"The model 'deepseek-ai/deepseek-v4-pro-0813' has reached its end of life on 2026-09-14T08:00:"
+ },
+ {
+  "id": "nvidia/google/codegemma-1.1-7b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1045,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/google/codegemma-1.1-7b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'e2d298c5-204e-4213-b921-9f492cc9011b': Not found for account 'yRJq"
+ },
+ {
+  "id": "nvidia/google/codegemma-7b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1139,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/google/codegemma-7b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '7dfc10a8-3cc4-448e-97c1-2213308dc222': Not found for account 'yRJqlfhs"
+ },
+ {
+  "id": "nvidia/google/deplot",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1400,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/google/deplot] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '784a8ca4-ea7d-4c93-bb46-ec027c3fae47': Not found for account 'yRJqlfhsHM3T9B"
+ },
+ {
+  "id": "nvidia/google/diffusiongemma-26b-a4b-it",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 45037,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "nvidia/google/gemma-2b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1778,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/google/gemma-2b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '04174188-f742-4069-9e72-d77c2b77d3cb': Not found for account 'yRJqlfhsHM3T"
+ },
+ {
+  "id": "nvidia/google/gemma-3-12b-it",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1736,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/google/gemma-3-12b-it] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'ee47df99-c92b-4dc9-b3a7-f3fb0f087b73': Not found for account 'yRJqlf"
+ },
+ {
+  "id": "nvidia/google/gemma-3-4b-it",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1811,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/google/gemma-3-4b-it] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'c322f327-55a3-4af3-a91f-c757e2b8b135': Not found for account 'yRJqlfh"
+ },
+ {
+  "id": "nvidia/google/gemma-4-31b-it",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 35,
+  "status": "ok",
+  "served": "google/gemma-4-31b-it",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/google/recurrentgemma-2b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2063,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/google/recurrentgemma-2b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '2f495340-a99f-4b4b-89bd-1beb003dd896': Not found for account 'yRJ"
+ },
+ {
+  "id": "nvidia/ibm/granite-3.0-3b-a800m-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2118,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/ibm/granite-3.0-3b-a800m-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '67324577-3f91-4aa6-b750-97468262530d': Not found for acc"
+ },
+ {
+  "id": "nvidia/ibm/granite-3.0-8b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1736,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/ibm/granite-3.0-8b-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '5a24a4f0-2d59-46b3-ac65-42307f2633d1': Not found for account '"
+ },
+ {
+  "id": "nvidia/ibm/granite-34b-code-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1765,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/ibm/granite-34b-code-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '4df48b4f-e3c5-4ade-82c7-c06b65e25d18': Not found for account"
+ },
+ {
+  "id": "nvidia/ibm/granite-8b-code-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1749,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/ibm/granite-8b-code-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'af7b6f03-f615-4c5f-86c6-388bd35cede0': Not found for account "
+ },
+ {
+  "id": "nvidia/meta/codellama-70b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1741,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/meta/codellama-70b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'f6b06895-d073-4714-8bb2-26c09e9f6597': Not found for account 'yRJqlfhsH"
+ },
+ {
+  "id": "nvidia/meta/llama-3.2-11b-vision-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 35,
+  "status": "ok",
+  "served": "meta/llama-3.2-11b-vision-instruct",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/meta/llama-3.2-90b-vision-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 45012,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "nvidia/meta/llama-guard-4-12b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 45023,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "nvidia/meta/llama2-70b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1729,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/meta/llama2-70b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '2fddadfb-7e76-4c8a-9b82-f7d3fab94471': Not found for account 'yRJqlfhsHM3T"
+ },
+ {
+  "id": "nvidia/meta/muse-glimmer-30b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2280,
+  "status": "empty",
+  "served": "meta/muse-glimmer-30b",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/microsoft/kosmos-2",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2119,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/microsoft/kosmos-2] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '6018fed7-f227-48dc-99bc-3fd4264d5037': Not found for account 'yRJqlfhsH"
+ },
+ {
+  "id": "nvidia/microsoft/phi-3-vision-128k-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1399,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/microsoft/phi-3-vision-128k-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '20f2537e-8593-4eb9-ad40-60eee3bbaa55': Not found for "
+ },
+ {
+  "id": "nvidia/microsoft/phi-3.5-moe-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 864,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/microsoft/phi-3.5-moe-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'e6cab982-62f4-481e-9a7a-3dedb87dbd01': Not found for accoun"
+ },
+ {
+  "id": "nvidia/mistralai/codestral-22b-instruct-v0.1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1051,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/mistralai/codestral-22b-instruct-v0.1] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '9a10b012-e6df-46fd-83b2-700dcbc75814': Not found for"
+ },
+ {
+  "id": "nvidia/mistralai/mistral-7b-instruct-v0.3",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1066,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/mistralai/mistral-7b-instruct-v0.3] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'cd89bd68-13e3-47a9-861e-9a62e6e14b05': Not found for ac"
+ },
+ {
+  "id": "nvidia/mistralai/mistral-large",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1065,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/mistralai/mistral-large] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '767b5b9a-3f9d-4c1d-86e8-fa861988cee7': Not found for account 'yRJq"
+ },
+ {
+  "id": "nvidia/mistralai/mistral-large-2-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1035,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/mistralai/mistral-large-2-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '7fadd4de-e22a-48e4-90e9-f02ef14a74b9': Not found for ac"
+ },
+ {
+  "id": "nvidia/mistralai/mistral-nemotron",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1030,
+  "status": "http_410",
+  "served": null,
+  "detail": "[410]: {\"type\":\"about:blank\",\"title\":\"Gone\",\"status\":410,\"detail\":\"The model 'mistralai/mistral-nemotron' has reached its end of life on 2026-09-28T08:00:00Z an"
+ },
+ {
+  "id": "nvidia/mistralai/mixtral-8x22b-v0.1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1020,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/mistralai/mixtral-8x22b-v0.1] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '39655fc1-9ebc-4b24-963e-6915ea6680de': Not found for account "
+ },
+ {
+  "id": "nvidia/moonshotai/kimi-k2.6",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1068,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/moonshotai/kimi-k2.6] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '23d4f03a-b8a6-4adb-a183-7daa083a09cc': Not found for account 'yRJqlfh"
+ },
+ {
+  "id": "nvidia/moonshotai/kimi-k3",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 45022,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "nvidia/nv-mistralai/mistral-nemo-12b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1432,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nv-mistralai/mistral-nemo-12b-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'f8c05193-d2e2-4f0f-bb4d-7ad70070002b': Not found fo"
+ },
+ {
+  "id": "nvidia/nvidia/ai-synthetic-video-detector",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 45034,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "nvidia/nvidia/cosmos-reason2-8b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 45033,
+  "status": "TimeoutError",
+  "served": null,
+  "detail": "timed out"
+ },
+ {
+  "id": "nvidia/nvidia/embed-qa-4",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 13673,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/embed-qa-4] [404]: 404 page not found (reset after 2m)"
+ },
+ {
+  "id": "nvidia/nvidia/ising-calibration-1.5-31b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 41752,
+  "status": "http_504",
+  "served": null,
+  "detail": "[504]: Request exceeded OmniRoute's local rate-limit execution expiration (legacy resilienceSettings.requestQueue.maxWaitMs=15000ms) for nvidia/nvidia/ising-cal"
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.1-nemoguard-8b-content-safety",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 41071,
+  "status": "http_504",
+  "served": null,
+  "detail": "[504]: Request exceeded OmniRoute's local rate-limit execution expiration (legacy resilienceSettings.requestQueue.maxWaitMs=15000ms) for nvidia/nvidia/llama-3.1"
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.1-nemoguard-8b-topic-control",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 3898,
+  "status": "http_500",
+  "served": null,
+  "detail": "[500]: Error during inference of request chat-ad5443a5899f43f5bce38ea89573ec4c -- Encountered an error in forwardAsync function: [TensorRT-LLM][ERROR] CUDA runt"
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.1-nemotron-51b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 4144,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/llama-3.1-nemotron-51b-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '5beba52c-65a9-4f46-8cd9-656689a1b205': Not found fo"
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2372,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/llama-3.1-nemotron-70b-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '9b96341b-9791-4db9-a00d-4e43aa192a39': Not found fo"
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.1-nemotron-safety-guard-8b-v3",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 5456,
+  "status": "ok",
+  "served": "nvidia/llama-3.1-nemotron-safety-guard-8b-v3",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1063,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '84bf12ff-edbd-4435-baea-0fa6a7453d2e': Not found f"
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1429,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1] [404]: 404 page not found (reset after 2m)"
+ },
+ {
+  "id": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1352,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/llama-3.2-nv-embedqa-1b-v1] [404]: 404 page not found (reset after 2m)"
+ },
+ {
+  "id": "nvidia/nvidia/llama-nemotron-embed-vl-1b-v2",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1399,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/llama-nemotron-embed-vl-1b-v2] [404]: 404 page not found (reset after 2m)"
+ },
+ {
+  "id": "nvidia/nvidia/llama3-chatqa-1.5-70b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1032,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/llama3-chatqa-1.5-70b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '46594287-38b9-481c-a37f-baa02f2d3ba1': Not found for account "
+ },
+ {
+  "id": "nvidia/nvidia/mistral-nemo-minitron-8b-8k-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1104,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/mistral-nemo-minitron-8b-8k-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '5aa06dd2-0a02-4a5d-be4c-bf88e956965d': Not fou"
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-3-embed-1b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 1013,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/nemotron-3-embed-1b] [404]: 404 page not found (reset after 2m)"
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 4839,
+  "status": "ok",
+  "served": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-3-super-120b-a12b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 31747,
+  "status": "empty",
+  "served": "nvidia/nemotron-3-super-120b-a12b",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-3-ultra-550b-a55b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 2796,
+  "status": "ok",
+  "served": "nvidia/nemotron-3-ultra-550b-a55b",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-3.5-content-safety",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 3932,
+  "status": "ok",
+  "served": "nvidia/nemotron-3.5-content-safety",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 32853,
+  "status": "http_504",
+  "served": null,
+  "detail": "[504]: Request exceeded OmniRoute's local rate-limit execution expiration (legacy resilienceSettings.requestQueue.maxWaitMs=15000ms) for nvidia/nvidia/nemotron-"
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-4-340b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 174,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/nemotron-4-340b-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'b0fcd392-e905-4ab4-8eb9-aeae95c30b37': Not found for accou"
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-4-340b-reward",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 342,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/nemotron-4-340b-reward] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'c53ee0e9-bad9-4e09-b365-52c9d6b71254': Not found for account"
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-nano-3-30b-a3b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 328,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/nemotron-nano-3-30b-a3b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '2b2dcd47-c858-425a-9c04-4cacf2eac993': Not found for accoun"
+ },
+ {
+  "id": "nvidia/nvidia/nemotron-parse",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 458,
+  "status": "http_400",
+  "served": null,
+  "detail": "[400]: Content cannot be a plain string. The model does not support text input. Content cannot be a plain string. The model does not support text input."
+ },
+ {
+  "id": "nvidia/nvidia/neva-22b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 251,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/neva-22b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'bc205f8e-1740-40df-8d32-c4321763498a': Not found for account 'yRJqlfhsHM3T"
+ },
+ {
+  "id": "nvidia/nvidia/nv-embedqa-mistral-7b-v2",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 413,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/nv-embedqa-mistral-7b-v2] [404]: 404 page not found (reset after 2m)"
+ },
+ {
+  "id": "nvidia/nvidia/nvclip",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 691,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/nvclip] [404]: 404 page not found (reset after 2m)"
+ },
+ {
+  "id": "nvidia/nvidia/riva-translate-4b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 700,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/riva-translate-4b-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'f35337fa-b4dd-4996-bcba-5476ee01171d': Not found for acc"
+ },
+ {
+  "id": "nvidia/nvidia/riva-translate-4b-instruct-v1.1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 859,
+  "status": "ok",
+  "served": "nvidia/riva-translate-4b-instruct-v1.1",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/nvidia/riva-translate-4b-instruct-v2",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 12169,
+  "status": "ok",
+  "served": "nvidia/riva-translate-4b-instruct-v2",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/nvidia/vila",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 566,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/nvidia/vila] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '1c8df143-2303-419b-8b28-b4dd82cfe113': Not found for account 'yRJqlfhsHM3T9BiU"
+ },
+ {
+  "id": "nvidia/openai/gpt-oss-20b",
+  "provider": "nvidia",
+  "claimed_context": 400000,
+  "claimed_max_output": null,
+  "ms": 455,
+  "status": "empty",
+  "served": "openai/gpt-oss-20b",
+  "detail": ""
+ },
+ {
+  "id": "nvidia/poolside/laguna-xs-2.1",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 20410,
+  "status": "http_504",
+  "served": null,
+  "detail": "[504]: Request exceeded OmniRoute's local rate-limit execution expiration (legacy resilienceSettings.requestQueue.maxWaitMs=15000ms) for nvidia/poolside/laguna-"
+ },
+ {
+  "id": "nvidia/snowflake/arctic-embed-l",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 12631,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/snowflake/arctic-embed-l] [404]: 404 page not found (reset after 2m)"
+ },
+ {
+  "id": "nvidia/writer/palmyra-creative-122b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 27663,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/writer/palmyra-creative-122b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '00bdd0a7-e38f-4423-9007-c4d8730a3f78': Not found for account "
+ },
+ {
+  "id": "nvidia/writer/palmyra-fin-70b-32k",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 27989,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/writer/palmyra-fin-70b-32k] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '316490c6-f1ed-41f9-9da8-3fa9e885653b': Not found for account 'y"
+ },
+ {
+  "id": "nvidia/writer/palmyra-med-70b",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 27812,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/writer/palmyra-med-70b] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'aab71274-5281-4941-b0b8-20f339d1fc7e': Not found for account 'yRJql"
+ },
+ {
+  "id": "nvidia/writer/palmyra-med-70b-32k",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 25434,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/writer/palmyra-med-70b-32k] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function 'd6faa974-3591-49a4-963d-97221d074b2e': Not found for account 'y"
+ },
+ {
+  "id": "nvidia/zyphra/zamba2-7b-instruct",
+  "provider": "nvidia",
+  "claimed_context": 128000,
+  "claimed_max_output": null,
+  "ms": 24259,
+  "status": "http_404",
+  "served": null,
+  "detail": "[nvidia/zyphra/zamba2-7b-instruct] [404]: {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '8378ffb2-51b0-4140-9684-dda1889373e6': Not found for account 'yR"
+ },
+ {
+  "id": "nvidia/nv-embedqa-e5-v5",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 18,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nv-embedqa-e5-v5' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/black-forest-labs/flux.1-dev",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 28,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/black-forest-labs/flux.1-dev' is an image-generation model and cannot be used on /v1/chat/completions. Use POST /v1/images/generations instead."
+ },
+ {
+  "id": "nvidia/black-forest-labs/flux.1-schnell",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 15,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/black-forest-labs/flux.1-schnell' is an image-generation model and cannot be used on /v1/chat/completions. Use POST /v1/images/generations instead"
+ },
+ {
+  "id": "nvidia/black-forest-labs/flux.1-kontext-dev",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 15,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/black-forest-labs/flux.1-kontext-dev' is an image-generation model and cannot be used on /v1/chat/completions. Use POST /v1/images/generations ins"
+ },
+ {
+  "id": "nvidia/black-forest-labs/flux.2-klein-4b",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 15,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nvidia/black-forest-labs/flux.2-klein-4b' is an image-generation model and cannot be used on /v1/chat/completions. Use POST /v1/images/generations instea"
+ },
+ {
+  "id": "nvidia/nv-rerankqa-mistral-4b-v3",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 18,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'nv-rerankqa-mistral-4b-v3' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/parakeet-ctc-1.1b-asr",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'parakeet-ctc-1.1b-asr' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/openai/whisper-large-v3",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'openai/whisper-large-v3' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/fastpitch",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 31,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'fastpitch' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "nvidia/tacotron2",
+  "provider": "nvidia",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 30,
+  "status": "http_400",
+  "served": null,
+  "detail": "Model 'tacotron2' is not available in the active live catalog for provider 'nvidia'."
+ },
+ {
+  "id": "qwen2.5-coder:14b",
+  "provider": "qwen2.5-coder:14b",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 66,
+  "status": "http_400",
+  "served": null,
+  "detail": "Unable to determine provider for model 'qwen2.5-coder:14b'. Use a provider/model prefix (e.g. openai/qwen2.5-coder:14b) or ensure the model is added as a combo "
+ },
+ {
+  "id": "qwen2.5-coder:7b",
+  "provider": "qwen2.5-coder:7b",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 12,
+  "status": "http_400",
+  "served": null,
+  "detail": "Unable to determine provider for model 'qwen2.5-coder:7b'. Use a provider/model prefix (e.g. openai/qwen2.5-coder:7b) or ensure the model is added as a combo en"
+ },
+ {
+  "id": "devstral:24b",
+  "provider": "devstral:24b",
+  "claimed_context": null,
+  "claimed_max_output": null,
+  "ms": 34,
+  "status": "http_400",
+  "served": null,
+  "detail": "Unable to determine provider for model 'devstral:24b'. Use a provider/model prefix (e.g. openai/devstral:24b) or ensure the model is added as a combo entry."
+ }
+]

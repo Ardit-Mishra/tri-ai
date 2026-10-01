@@ -46,3 +46,10 @@ docs/CAPABILITY_REVIEW_*.md
 
 # Browser profile junk from a tooling run; never part of this project.
 .impeccable/
+
+# Private operator material. These are tracked on the private branch and must
+# never reach the public one; `git add -A` would otherwise re-stage them every
+# time, which is how they arrived here once already.
+/.planning/
+/AGENTS.md
+/docs/HANDOFF_*.md

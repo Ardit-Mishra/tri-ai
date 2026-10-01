@@ -49,3 +49,27 @@ Nine tasks is a small sample from a single operator's machine. It demonstrates t
 verify-gated loop works and produces an auditable trail. It does not establish reliability at
 scale, across models, or on work without a mechanical oracle — and the README's "honest ceiling"
 section says so.
+
+## The model sweep
+
+`model-sweep-2026-09-30.json` is a second kind of evidence, and it exists because the ledger
+above could not answer a question put to it: *which model actually ran this?*
+
+Every model the router listed — 574 of them — was called once with the same one-line prompt,
+and the **served** model name in the response was compared against the one requested. Twenty
+answered as themselves. Twenty-two answered at HTTP 200 as something else entirely, including
+every `auto/*` alias.
+
+[`MODEL_SWEEP.md`](MODEL_SWEEP.md) reads the file. Check it the same way:
+
+```bash
+python -c "import json;r=json.load(open('evidence/model-sweep-2026-09-30.json'));print(len(r))"
+python -c "import json;r=json.load(open('evidence/model-sweep-2026-09-30.json'));print(sum(x['status']=='ok' for x in r))"
+```
+
+Provider error text is redacted for filesystem paths (`<home>`) and nothing else; no
+credential, endpoint or address appears in the file. The consequence for `ledger.jsonl` is
+stated in `MODEL_SWEEP.md` and worth repeating here: **the model names recorded in runs before
+2026-09-30 are not evidence of which model ran**, because every one of them was routed through
+an alias. The exit codes in that file are unaffected — a verify command's result does not
+depend on knowing which model produced the work, which is the whole point of gating on it.
