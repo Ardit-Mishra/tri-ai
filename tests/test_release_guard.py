@@ -142,7 +142,26 @@ class BoundaryChecksAreScopeAwareTest(unittest.TestCase):
         self.assertIn("release_guard", source)
         self.assertIn("skipTest", source)
 
-    def test_it_skips_on_this_private_branch_rather_than_failing(self):
+    def test_the_checks_follow_the_scope_in_whichever_direction_it_points(self):
+        """Both directions, because the branch this runs on is not fixed.
+
+        An earlier version of this asserted the checks are *skipped*, full
+        stop - true on a private branch and false the moment the scrubbed
+        branch ran the same suite, where it failed with "expected the
+        public checks to be skipped here" while the boundary checks it was
+        guarding had all passed. Asserting a branch fact where the property
+        is a linkage is how a test ends up failing on the one branch it
+        most needs to pass on.
+
+        The property is that the scope decides. So read the scope and
+        assert the matching outcome.
+        """
+        import sys as _sys
+        _sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        import release_guard
+
+        scope = release_guard.read_scope(Path(__file__).resolve().parents[1])
+
         import unittest as _unittest
         loader = _unittest.TestLoader()
         suite = loader.discover(
@@ -152,7 +171,19 @@ class BoundaryChecksAreScopeAwareTest(unittest.TestCase):
             stream=open(os.devnull, "w", encoding="utf-8"), verbosity=0).run(suite)
         self.assertEqual(result.failures, [])
         self.assertEqual(result.errors, [])
-        self.assertTrue(result.skipped, "expected the public checks to be skipped here")
+
+        if scope == "public":
+            self.assertFalse(
+                result.skipped,
+                "RELEASE_SCOPE says public, so the boundary checks must "
+                "actually run - a skipped check on the published branch is "
+                "the exact hole this file exists to close")
+            self.assertTrue(result.testsRun, "no boundary checks were found")
+        else:
+            self.assertTrue(
+                result.skipped,
+                f"RELEASE_SCOPE reads {scope!r}, so the public checks should "
+                "have skipped rather than forbidding the operator's own notes")
 
 
 class ScopeFileExplainsItselfTest(unittest.TestCase):
