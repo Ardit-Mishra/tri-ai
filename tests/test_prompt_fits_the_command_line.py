@@ -65,16 +65,36 @@ class AnOversizedPromptIsRefusedNotSpawnedTest(unittest.TestCase):
         executor.check_prompt_fits("x" * 1000)
 
     def test_run_agent_checks_before_it_spawns(self):
-        """A guard nothing calls is the defect this repo keeps finding."""
+        """A guard nothing calls is the defect this repo keeps finding.
+
+        The check sits inside `runtime_argv` rather than in `run_agent`
+        directly, because three runtimes now build argv and the ceiling
+        belongs to the operating system, not to any one of them. So the
+        assertion follows both hops: run_agent must build its argv through
+        runtime_argv, and runtime_argv must measure.
+        """
         import ast
         import inspect
-        source = inspect.getsource(executor.run_agent)
-        tree = ast.parse(source.lstrip())
-        called = {node.func.id for node in ast.walk(tree)
-                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
-        self.assertIn(
-            "check_prompt_fits", called,
-            "run_agent builds the argv and never measures it")
+
+        def calls(fn):
+            tree = ast.parse(inspect.getsource(fn).lstrip())
+            return {node.func.id for node in ast.walk(tree)
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+
+        self.assertIn("runtime_argv", calls(executor.run_agent),
+                      "run_agent builds an argv without going through the "
+                      "one function that measures it")
+        self.assertIn("check_prompt_fits", calls(executor.runtime_argv),
+                      "runtime_argv builds the argv and never measures it")
+
+    def test_every_runtime_is_measured_not_just_the_default(self):
+        """A runtime added later must not reintroduce WinError 206."""
+        huge = "x" * (executor.MAX_COMMAND_LINE + 1)
+        for runtime in executor.AGENT_RUNTIMES:
+            with self.assertRaises(executor.PromptTooLong,
+                                   msg=f"{runtime} is unmeasured"):
+                executor.runtime_argv(runtime, prompt=huge, model=None,
+                                      usage_path=None)
 
 
 class TheRealBriefsFitTest(unittest.TestCase):

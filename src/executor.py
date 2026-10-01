@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -748,6 +749,76 @@ def check_prompt_fits(prompt: str) -> None:
         )
 
 
+class UnknownRuntime(ValueError):
+    """A runtime nobody declared. Refused before anything is spawned."""
+
+
+# The three agents Tri-AI can spawn, and the flag each needs to run headless.
+#
+# Every routing mechanism in this repository sat under one hardcoded line -
+# `[hermes_bin(), "-z", prompt]` - so `model_override`, the route registry
+# and the lane panel could all only ever choose a model *for Hermes*. Two
+# paid subscriptions were unreachable as a result, not because of any
+# entitlement problem but because nothing could spawn their CLI.
+#
+# Neither Claude Pro nor ChatGPT Plus sells API access, so neither can ever
+# be a model identity. Both sell a CLI, and both run non-interactively:
+# `claude -p PROMPT` and `codex exec PROMPT`. The runtime is therefore a
+# choice beside the model, never under it.
+#
+# `-p` and `exec` are load-bearing: without them each CLI opens an
+# interactive session and the worker blocks until its timeout.
+AGENT_RUNTIMES = ("hermes", "claude", "codex")
+DEFAULT_RUNTIME = "hermes"
+
+_RUNTIME_BIN_ENV = {
+    "hermes": "TRIAI_HERMES_BIN",
+    "claude": "TRIAI_CLAUDE_BIN",
+    "codex": "TRIAI_CODEX_BIN",
+}
+
+
+def runtime_bin(runtime: str) -> Path:
+    """Where a runtime's executable lives, overridable for tests."""
+    if runtime not in AGENT_RUNTIMES:
+        raise UnknownRuntime(f"unknown agent runtime {runtime!r}")
+    override = os.environ.get(_RUNTIME_BIN_ENV[runtime], "").strip()
+    if override:
+        return Path(override)
+    if runtime == "hermes":
+        return hermes_bin()
+    found = shutil.which(runtime)
+    return Path(found) if found else Path(runtime)
+
+
+def runtime_argv(runtime, *, prompt, model, usage_path) -> list[str]:
+    """The exact argv for one runtime. An argv is the whole CLI contract.
+
+    `model` and `usage_path` address Hermes' router and Hermes' telemetry.
+    They are deliberately dropped for the subscription runtimes: passing an
+    OmniRoute identity like `mistral/codestral-2508` to Claude is a category
+    error, and it surfaces as an unparseable flag rather than as anything
+    an operator could read.
+    """
+    if runtime not in AGENT_RUNTIMES:
+        raise UnknownRuntime(f"unknown agent runtime {runtime!r}")
+    # The ceiling is the operating system's, not Hermes'. Every runtime
+    # takes the prompt as an argv element, so every runtime is checked.
+    check_prompt_fits(prompt)
+    binary = str(runtime_bin(runtime))
+    if runtime == "hermes":
+        argv = [binary, "-z", prompt]
+        if usage_path is not None:
+            argv += ["--usage-file", str(usage_path)]
+        wanted = str(model or "").strip()
+        if wanted:
+            argv += ["-m", wanted]
+        return argv
+    if runtime == "claude":
+        return [binary, "-p", prompt]
+    return [binary, "exec", prompt]
+
+
 def run_agent(
     repo: Path | str,
     prompt: str,
@@ -756,6 +827,7 @@ def run_agent(
     usage_path: Optional[Path] = None,
     model: Optional[str] = None,
     provider: Optional[str] = None,
+    runtime: Optional[str] = None,
     on_activity: Optional[Callable[[], None]] = None,
 ) -> AgentResult:
     """Launch Hermes one-shot. argv list, never a shell.
@@ -773,25 +845,27 @@ def run_agent(
     child once its buffer fills.
     """
     head_before = head_commit(repo)
-    # `-z` takes the prompt positionally, so the overrides go after it.
     assembled = build_prompt(repo, prompt)
-    try:
-        check_prompt_fits(assembled)
-    except PromptTooLong as exc:
-        # Reported as a run failure with a legible reason rather than an
-        # exception through the worker: the operator needs the number.
-        return AgentResult(1, f"PromptTooLong: {exc}", 0.0)
-    argv = [str(hermes_bin()), "-z", assembled]
-    if usage_path is not None:
-        argv += ["--usage-file", str(usage_path)]
-    # Absent by default: with no override the command is byte-for-byte what
-    # it has always been and Hermes routes exactly as it does now. A blank
-    # column is absent, never `-m ""`.
+    # Which agent, then which model for it. The runtime defaults to hermes,
+    # so an unset column produces byte-for-byte the command this has always
+    # issued; the two subscription runtimes are reachable only when a task
+    # or a role asks for them by name.
+    chosen = str(runtime or DEFAULT_RUNTIME).strip() or DEFAULT_RUNTIME
+    # Kept for the result: `model_requested` records what the task asked
+    # for, which stays true whether or not the runtime could honour it.
     wanted = str(model or "").strip()
+    try:
+        argv = runtime_argv(
+            chosen, prompt=assembled, model=model, usage_path=usage_path)
+    except PromptTooLong as exc:
+        # A run failure with a legible reason, not an exception through the
+        # worker: WinError 206 says nothing about prompts.
+        return AgentResult(1, f"PromptTooLong: {exc}", 0.0)
+    except UnknownRuntime as exc:
+        return AgentResult(1, f"UnknownRuntime: {exc}", 0.0)
+    # `--provider` is Hermes-only, like `-m` and `--usage-file`.
     wanted_provider = str(provider or "").strip()
-    if wanted:
-        argv += ["-m", wanted]
-    if wanted_provider:
+    if wanted_provider and chosen == "hermes":
         argv += ["--provider", wanted_provider]
 
     # Contained on the same terms as the verify command. A timed-out Hermes run
