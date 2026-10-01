@@ -24,8 +24,8 @@ from dashboard import kaya_terminal as terminal
 # Distinctive enough that a substring search cannot match by accident.
 SECRET_TITLE = "Build the Mishwan landing page"
 SECRET_PROMPT = "client contact is jane.doe@example.com, budget 4200"
-SECRET_PATH = r"C:\Users\ardit\worktrees\private-client-work"
-SECRET_DIAGNOSTIC = r"router died: C:\Users\ardit\.tri-ai\runs\9\stderr.log"
+SECRET_PATH = r"C:\Users\someone\worktrees\private-client-work"
+SECRET_DIAGNOSTIC = r"router died: C:\Users\someone\.tri-ai\runs\9\stderr.log"
 
 
 def snapshot() -> terminal.DashboardSnapshot:
