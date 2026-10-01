@@ -102,9 +102,9 @@ class CaptureRunTest(unittest.TestCase):
     def test_a_machine_path_never_enters_the_brain(self):
         """The Cortex index is deliberately path-free; so is this."""
         item = self._capture(artifacts=(
-            r"C:\Users\Ardit II\tri-ai-sandbox\field-guide.html",))
+            r"C:\Users\Example User\tri-ai-sandbox\field-guide.html",))
         self.assertNotIn("C:\\", item.body)
-        self.assertNotIn("Ardit II", item.body)
+        self.assertNotIn("Example User", item.body)
         self.assertIn("field-guide.html", item.body)
 
     def test_a_credential_shaped_summary_is_refused_not_stored(self):

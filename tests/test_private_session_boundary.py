@@ -41,7 +41,7 @@ from dashboard import kaya_web  # noqa: E402
 
 
 LOOPBACK = ("127.0.0.1", 51234)
-REMOTE = ("100.118.189.88", 51234)      # a Tailnet peer
+REMOTE = ("203.0.113.7", 51234)         # any non-loopback peer
 
 
 class SessionDecisionTest(unittest.TestCase):

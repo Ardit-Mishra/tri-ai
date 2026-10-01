@@ -87,8 +87,8 @@ class ThePromptCarriesTheWorkspace(unittest.TestCase):
         """It arrives shell-safe, which is a deliberate change of form.
 
         The path used to be interpolated exactly as given. On the desktop,
-        whose account is `Ardit II`, that produced an unquoted
-        `cd C:\\Users\\Ardit II\\...` that bash split on the space, and every
+        whose account is `Example User`, that produced an unquoted
+        `cd C:\\Users\\Example User\\...` that bash split on the space, and every
         command the agent ran failed. It now arrives quoted, with forward
         slashes; what must not change is that it arrives at all.
         """
@@ -96,8 +96,8 @@ class ThePromptCarriesTheWorkspace(unittest.TestCase):
         self.assertIn('"C:/somewhere/workspace"', built)
 
     def test_a_workspace_with_a_space_is_not_split_by_the_shell(self):
-        built = executor.build_prompt(r"C:\Users\Ardit II\sandbox", "do the thing")
-        self.assertIn('cd "C:/Users/Ardit II/sandbox" &&', built)
+        built = executor.build_prompt(r"C:\Users\Example User\sandbox", "do the thing")
+        self.assertIn('cd "C:/Users/Example User/sandbox" &&', built)
 
     def test_the_task_survives_intact(self):
         task = "Build me a landing page for a brand called Mishwan"

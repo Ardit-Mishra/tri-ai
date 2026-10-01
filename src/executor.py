@@ -48,8 +48,8 @@ IS_WINDOWS = sys.platform == "win32"
 def shell_path(path) -> str:
     """Render a filesystem path safe to sit inside double quotes in bash.
 
-    The desktop account is `Ardit II`. Its sandbox path therefore contains a
-    space, and an unquoted `cd C:\\Users\\Ardit II\\tri-ai-sandbox &&` is split
+    The desktop account is `Example User`. Its sandbox path therefore contains a
+    space, and an unquoted `cd C:\\Users\\Example User\\tri-ai-sandbox &&` is split
     by bash into `cd` with too many arguments. Every command the agent ran
     on that machine failed, so it stopped and asked which quoting style to
     use - and in an unattended run there is nobody to answer.

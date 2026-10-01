@@ -1,7 +1,7 @@
 """The dashboard launcher must not bind the Tailnet without a session key.
 
 Found live on the desktop on 2026-09-29: `run_dashboard.ps1` bound
-`100.67.149.86:8081` and `/api/snapshot` answered HTTP 200 with no
+`kaya.example:8081` and `/api/snapshot` answered HTTP 200 with no
 session. The whole board - task titles, workspace paths, log tails - was
 readable by any device on the Tailnet. It is the same hole closed on the
 laptop the day before, still open here.
@@ -75,7 +75,7 @@ class ItActuallyRefusesTest(unittest.TestCase):
     def test_a_tailnet_bind_without_a_key_fails_loudly(self):
         with tempfile.TemporaryDirectory() as empty:
             result = self._run("-AllowTailnetBinding", "-TailscaleAddress",
-                               "100.64.0.1", "-WhatIf", profile=empty)
+                               "203.0.113.7", "-WhatIf", profile=empty)
         self.assertNotEqual(result.returncode, 0,
                             "it started a Tailnet bind with no session key")
         self.assertIn("session key", (result.stderr + result.stdout).lower())

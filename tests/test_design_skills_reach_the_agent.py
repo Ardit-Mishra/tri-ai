@@ -2,7 +2,7 @@
 
 `capabilities.brief_block` hands the agent lines like:
 
-    Skill instructions: C:\\Users\\Ardit II\\.codex\\skills\\taste-skill\\SKILL.md
+    Skill instructions: C:\\Users\\Example User\\.codex\\skills\\taste-skill\\SKILL.md
 
 On the desktop - the machine that runs the work - that directory held one
 entry and none of the named skills. Every skill line pointed at a file

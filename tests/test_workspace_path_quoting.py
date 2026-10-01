@@ -1,15 +1,15 @@
 r"""A workspace path with a space must survive the agent's shell.
 
-The desktop account is named `Ardit II`, so its sandbox is
-`C:\Users\Ardit II\tri-ai-sandbox`, and the prompt handed the agent an
+The desktop account is named `Example User`, so its sandbox is
+`C:\Users\Example User\tri-ai-sandbox`, and the prompt handed the agent an
 unquoted preamble:
 
-    Prefix EVERY command with: cd C:\Users\Ardit II\tri-ai-sandbox &&
+    Prefix EVERY command with: cd C:\Users\Example User\tri-ai-sandbox &&
 
 Bash splits that on the space, so every command the agent ran failed. Its
 own words, from run 90:
 
-    "I hit a Windows-path problem immediately ... `cd C:\Users\Ardit II\
+    "I hit a Windows-path problem immediately ... `cd C:\Users\Example User\
      tri-ai-sandbox && ...` is getting interpreted as 'too many arguments'"
 
 It then stopped and asked which quoting style to use. In an unattended run
@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import executor  # noqa: E402
 import run_queue  # noqa: E402
 
-SPACED = r"C:\Users\Ardit II\tri-ai-sandbox"
+SPACED = r"C:\Users\Example User\tri-ai-sandbox"
 
 
 class ShellPathTest(unittest.TestCase):
@@ -48,11 +48,11 @@ class ShellPathTest(unittest.TestCase):
     def test_backslashes_become_forward_slashes(self):
         rendered = executor.shell_path(SPACED)
         self.assertNotIn("\\", rendered)
-        self.assertEqual(rendered, "C:/Users/Ardit II/tri-ai-sandbox")
+        self.assertEqual(rendered, "C:/Users/Example User/tri-ai-sandbox")
 
     def test_a_path_without_a_space_is_unharmed(self):
-        self.assertEqual(executor.shell_path(r"C:\Users\ardit\tri-ai"),
-                         "C:/Users/ardit/tri-ai")
+        self.assertEqual(executor.shell_path(r"C:\Users\example\tri-ai"),
+                         "C:/Users/example/tri-ai")
 
     def test_an_embedded_quote_is_escaped_so_it_cannot_break_out(self):
         """A quote closing the string early would turn the rest of the path
@@ -86,7 +86,7 @@ class ItActuallyWorksInBashTest(unittest.TestCase):
 
     def test_the_unquoted_form_fails_exactly_as_it_did_on_the_desktop(self):
         with tempfile.TemporaryDirectory() as parent:
-            workspace = Path(parent, "Ardit II", "tri-ai-sandbox")
+            workspace = Path(parent, "Example User", "tri-ai-sandbox")
             workspace.mkdir(parents=True)
             naked = str(workspace).replace("\\", "/")
             self.assertNotEqual(
@@ -95,7 +95,7 @@ class ItActuallyWorksInBashTest(unittest.TestCase):
 
     def test_the_quoted_form_succeeds(self):
         with tempfile.TemporaryDirectory() as parent:
-            workspace = Path(parent, "Ardit II", "tri-ai-sandbox")
+            workspace = Path(parent, "Example User", "tri-ai-sandbox")
             workspace.mkdir(parents=True)
             quoted = executor.shell_path(workspace)
             self.assertEqual(self._run(f'cd "{quoted}" && pwd'), 0)
@@ -126,8 +126,8 @@ class BothPreamblesAgreeTest(unittest.TestCase):
         for module in (executor, run_queue):
             with self.subTest(module=module.__name__):
                 rendered = module.CD_PREAMBLE.format(
-                    home="C:/Users/Ardit II", repo=executor.shell_path(SPACED))
-                self.assertIn('"C:/Users/Ardit II/tri-ai-sandbox"', rendered)
+                    home="C:/Users/Example User", repo=executor.shell_path(SPACED))
+                self.assertIn('"C:/Users/Example User/tri-ai-sandbox"', rendered)
 
 
 if __name__ == "__main__":

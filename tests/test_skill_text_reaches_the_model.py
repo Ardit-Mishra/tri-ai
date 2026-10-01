@@ -2,7 +2,7 @@
 
 `brief_block` handed the agent a line like
 
-    Skill instructions: C:/Users/Ardit II/.codex/skills/frontend-design/SKILL.md
+    Skill instructions: C:/Users/Example User/.codex/skills/frontend-design/SKILL.md
 
 and trusted it to go and open the file. Claude and Codex usually will.
 They are not the point of this system: the standing constraint is `$0
