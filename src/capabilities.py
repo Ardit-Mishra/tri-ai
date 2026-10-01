@@ -102,13 +102,29 @@ CAPABILITIES: dict[str, CapabilitySpec] = {
     ),
     "marketing": CapabilitySpec(
         "Connect the product to a defined audience, credible positioning, measurable acquisition paths, and honest proof.",
-        ("marketing-product-marketing", "marketing-marketing-plan"),
+        # `li-human` belongs here rather than on `taste`: it governs written
+        # copy, not visual direction. Placed on taste first, it ate the
+        # designer's budget ahead of `frontend-design` - the one skill that
+        # names the machine-made look without prescribing a shortlist - and
+        # the ordering tests caught it immediately. `taste.py` still owns
+        # the machine-made *look*; this owns the machine-made *wording*:
+        # em dashes, slop vocabulary, invisible watermark characters,
+        # scored against a five-check panel.
+        ("marketing-product-marketing", "marketing-marketing-plan", "li-human"),
     ),
     "browser_qa": CapabilitySpec(
         "Exercise the real user workflow in a browser at representative desktop and mobile viewports, recording failures and visual evidence."
     ),
     "deployment_prepare": CapabilitySpec(
-        "Prepare a release candidate, deployment manifest, rollback notes, and verification checklist. Do not publish, push, spend money, or alter external accounts without an explicit release authorization."
+        "Prepare a release candidate, deployment manifest, rollback notes, and verification checklist. Do not publish, push, spend money, or alter external accounts without an explicit release authorization.",
+        # `golive` is the missing end of "ideation to deployment": hosting,
+        # database, auth, domain, email and payments on the operator's own
+        # accounts. Admitted because its safety posture already matches the
+        # one here rather than fighting it - the human connects accounts and
+        # handles purchases, and its own words are "never turn an
+        # infrastructure check into a claim that the entire app works",
+        # which is this system's verify gate stated from the other side.
+        ("golive",),
     ),
     "agent_orchestration": CapabilitySpec(
         "Decompose the outcome into bounded specialist work, preserve shared evidence, and reconcile outputs through independent verification.",
