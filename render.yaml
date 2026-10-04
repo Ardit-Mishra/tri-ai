@@ -3,7 +3,7 @@ services:
     name: tri-ai-demo
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements-dashboard.txt
-    startCommand: PYTHONPATH=src python -m dashboard.kaya_web --host 0.0.0.0 --allow-non-loopback --port $PORT --demo
+    buildCommand: python -m compileall -q public-demo
+    startCommand: python public-demo/serve.py --demo --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/snapshot
     autoDeploy: false

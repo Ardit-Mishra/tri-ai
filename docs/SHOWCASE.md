@@ -13,11 +13,13 @@ the system legible without exposing the operator's actual work:
 4. A verifier evaluates the candidate against explicit checks.
 5. A release packet waits for a human decision; it never publishes itself.
 
-The 3D brain is not a claim that Tri-AI has consciousness. It is an interactive
-map of the durable context that an execution system needs: task state, accepted
-rules, evidence, available capabilities, and candidates awaiting evaluation.
-Neural signals represent data moving through that graph. They are deliberately
-bounded and can be paused or replaced by the accessible 2D view.
+The rotating Cortex is not a claim that Tri-AI has consciousness. It is a
+visual projection of source regions and an execution pipeline. In this public
+build every file node, task, route and signal is synthetic. It demonstrates
+the interface and data contract, not a live model call or active worker.
+The same interface is used privately with authenticated, read-only Tri-AI
+state. Motion can be paused, and the details below the sphere remain readable
+without interpreting the animation.
 
 ## How to discuss it in an interview
 

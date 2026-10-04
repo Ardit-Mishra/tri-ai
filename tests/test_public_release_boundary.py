@@ -27,7 +27,7 @@ PRIVATE_PATHS = (
 #
 # Both halves are gone. Identity is matched by *shape*, so nothing private is
 # written down, and nothing is skipped.
-SCANNED_SUFFIXES = {".md", ".py", ".ps1", ".json", ".yaml", ".yml", ".txt"}
+SCANNED_SUFFIXES = {".md", ".py", ".ps1", ".json", ".yaml", ".yml", ".txt", ".html", ".js", ".mjs", ".css"}
 
 OPERATOR_SHAPES = (
     # The Windows default hostname. Any machine's, not one particular one.
@@ -118,6 +118,7 @@ class PublicReleaseBoundaryTests(unittest.TestCase):
 
     def test_render_blueprint_can_only_start_the_sealed_demo(self):
         manifest = (ROOT / "render.yaml").read_text(encoding="utf-8")
+        self.assertIn("python public-demo/serve.py", manifest)
         self.assertIn("--demo", manifest)
         self.assertIn("healthCheckPath: /api/snapshot", manifest)
         self.assertIn("autoDeploy: false", manifest)

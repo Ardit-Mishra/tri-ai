@@ -1,0 +1,1858 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Kaya Cortex Lab</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%235fe0a0' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%235fe0a0'/%3E%3C/svg%3E">
+<style>
+/* Kaya. A working console whose centre is the operator's own data drawn as a
+   brain. Type is the platform UI face; monospace only for identifiers and
+   figures. Colour is carried by the sources; the chrome stays graphite. */
+:root {
+  --canvas: #0b0e13;
+  --surface: #11151c;
+  --surface-2: #171c25;
+  --surface-3: #1e2430;
+  --line: rgba(148, 163, 184, .11);
+  --line-strong: rgba(148, 163, 184, .22);
+  --text: #e4e7ec;
+  --text-2: #b4bac5;
+  --muted: #858d9b;
+  --accent: #8fb3e8;
+  --accent-ink: #0b0e13;
+  --accent-soft: rgba(143, 179, 232, .14);
+  --ok: #74c47c;
+  --warn: #dcaa4f;
+  --bad: #ec7a72;
+  --bad-soft: rgba(236, 122, 114, .12);
+  --memory: #b9a3e8;
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --r-s: 6px;
+  --r-m: 10px;
+  --shadow: 0 10px 30px -12px rgba(2, 6, 14, .7), 0 2px 6px -2px rgba(2, 6, 14, .5);
+  --dock-h: 30vh;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --canvas: #e9edf2; --surface: #f6f8fa; --surface-2: #ffffff; --surface-3: #eef1f5;
+  --line: rgba(30, 41, 59, .1); --line-strong: rgba(30, 41, 59, .2);
+  --text: #18202b; --text-2: #3c4655; --muted: #5f6b7b;
+  --accent: #2f62a8; --accent-ink: #ffffff; --accent-soft: rgba(47, 98, 168, .1);
+  --ok: #2f7d38; --warn: #8a5a0b; --bad: #b3362d; --bad-soft: rgba(179, 54, 45, .08); --memory: #5b46b0;
+  --shadow: 0 10px 30px -14px rgba(30, 41, 59, .35), 0 2px 6px -2px rgba(30, 41, 59, .15);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--canvas); color: var(--text); font: 400 14px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+button, input { font: inherit; color: inherit; }
+h1, h2, h3 { margin: 0; font-weight: 600; text-wrap: balance; }
+p { margin: 0; }
+.num, .id { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.skip { position: absolute; left: 12px; top: -40px; z-index: 10; padding: 8px 12px; background: var(--accent); color: var(--accent-ink); border-radius: var(--r-s); }
+.skip:focus { top: 12px; }
+
+/* Shell: one screen, no page scroll. Every region scrolls in its own box. */
+.shell {
+  display: grid; height: 100dvh; min-height: 640px;
+  grid-template-columns: 268px minmax(0, 1fr) 344px;
+  grid-template-rows: 52px minmax(0, 1fr) var(--dock-h);
+  grid-template-areas: "bar bar bar" "left stage right" "dock dock dock";
+}
+.shell.dock-hidden { grid-template-rows: 52px minmax(0, 1fr) 44px; }
+
+.bar { grid-area: bar; display: flex; align-items: center; gap: 20px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); min-width: 0; }
+.brand { display: flex; align-items: center; gap: 9px; flex: none; }
+.brand svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.brand svg .core { fill: #62c4a8; stroke: none; }
+.brand-name { font-weight: 650; font-size: 16px; letter-spacing: -.01em; }
+.brand-sub { color: var(--muted); font-size: 13px; }
+.tally { display: flex; gap: 18px; margin: 0; min-width: 0; overflow: hidden; }
+.tally div { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.tally dt { color: var(--muted); font-size: 12.5px; }
+.tally dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text); }
+.tally dd.bad { color: var(--bad); }
+.bar-end { margin-left: auto; display: flex; align-items: center; gap: 14px; flex: none; }
+.status { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-2); white-space: nowrap; }
+.status i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.status.ok i { background: var(--ok); box-shadow: 0 0 0 3px rgba(116, 196, 124, .16); }
+.status.warn i { background: var(--warn); }
+.status.bad i { background: var(--bad); }
+.status.demo i { background: var(--accent); }
+.services { display: inline-flex; gap: 10px; }
+.services span { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.services span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.services span.up::before { background: var(--ok); }
+.services span.down { color: var(--bad); }
+.services span.down::before { background: var(--bad); }
+.clock { font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.btn-quiet { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border-radius: var(--r-s); border: 1px solid var(--line-strong); background: transparent; color: var(--text-2); font-size: 13px; text-decoration: none; cursor: pointer; white-space: nowrap; transition: background .18s ease, color .18s ease, border-color .18s ease; }
+.btn-quiet:hover { background: var(--surface-3); color: var(--text); }
+.btn-quiet:active { transform: translateY(1px); }
+.btn-quiet[aria-pressed="false"] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+
+/* Rails */
+.rail { display: flex; flex-direction: column; min-height: 0; background: var(--surface); }
+.rail.left { grid-area: left; border-right: 1px solid var(--line); }
+.rail.right { grid-area: right; border-left: 1px solid var(--line); }
+.rail-head, .block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.rail-head { padding: 16px 16px 10px; }
+.rail h2 { font-size: 15px; }
+.rail-meta { color: var(--muted); font-size: 12.5px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.field { padding: 0 12px 10px; }
+.field input { width: 100%; height: 34px; padding: 0 11px; border-radius: var(--r-s); border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--text); transition: border-color .18s ease; }
+.field input::placeholder { color: var(--muted); }
+.field input:focus { border-color: var(--accent); outline: none; }
+.scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.rail-foot { padding: 10px 16px 14px; color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); }
+
+.sources { list-style: none; margin: 0; padding: 0 8px 8px; }
+.source { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; row-gap: 5px; align-items: center; width: 100%; padding: 9px 8px; border: 0; border-radius: var(--r-s); background: transparent; text-align: left; cursor: pointer; transition: background .16s ease; }
+.source:hover { background: var(--surface-2); }
+.source[aria-current="true"] { background: var(--surface-3); }
+.source .sw { width: 10px; height: 10px; border-radius: 3px; }
+.source .name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source .count { color: var(--text-2); }
+.source .share { grid-column: 2 / 4; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.source .share span { display: block; height: 100%; border-radius: 2px; }
+.source.pending .name { color: var(--muted); }
+
+.browser { margin: 4px 8px 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12.5px; color: var(--muted); padding: 0 6px 8px; }
+.crumbs button { border: 0; background: transparent; padding: 2px 4px; border-radius: 4px; color: var(--accent); cursor: pointer; }
+.crumbs button:hover { background: var(--accent-soft); }
+.crumbs .here { color: var(--text); font-weight: 500; }
+.entries { list-style: none; margin: 0; padding: 0; }
+.entry { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; padding: 6px 6px; border: 0; border-radius: var(--r-s); background: transparent; text-align: left; font-size: 13px; color: var(--text-2); }
+button.entry { cursor: pointer; }
+button.entry:hover { background: var(--surface-2); color: var(--text); }
+.entry svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; color: var(--muted); }
+.entry .label { overflow-wrap: anywhere; }
+.entry .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+.browser-note { color: var(--muted); font-size: 12.5px; padding: 6px; }
+.pager { display: flex; gap: 6px; padding: 8px 6px 0; }
+
+/* Stage */
+.stage { grid-area: stage; position: relative; min-width: 0; min-height: 0; overflow: hidden; background: radial-gradient(ellipse at 50% 46%, color-mix(in srgb, var(--accent) 7%, var(--canvas)) 0%, var(--canvas) 62%); }
+#sphereCanvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
+.tip { position: absolute; z-index: 3; max-width: 280px; padding: 9px 11px; border-radius: var(--r-m); background: var(--surface-2); border: 1px solid var(--line-strong); box-shadow: var(--shadow); pointer-events: none; font-size: 13px; }
+.tip b { display: block; font-weight: 600; margin-bottom: 2px; }
+.tip span { color: var(--text-2); }
+.stage-status { position: absolute; top: 16px; left: 18px; max-width: 46%; color: var(--text-2); font-size: 13px; }
+.stage-status strong { display: block; color: var(--text); font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.legend { position: absolute; right: 18px; top: 16px; margin: 0; padding: 0; list-style: none; display: flex; gap: 14px; font-size: 12.5px; color: var(--text-2); }
+.legend li { display: flex; align-items: center; gap: 7px; }
+.legend i { width: 8px; height: 8px; border-radius: 50%; }
+.legend .k-task { background: #f2f5fa; box-shadow: 0 0 0 3px rgba(207, 224, 255, .22); }
+.legend .k-mem { background: var(--memory); }
+.legend .k-block { background: var(--bad); }
+.toolbar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 12px; background: color-mix(in srgb, var(--surface-2) 92%, transparent); border: 1px solid var(--line-strong); box-shadow: var(--shadow); white-space: nowrap; }
+.range { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.range input { width: 84px; accent-color: var(--accent); }
+
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 8px; background: var(--surface-3); }
+.seg button { height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; transition: background .16s ease, color .16s ease; }
+.seg button:hover { color: var(--text); }
+.seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); box-shadow: 0 1px 2px rgba(2, 6, 14, .35), inset 0 0 0 1px var(--line-strong); }
+
+/* Right rail blocks */
+.now { padding: 18px 16px 16px; border-bottom: 1px solid var(--line); }
+.now h2 { font-size: 17px; line-height: 1.3; letter-spacing: -.01em; margin: 6px 0 10px; }
+.now .state { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-2); }
+.now .state i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.now .state.run i { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.now .state.idle i { background: var(--ok); }
+.now p { color: var(--text-2); font-size: 13px; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 4px 0 12px; }
+.steps span { display: block; }
+.steps b { display: block; height: 3px; border-radius: 2px; background: var(--line-strong); margin-bottom: 5px; }
+.steps .done b { background: var(--ok); }
+.steps .active b { background: var(--accent); }
+.steps em { font-style: normal; font-size: 12px; color: var(--muted); }
+.steps .active em { color: var(--text); }
+.block { padding: 16px; border-bottom: 1px solid var(--line); }
+.block h3 { font-size: 13.5px; margin-bottom: 10px; }
+.block-head h3 { margin-bottom: 10px; }
+.load { display: grid; gap: 8px; }
+.load .row { display: grid; grid-template-columns: 84px 1fr 22px; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); }
+.load .bar-track { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.load .bar-track span { display: block; height: 100%; border-radius: 3px; background: var(--accent); transition: width .3s ease; }
+.load .num { text-align: right; }
+.tabs { display: flex; gap: 2px; }
+.tabs button { position: relative; height: 34px; padding: 0 12px; border: 0; background: transparent; color: var(--muted); font-size: 13.5px; cursor: pointer; transition: color .16s ease; }
+.tabs button:hover { color: var(--text); }
+.tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; }
+.tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; border-radius: 2px; background: var(--accent); }
+.tabs.small { margin: -4px -8px 10px; border-bottom: 1px solid var(--line); }
+.tabs.small button { height: 32px; padding: 0 9px; font-size: 13px; }
+.lens { display: grid; gap: 10px; }
+.lens .verdict { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; }
+.lens .verdict i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.lens .verdict.ok i { background: var(--ok); }
+.lens .verdict.warn i { background: var(--warn); }
+.pairs { display: grid; grid-template-columns: minmax(80px, auto) minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: 13px; }
+.pairs dt { color: var(--muted); }
+.pairs dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.route { padding: 9px 10px; border-radius: var(--r-s); background: var(--surface-2); font-size: 13px; }
+.route .model { display: flex; align-items: center; gap: 8px; }
+.route .model i { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--warn); }
+.route .model.admitted i { background: var(--ok); }
+.route p { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.plain li { display: flex; justify-content: space-between; gap: 10px; color: var(--text-2); }
+.plain li .id { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty { color: var(--muted); font-size: 13px; }
+
+/* Dock */
+.dock { grid-area: dock; display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--line); background: var(--surface); }
+.dock-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 12px; border-bottom: 1px solid var(--line); flex: none; height: 44px; }
+.dock-end { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.dock-meta { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-body { flex: 1; min-height: 0; }
+.shell.dock-hidden .dock-body { display: none; }
+.dock-panel { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.dock-panel[hidden] { display: none; }
+.dock-panel.tasks { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+.dock-panel.tasks[hidden] { display: none; }
+.pane { display: flex; flex-direction: column; min-height: 0; }
+.pane + .pane { border-left: 1px solid var(--line); }
+.pane-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; flex: none; }
+
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); text-align: left; font-weight: 500; color: var(--muted); font-size: 12.5px; padding: 7px 12px; border-bottom: 1px solid var(--line); }
+table.grid td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; color: var(--text-2); }
+table.grid .r { text-align: right; }
+table.grid tbody tr { cursor: pointer; transition: background .14s ease; }
+table.grid tbody tr:hover { background: var(--surface-2); }
+table.grid tbody tr[aria-selected="true"] { background: var(--accent-soft); }
+table.grid tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+table.grid .ttl { max-width: 0; width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.progress { display: flex; gap: 3px; }
+.progress i { width: 16px; height: 4px; border-radius: 2px; background: var(--line-strong); }
+.state-word { font-size: 12.5px; font-weight: 500; }
+.tone-run { color: var(--accent); } .tone-ok { color: var(--ok); } .tone-bad { color: var(--bad); } .tone-warn { color: var(--warn); } .tone-idle { color: var(--muted); }
+
+.inspector { padding: 14px 16px 18px; }
+.inspector h2 { font-size: 16px; line-height: 1.35; letter-spacing: -.01em; margin-bottom: 4px; }
+.inspector .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
+.inspector h4 { margin: 16px 0 8px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.timeline li { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 10px; font-size: 13px; }
+.timeline i { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; background: var(--line-strong); }
+.timeline .done i { background: var(--ok); }
+.timeline .active i { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.timeline .failed i { background: var(--bad); }
+.timeline small { display: block; color: var(--muted); }
+.artifact { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--line); }
+.artifact .id { flex: 1; overflow-wrap: anywhere; }
+pre.tail { margin: 0; max-height: 220px; overflow: auto; padding: 10px 12px; border-radius: var(--r-s); background: var(--canvas); color: var(--text-2); font: 12px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.callout-bad { padding: 9px 11px; border-radius: var(--r-s); background: var(--bad-soft); color: var(--bad); font-size: 13px; }
+
+.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0 28px; padding: 6px 16px 16px; }
+.columns h4, .listing h4 { margin: 10px 0 6px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.records { list-style: none; margin: 0; padding: 0; }
+.records li { padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.records li b { font-weight: 500; color: var(--text); }
+.records li p { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.records .mem b::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--memory); margin-right: 8px; vertical-align: 1px; }
+.records .mem.unreviewed b::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--memory); }
+.flag { display: inline-block; margin-right: 8px; font-size: 12px; font-weight: 500; }
+.listing { padding: 6px 16px 16px; }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 4px 0 8px; font-size: 13px; color: var(--muted); }
+.facts b { color: var(--text); font-weight: 500; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.preview { width: min(1100px, 94vw); height: min(780px, 88vh); padding: 0; border: 1px solid var(--line-strong); border-radius: var(--r-m); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.preview::backdrop { background: rgba(4, 7, 12, .6); }
+.preview-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.preview-head h2 { font-size: 14px; }
+.preview iframe { width: 100%; height: calc(100% - 52px); border: 0; background: #fff; }
+
+@media (max-width: 1360px) {
+  .shell { grid-template-columns: 240px minmax(0, 1fr) 312px; }
+  .tally div:nth-child(n+5) { display: none; }
+  .services { display: none; }
+}
+@media (max-width: 1080px) {
+  .shell { grid-template-columns: 230px minmax(0, 1fr); grid-template-rows: 52px minmax(0, 1fr) var(--dock-h) auto; grid-template-areas: "bar bar" "left stage" "dock dock" "right right"; height: auto; min-height: 100dvh; }
+  .shell > .stage, .shell > .rail.left { height: 62vh; }
+  .rail.right { border-left: 0; border-top: 1px solid var(--line); }
+  .tally { display: none; }
+}
+@media (max-width: 1240px) { .range { display: none; } }
+@media (max-width: 760px) {
+  .toolbar { white-space: normal; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 16px); }
+  .shell { display: flex; flex-direction: column; }
+  .bar { flex-wrap: wrap; height: auto; padding: 10px 14px; gap: 10px; }
+  .bar-end { margin-left: 0; flex-wrap: wrap; gap: 10px; }
+  .clock { display: none; }
+  .stage { height: 64vh; min-height: 380px; order: 1; }
+  .rail.left { order: 2; max-height: 50vh; border-right: 0; border-top: 1px solid var(--line); }
+  .rail.right { order: 3; max-height: 70vh; }
+  .dock { order: 4; height: 70vh; }
+  .shell.dock-hidden .dock { height: 44px; }
+  .dock-panel.tasks { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .pane + .pane { border-left: 0; border-top: 1px solid var(--line); }
+  .legend, .stage-status { display: none; }
+  .tabs { overflow-x: auto; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Lab layer: black and green. The brain owns the first screen; details sit
+   below in a bento of boxes, each scrolling on its own. Appended after
+   kaya-console.css so components keep their behaviour and only the world changes. */
+:root, :root[data-theme="light"] {
+  --canvas: #030604;
+  --surface: #070c09;
+  --surface-2: #0b130e;
+  --surface-3: #101b14;
+  --line: rgba(120, 220, 160, .09);
+  --line-strong: rgba(120, 220, 160, .2);
+  --text: #e2ece5;
+  --text-2: #a9bcae;
+  --muted: #6f8576;
+  --accent: #5fe0a0;
+  --accent-ink: #03140a;
+  --accent-soft: rgba(95, 224, 160, .14);
+  --ok: #5fe0a0;
+  --warn: #d8e46a;
+  --memory: #e6f5c9;
+  --shadow: 0 18px 40px -20px rgba(0, 0, 0, .9);
+  color-scheme: dark;
+}
+html, body { height: auto; }
+body { background: var(--canvas); }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+.page { display: block; min-height: 100dvh; }
+
+/* Top line floats over the brain: no bar, no box. */
+.top { position: absolute; inset: 0 0 auto 0; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px; pointer-events: none; }
+.top > * { pointer-events: auto; }
+.top-end { display: flex; align-items: center; gap: 16px; }
+.brand svg { stroke: var(--accent); }
+.brand svg .core { fill: var(--accent); }
+
+/* The hero: the brain, full screen, nothing else competing. */
+.hero.stage { position: relative; height: 100dvh; min-height: 560px; overflow: hidden;
+  background: radial-gradient(ellipse 70% 60% at 50% 48%, #08140d 0%, var(--canvas) 70%); }
+.hero #sphereCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: pan-y; }
+.hero .stage-status { top: auto; bottom: 28px; left: 24px; max-width: 340px; font-size: 12.5px; }
+.hero .stage-status strong { font-size: 14px; }
+.hero .legend { top: auto; bottom: 30px; right: 24px; }
+.legend .k-task { background: #ffffff; box-shadow: 0 0 0 3px rgba(95, 224, 160, .25); }
+.hero .toolbar { bottom: 22px; background: rgba(5, 10, 7, .82); border-color: var(--line); box-shadow: none; backdrop-filter: none; }
+.cue { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); display: inline-flex; flex-direction: column; align-items: center; gap: 2px; color: var(--muted); font-size: 12px; text-decoration: none; }
+.cue svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; animation: nudge 2.4s ease-in-out infinite; }
+.cue:hover { color: var(--text); }
+@keyframes nudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .cue svg { animation: none; } }
+
+/* Detail: a bento with uneven spans, so one box leads each row. */
+.detail { position: relative; padding: 56px 24px 40px; border-top: 1px solid var(--line); background: var(--canvas); }
+.bento { max-width: 1440px; margin: 0 auto; display: grid; gap: 12px; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-flow: dense; }
+.card { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 14px 16px 10px; flex: none; }
+.card-head h3 { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.card .scroll { flex: 1; min-height: 0; overflow: auto; }
+.card .field { padding: 0 16px 10px; }
+.card .rail-foot { border-top: 1px solid var(--line); padding: 10px 16px 12px; }
+
+.c-summary { grid-column: span 4; }
+.c-now { grid-column: span 5; height: 250px; }
+.c-load { grid-column: span 3; }
+.c-sources { grid-column: span 4; grid-row: span 2; height: 640px; }
+.c-tasks { grid-column: span 8; height: 380px; }
+.c-ledger { grid-column: span 4; height: 248px; }
+.c-lanes { grid-column: span 4; height: 248px; }
+.c-brain { grid-column: span 5; height: 300px; }
+.c-caps { grid-column: span 4; height: 300px; }
+.c-radar { grid-column: span 3; height: 300px; }
+.c-observed { grid-column: span 6; height: 200px; }
+.c-roles { grid-column: span 6; height: 200px; }
+
+/* At a glance: figures carry the box, labels stay quiet. */
+.c-summary .tally { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; padding: 4px 16px 16px; overflow: visible; }
+.c-summary .tally div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 0; border-top: 1px solid var(--line); }
+.c-summary .tally dd { font-size: 22px; letter-spacing: -.01em; color: var(--text); order: -1; }
+.c-summary .tally dd.bad { color: var(--bad); }
+.c-summary .tally dt { font-size: 12px; }
+
+.c-now .now { border-bottom: 0; padding: 16px; }
+.c-load .load { padding: 0 16px 16px; }
+.c-tasks.dock-panel.tasks { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); height: 380px; }
+.c-tasks .pane-head { padding: 0 16px 8px; }
+.c-lanes .tabs { margin: 0 16px 8px; }
+.c-lanes .lens { padding: 0 16px 14px; }
+.c-observed .plain, .c-roles .pairs { padding: 0 16px 14px; margin: 0; }
+.card .grid th:first-child, .card .grid td:first-child { padding-left: 16px; }
+.dock-panel { height: auto; }
+.dock-panel[hidden] { display: flex; }
+
+/* Boxes arrive once, gently, as they scroll in. */
+.card { opacity: 0; transform: translateY(14px); transition: opacity .5s cubic-bezier(.23, 1, .32, 1), transform .5s cubic-bezier(.23, 1, .32, 1); }
+.card.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .card { opacity: 1; transform: none; transition: none; } }
+
+.foot { max-width: 1440px; margin: 28px auto 0; color: var(--muted); font-size: 12.5px; }
+
+@media (max-width: 1180px) {
+  .c-summary, .c-now, .c-load { grid-column: span 6; }
+  .c-load { grid-column: span 12; }
+  .c-sources { grid-column: span 5; }
+  .c-tasks { grid-column: span 7; }
+  .c-ledger, .c-lanes { grid-column: span 7; }
+  .c-brain, .c-caps, .c-radar { grid-column: span 6; }
+  .c-radar { grid-column: span 12; }
+}
+@media (max-width: 760px) {
+  .top { padding: 14px 16px; }
+  .top-end .services, .top-end .clock { display: none; }
+  .detail { padding: 32px 16px; }
+  .bento { grid-template-columns: minmax(0, 1fr); }
+  .bento > .card { grid-column: 1 / -1; grid-row: auto; }
+  .c-sources { height: 520px; }
+  .c-tasks.dock-panel.tasks { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .c-tasks .pane { max-height: 360px; }
+  .c-tasks .pane + .pane { border-left: 0; border-top: 1px solid var(--line); }
+  .cue { display: none; }
+}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#detail">Skip to the details</a>
+<div class="page" id="shell">
+
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="12.5"/><ellipse cx="16" cy="16" rx="12.5" ry="5"/><circle class="core" cx="16" cy="16" r="3.5"/></svg>
+      <span class="brand-name">Kaya</span>
+      <span class="brand-sub">Tri-AI cortex</span>
+    </div>
+    <div class="top-end">
+      <span class="status" id="modeStatus"><i></i><span>Connecting</span></span>
+      <span class="status" id="streamStatus" role="status" aria-live="polite"><i></i><span>Stream</span></span>
+      <span class="services" id="services" aria-label="Daemon services"></span>
+      <time class="clock" id="clock"></time>
+    </div>
+  </header>
+
+  <main class="hero stage" id="stage" aria-label="Cortex">
+    <canvas id="sphereCanvas" role="img" aria-label="Cortex: every indexed source is a green region of the brain; the inner core is Tri-AI's pipeline. Drag to rotate, click a region to browse that source."></canvas>
+    <div class="tip" id="tip" hidden></div>
+    <div class="stage-status" id="stageStatus"></div>
+    <ul class="legend" aria-label="Marks in the core"><li><i class="k-task"></i>Running task</li><li><i class="k-mem"></i>Memory</li><li><i class="k-block"></i>Blocked task</li></ul>
+    <div class="toolbar" role="toolbar" aria-label="Cortex view">
+      <div class="seg" id="viewSeg" role="group" aria-label="Focus"></div>
+      <label class="range">Density <input id="density" type="range" min="0" max="1" step="0.05" value="1"></label>
+      <button class="btn-quiet" id="motion" type="button" aria-pressed="true">Pause motion</button>
+    </div>
+    <a class="cue" href="#detail">Details<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg></a>
+  </main>
+
+  <section class="detail" id="detail" aria-label="System detail">
+    <div class="bento">
+
+      <article class="card c-summary">
+        <div class="card-head"><h3>At a glance</h3><span class="rail-meta" id="dockMeta"></span></div>
+        <dl class="tally" id="tally" aria-label="System summary"></dl>
+      </article>
+
+      <article class="card c-now">
+        <div class="scroll"><section class="now" id="now" aria-label="Current task"></section></div>
+      </article>
+
+      <article class="card c-load">
+        <div class="card-head"><h3>Lane load</h3></div>
+        <div class="load" id="laneLoad"></div>
+      </article>
+
+      <article class="card c-sources">
+        <div class="card-head"><h3>Sources</h3><span class="rail-meta" id="sourceTotal"></span></div>
+        <div class="field"><input id="sourceSearch" type="search" placeholder="Filter sources" aria-label="Filter sources" autocomplete="off"></div>
+        <div class="scroll" id="sourcePane">
+          <ul class="sources" id="sourceList"></ul>
+          <section class="browser" id="sourceBrowser" hidden aria-live="polite"></section>
+        </div>
+        <p class="rail-foot" id="sourceNote"></p>
+      </article>
+
+      <article class="card c-tasks dock-panel tasks" id="panel-tasks">
+        <div class="pane">
+          <div class="card-head"><h3>Tasks</h3><span class="rail-meta" id="boardCount"></span></div>
+          <div class="pane-head"><div class="seg" id="boardFilters" role="group" aria-label="Filter tasks"></div></div>
+          <div class="scroll"><table class="grid" id="boardTable"><thead><tr><th>Task</th><th>Title</th><th>Progress</th><th class="r">State</th></tr></thead><tbody id="board"></tbody></table></div>
+        </div>
+        <div class="pane"><div class="scroll inspector" id="inspector"></div></div>
+      </article>
+
+      <article class="card c-ledger dock-panel" id="panel-ledger">
+        <div class="card-head"><h3>Ledger</h3></div>
+        <div class="scroll"><table class="grid"><thead><tr><th>Time</th><th>Task</th><th>Outcome</th><th class="r">Verify exit</th><th class="r">Seconds</th></tr></thead><tbody id="ledger"></tbody></table></div>
+      </article>
+
+      <article class="card c-lanes">
+        <div class="card-head"><h3>Lanes</h3><span class="rail-meta" id="routeVersion"></span></div>
+        <div class="tabs small" id="laneTabs" role="tablist" aria-label="Execution lane"></div>
+        <div class="scroll"><div class="lens" id="laneLens" role="tabpanel"></div></div>
+      </article>
+
+      <article class="card c-brain dock-panel" id="panel-brain">
+        <div class="card-head"><h3>Brain</h3></div>
+        <div class="scroll"><div class="columns" id="memory"></div></div>
+      </article>
+
+      <article class="card c-caps dock-panel" id="panel-capabilities">
+        <div class="card-head"><h3>Capabilities</h3></div>
+        <div class="scroll" id="capabilities"></div>
+      </article>
+
+      <article class="card c-radar dock-panel" id="panel-radar">
+        <div class="card-head"><h3>Radar</h3></div>
+        <div class="scroll" id="radar"></div>
+      </article>
+
+      <article class="card c-observed">
+        <div class="card-head"><h3>Served on the board</h3></div>
+        <div class="scroll"><ul class="plain" id="observed"></ul></div>
+      </article>
+
+      <article class="card c-roles">
+        <div class="card-head"><h3>Role routes</h3></div>
+        <div class="scroll"><dl class="pairs" id="roleRoutes"></dl></div>
+      </article>
+
+    </div>
+    <footer class="foot">Kaya reads Tri-AI's board, ledger and source index. It never starts, retries or approves work.</footer>
+  </section>
+
+  <div hidden><div id="dockTabs"></div><button id="dockToggle" type="button"></button><button id="themeToggle" type="button"></button></div>
+</div>
+
+<dialog class="preview" id="preview" aria-labelledby="previewTitle">
+  <div class="preview-head"><h2 id="previewTitle">Artifact</h2><button class="btn-quiet" id="previewClose" type="button">Close</button></div>
+  <iframe id="previewFrame" title="Artifact preview" sandbox="allow-scripts"></iframe>
+</dialog>
+
+<script type="application/json" id="demoSnapshot">{"demo": true, "file_graph": {"status": "synthetic-demonstration", "synthetic": true, "item_count": 440, "sources": [{"id": "desktop", "label": "Desktop", "node_count": 72, "authorized": true}, {"id": "laptop", "label": "Laptop", "node_count": 64, "authorized": true}, {"id": "drive", "label": "Google Drive", "node_count": 86, "authorized": true}, {"id": "github", "label": "GitHub", "node_count": 118, "authorized": true}, {"id": "obsidian", "label": "Obsidian", "node_count": 44, "authorized": true}, {"id": "sessions", "label": "Claude and Codex", "node_count": 36, "authorized": true}, {"id": "deploys", "label": "Vercel and Render", "node_count": 20, "authorized": true}], "items": [{"id": "demo:desktop:root", "label": "Desktop", "kind": "folder", "source": "desktop", "parent_id": null, "synthetic": true}, {"id": "demo:desktop:folder:1", "label": "collection-01", "kind": "folder", "source": "desktop", "parent_id": "demo:desktop:root", "synthetic": true}, {"id": "demo:desktop:folder:2", "label": "collection-02", "kind": "folder", "source": "desktop", "parent_id": "demo:desktop:root", "synthetic": true}, {"id": "demo:desktop:folder:3", "label": "collection-03", "kind": "folder", "source": "desktop", "parent_id": "demo:desktop:root", "synthetic": true}, {"id": "demo:desktop:folder:4", "label": "collection-04", "kind": "folder", "source": "desktop", "parent_id": "demo:desktop:root", "synthetic": true}, {"id": "demo:desktop:file:1", "label": "artifact-001.md", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:2", "label": "artifact-002.py", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:3", "label": "artifact-003.ts", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:4", "label": "artifact-004.tsx", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:5", "label": "artifact-005.json", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:6", "label": "artifact-006.csv", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:7", "label": "artifact-007.pdf", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:8", "label": "artifact-008.yaml", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:9", "label": "artifact-009.md", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:10", "label": "artifact-010.py", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:11", "label": "artifact-011.ts", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:12", "label": "artifact-012.tsx", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:13", "label": "artifact-013.json", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:14", "label": "artifact-014.csv", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:15", "label": "artifact-015.pdf", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:16", "label": "artifact-016.yaml", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:17", "label": "artifact-017.md", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:18", "label": "artifact-018.py", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:19", "label": "artifact-019.ts", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:20", "label": "artifact-020.tsx", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:21", "label": "artifact-021.json", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:22", "label": "artifact-022.csv", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:23", "label": "artifact-023.pdf", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:24", "label": "artifact-024.yaml", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:25", "label": "artifact-025.md", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:26", "label": "artifact-026.py", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:27", "label": "artifact-027.ts", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:28", "label": "artifact-028.tsx", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:29", "label": "artifact-029.json", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:30", "label": "artifact-030.csv", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:31", "label": "artifact-031.pdf", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:32", "label": "artifact-032.yaml", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:33", "label": "artifact-033.md", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:34", "label": "artifact-034.py", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:35", "label": "artifact-035.ts", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:36", "label": "artifact-036.tsx", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:37", "label": "artifact-037.json", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:38", "label": "artifact-038.csv", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:39", "label": "artifact-039.pdf", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:40", "label": "artifact-040.yaml", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:41", "label": "artifact-041.md", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:42", "label": "artifact-042.py", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:43", "label": "artifact-043.ts", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:44", "label": "artifact-044.tsx", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:45", "label": "artifact-045.json", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:46", "label": "artifact-046.csv", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:47", "label": "artifact-047.pdf", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:48", "label": "artifact-048.yaml", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:49", "label": "artifact-049.md", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:50", "label": "artifact-050.py", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:51", "label": "artifact-051.ts", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:52", "label": "artifact-052.tsx", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:53", "label": "artifact-053.json", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:54", "label": "artifact-054.csv", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:55", "label": "artifact-055.pdf", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:56", "label": "artifact-056.yaml", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:57", "label": "artifact-057.md", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:58", "label": "artifact-058.py", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:59", "label": "artifact-059.ts", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:60", "label": "artifact-060.tsx", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:61", "label": "artifact-061.json", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:62", "label": "artifact-062.csv", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:63", "label": "artifact-063.pdf", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:desktop:file:64", "label": "artifact-064.yaml", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:4", "synthetic": true}, {"id": "demo:desktop:file:65", "label": "artifact-065.md", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:1", "synthetic": true}, {"id": "demo:desktop:file:66", "label": "artifact-066.py", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:2", "synthetic": true}, {"id": "demo:desktop:file:67", "label": "artifact-067.ts", "kind": "file", "source": "desktop", "parent_id": "demo:desktop:folder:3", "synthetic": true}, {"id": "demo:laptop:root", "label": "Laptop", "kind": "folder", "source": "laptop", "parent_id": null, "synthetic": true}, {"id": "demo:laptop:folder:1", "label": "collection-01", "kind": "folder", "source": "laptop", "parent_id": "demo:laptop:root", "synthetic": true}, {"id": "demo:laptop:folder:2", "label": "collection-02", "kind": "folder", "source": "laptop", "parent_id": "demo:laptop:root", "synthetic": true}, {"id": "demo:laptop:folder:3", "label": "collection-03", "kind": "folder", "source": "laptop", "parent_id": "demo:laptop:root", "synthetic": true}, {"id": "demo:laptop:folder:4", "label": "collection-04", "kind": "folder", "source": "laptop", "parent_id": "demo:laptop:root", "synthetic": true}, {"id": "demo:laptop:file:1", "label": "artifact-001.md", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:2", "label": "artifact-002.py", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:3", "label": "artifact-003.ts", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:4", "label": "artifact-004.tsx", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:5", "label": "artifact-005.json", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:6", "label": "artifact-006.csv", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:7", "label": "artifact-007.pdf", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:8", "label": "artifact-008.yaml", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:9", "label": "artifact-009.md", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:10", "label": "artifact-010.py", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:11", "label": "artifact-011.ts", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:12", "label": "artifact-012.tsx", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:13", "label": "artifact-013.json", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:14", "label": "artifact-014.csv", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:15", "label": "artifact-015.pdf", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:16", "label": "artifact-016.yaml", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:17", "label": "artifact-017.md", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:18", "label": "artifact-018.py", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:19", "label": "artifact-019.ts", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:20", "label": "artifact-020.tsx", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:21", "label": "artifact-021.json", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:22", "label": "artifact-022.csv", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:23", "label": "artifact-023.pdf", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:24", "label": "artifact-024.yaml", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:25", "label": "artifact-025.md", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:26", "label": "artifact-026.py", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:27", "label": "artifact-027.ts", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:28", "label": "artifact-028.tsx", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:29", "label": "artifact-029.json", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:30", "label": "artifact-030.csv", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:31", "label": "artifact-031.pdf", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:32", "label": "artifact-032.yaml", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:33", "label": "artifact-033.md", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:34", "label": "artifact-034.py", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:35", "label": "artifact-035.ts", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:36", "label": "artifact-036.tsx", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:37", "label": "artifact-037.json", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:38", "label": "artifact-038.csv", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:39", "label": "artifact-039.pdf", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:40", "label": "artifact-040.yaml", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:41", "label": "artifact-041.md", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:42", "label": "artifact-042.py", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:43", "label": "artifact-043.ts", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:44", "label": "artifact-044.tsx", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:45", "label": "artifact-045.json", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:46", "label": "artifact-046.csv", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:47", "label": "artifact-047.pdf", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:48", "label": "artifact-048.yaml", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:49", "label": "artifact-049.md", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:50", "label": "artifact-050.py", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:51", "label": "artifact-051.ts", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:52", "label": "artifact-052.tsx", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:53", "label": "artifact-053.json", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:54", "label": "artifact-054.csv", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:55", "label": "artifact-055.pdf", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:laptop:file:56", "label": "artifact-056.yaml", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:4", "synthetic": true}, {"id": "demo:laptop:file:57", "label": "artifact-057.md", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:1", "synthetic": true}, {"id": "demo:laptop:file:58", "label": "artifact-058.py", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:2", "synthetic": true}, {"id": "demo:laptop:file:59", "label": "artifact-059.ts", "kind": "file", "source": "laptop", "parent_id": "demo:laptop:folder:3", "synthetic": true}, {"id": "demo:drive:root", "label": "Google Drive", "kind": "folder", "source": "drive", "parent_id": null, "synthetic": true}, {"id": "demo:drive:folder:1", "label": "collection-01", "kind": "folder", "source": "drive", "parent_id": "demo:drive:root", "synthetic": true}, {"id": "demo:drive:folder:2", "label": "collection-02", "kind": "folder", "source": "drive", "parent_id": "demo:drive:root", "synthetic": true}, {"id": "demo:drive:folder:3", "label": "collection-03", "kind": "folder", "source": "drive", "parent_id": "demo:drive:root", "synthetic": true}, {"id": "demo:drive:folder:4", "label": "collection-04", "kind": "folder", "source": "drive", "parent_id": "demo:drive:root", "synthetic": true}, {"id": "demo:drive:folder:5", "label": "collection-05", "kind": "folder", "source": "drive", "parent_id": "demo:drive:root", "synthetic": true}, {"id": "demo:drive:file:1", "label": "artifact-001.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:2", "label": "artifact-002.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:3", "label": "artifact-003.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:4", "label": "artifact-004.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:5", "label": "artifact-005.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:6", "label": "artifact-006.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:7", "label": "artifact-007.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:8", "label": "artifact-008.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:9", "label": "artifact-009.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:10", "label": "artifact-010.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:11", "label": "artifact-011.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:12", "label": "artifact-012.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:13", "label": "artifact-013.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:14", "label": "artifact-014.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:15", "label": "artifact-015.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:16", "label": "artifact-016.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:17", "label": "artifact-017.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:18", "label": "artifact-018.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:19", "label": "artifact-019.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:20", "label": "artifact-020.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:21", "label": "artifact-021.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:22", "label": "artifact-022.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:23", "label": "artifact-023.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:24", "label": "artifact-024.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:25", "label": "artifact-025.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:26", "label": "artifact-026.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:27", "label": "artifact-027.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:28", "label": "artifact-028.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:29", "label": "artifact-029.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:30", "label": "artifact-030.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:31", "label": "artifact-031.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:32", "label": "artifact-032.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:33", "label": "artifact-033.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:34", "label": "artifact-034.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:35", "label": "artifact-035.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:36", "label": "artifact-036.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:37", "label": "artifact-037.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:38", "label": "artifact-038.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:39", "label": "artifact-039.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:40", "label": "artifact-040.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:41", "label": "artifact-041.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:42", "label": "artifact-042.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:43", "label": "artifact-043.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:44", "label": "artifact-044.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:45", "label": "artifact-045.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:46", "label": "artifact-046.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:47", "label": "artifact-047.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:48", "label": "artifact-048.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:49", "label": "artifact-049.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:50", "label": "artifact-050.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:51", "label": "artifact-051.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:52", "label": "artifact-052.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:53", "label": "artifact-053.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:54", "label": "artifact-054.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:55", "label": "artifact-055.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:56", "label": "artifact-056.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:57", "label": "artifact-057.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:58", "label": "artifact-058.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:59", "label": "artifact-059.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:60", "label": "artifact-060.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:61", "label": "artifact-061.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:62", "label": "artifact-062.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:63", "label": "artifact-063.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:64", "label": "artifact-064.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:65", "label": "artifact-065.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:66", "label": "artifact-066.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:67", "label": "artifact-067.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:68", "label": "artifact-068.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:69", "label": "artifact-069.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:70", "label": "artifact-070.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:71", "label": "artifact-071.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:72", "label": "artifact-072.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:73", "label": "artifact-073.md", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:74", "label": "artifact-074.py", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:75", "label": "artifact-075.ts", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:drive:file:76", "label": "artifact-076.tsx", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:1", "synthetic": true}, {"id": "demo:drive:file:77", "label": "artifact-077.json", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:2", "synthetic": true}, {"id": "demo:drive:file:78", "label": "artifact-078.csv", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:3", "synthetic": true}, {"id": "demo:drive:file:79", "label": "artifact-079.pdf", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:4", "synthetic": true}, {"id": "demo:drive:file:80", "label": "artifact-080.yaml", "kind": "file", "source": "drive", "parent_id": "demo:drive:folder:5", "synthetic": true}, {"id": "demo:github:root", "label": "GitHub", "kind": "folder", "source": "github", "parent_id": null, "synthetic": true}, {"id": "demo:github:folder:1", "label": "collection-01", "kind": "folder", "source": "github", "parent_id": "demo:github:root", "synthetic": true}, {"id": "demo:github:folder:2", "label": "collection-02", "kind": "folder", "source": "github", "parent_id": "demo:github:root", "synthetic": true}, {"id": "demo:github:folder:3", "label": "collection-03", "kind": "folder", "source": "github", "parent_id": "demo:github:root", "synthetic": true}, {"id": "demo:github:folder:4", "label": "collection-04", "kind": "folder", "source": "github", "parent_id": "demo:github:root", "synthetic": true}, {"id": "demo:github:folder:5", "label": "collection-05", "kind": "folder", "source": "github", "parent_id": "demo:github:root", "synthetic": true}, {"id": "demo:github:folder:6", "label": "collection-06", "kind": "folder", "source": "github", "parent_id": "demo:github:root", "synthetic": true}, {"id": "demo:github:file:1", "label": "artifact-001.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:2", "label": "artifact-002.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:3", "label": "artifact-003.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:4", "label": "artifact-004.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:5", "label": "artifact-005.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:6", "label": "artifact-006.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:7", "label": "artifact-007.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:8", "label": "artifact-008.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:9", "label": "artifact-009.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:10", "label": "artifact-010.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:11", "label": "artifact-011.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:12", "label": "artifact-012.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:13", "label": "artifact-013.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:14", "label": "artifact-014.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:15", "label": "artifact-015.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:16", "label": "artifact-016.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:17", "label": "artifact-017.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:18", "label": "artifact-018.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:19", "label": "artifact-019.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:20", "label": "artifact-020.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:21", "label": "artifact-021.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:22", "label": "artifact-022.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:23", "label": "artifact-023.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:24", "label": "artifact-024.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:25", "label": "artifact-025.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:26", "label": "artifact-026.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:27", "label": "artifact-027.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:28", "label": "artifact-028.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:29", "label": "artifact-029.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:30", "label": "artifact-030.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:31", "label": "artifact-031.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:32", "label": "artifact-032.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:33", "label": "artifact-033.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:34", "label": "artifact-034.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:35", "label": "artifact-035.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:36", "label": "artifact-036.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:37", "label": "artifact-037.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:38", "label": "artifact-038.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:39", "label": "artifact-039.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:40", "label": "artifact-040.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:41", "label": "artifact-041.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:42", "label": "artifact-042.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:43", "label": "artifact-043.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:44", "label": "artifact-044.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:45", "label": "artifact-045.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:46", "label": "artifact-046.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:47", "label": "artifact-047.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:48", "label": "artifact-048.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:49", "label": "artifact-049.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:50", "label": "artifact-050.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:51", "label": "artifact-051.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:52", "label": "artifact-052.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:53", "label": "artifact-053.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:54", "label": "artifact-054.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:55", "label": "artifact-055.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:56", "label": "artifact-056.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:57", "label": "artifact-057.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:58", "label": "artifact-058.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:59", "label": "artifact-059.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:60", "label": "artifact-060.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:61", "label": "artifact-061.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:62", "label": "artifact-062.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:63", "label": "artifact-063.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:64", "label": "artifact-064.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:65", "label": "artifact-065.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:66", "label": "artifact-066.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:67", "label": "artifact-067.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:68", "label": "artifact-068.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:69", "label": "artifact-069.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:70", "label": "artifact-070.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:71", "label": "artifact-071.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:72", "label": "artifact-072.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:73", "label": "artifact-073.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:74", "label": "artifact-074.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:75", "label": "artifact-075.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:76", "label": "artifact-076.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:77", "label": "artifact-077.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:78", "label": "artifact-078.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:79", "label": "artifact-079.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:80", "label": "artifact-080.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:81", "label": "artifact-081.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:82", "label": "artifact-082.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:83", "label": "artifact-083.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:84", "label": "artifact-084.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:85", "label": "artifact-085.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:86", "label": "artifact-086.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:87", "label": "artifact-087.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:88", "label": "artifact-088.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:89", "label": "artifact-089.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:90", "label": "artifact-090.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:91", "label": "artifact-091.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:92", "label": "artifact-092.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:93", "label": "artifact-093.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:94", "label": "artifact-094.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:95", "label": "artifact-095.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:96", "label": "artifact-096.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:97", "label": "artifact-097.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:98", "label": "artifact-098.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:99", "label": "artifact-099.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:100", "label": "artifact-100.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:101", "label": "artifact-101.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:102", "label": "artifact-102.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:103", "label": "artifact-103.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:104", "label": "artifact-104.yaml", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:105", "label": "artifact-105.md", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:github:file:106", "label": "artifact-106.py", "kind": "file", "source": "github", "parent_id": "demo:github:folder:4", "synthetic": true}, {"id": "demo:github:file:107", "label": "artifact-107.ts", "kind": "file", "source": "github", "parent_id": "demo:github:folder:5", "synthetic": true}, {"id": "demo:github:file:108", "label": "artifact-108.tsx", "kind": "file", "source": "github", "parent_id": "demo:github:folder:6", "synthetic": true}, {"id": "demo:github:file:109", "label": "artifact-109.json", "kind": "file", "source": "github", "parent_id": "demo:github:folder:1", "synthetic": true}, {"id": "demo:github:file:110", "label": "artifact-110.csv", "kind": "file", "source": "github", "parent_id": "demo:github:folder:2", "synthetic": true}, {"id": "demo:github:file:111", "label": "artifact-111.pdf", "kind": "file", "source": "github", "parent_id": "demo:github:folder:3", "synthetic": true}, {"id": "demo:obsidian:root", "label": "Obsidian", "kind": "folder", "source": "obsidian", "parent_id": null, "synthetic": true}, {"id": "demo:obsidian:folder:1", "label": "collection-01", "kind": "folder", "source": "obsidian", "parent_id": "demo:obsidian:root", "synthetic": true}, {"id": "demo:obsidian:folder:2", "label": "collection-02", "kind": "folder", "source": "obsidian", "parent_id": "demo:obsidian:root", "synthetic": true}, {"id": "demo:obsidian:file:1", "label": "artifact-001.md", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:2", "label": "artifact-002.py", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:3", "label": "artifact-003.ts", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:4", "label": "artifact-004.tsx", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:5", "label": "artifact-005.json", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:6", "label": "artifact-006.csv", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:7", "label": "artifact-007.pdf", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:8", "label": "artifact-008.yaml", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:9", "label": "artifact-009.md", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:10", "label": "artifact-010.py", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:11", "label": "artifact-011.ts", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:12", "label": "artifact-012.tsx", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:13", "label": "artifact-013.json", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:14", "label": "artifact-014.csv", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:15", "label": "artifact-015.pdf", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:16", "label": "artifact-016.yaml", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:17", "label": "artifact-017.md", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:18", "label": "artifact-018.py", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:19", "label": "artifact-019.ts", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:20", "label": "artifact-020.tsx", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:21", "label": "artifact-021.json", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:22", "label": "artifact-022.csv", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:23", "label": "artifact-023.pdf", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:24", "label": "artifact-024.yaml", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:25", "label": "artifact-025.md", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:26", "label": "artifact-026.py", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:27", "label": "artifact-027.ts", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:28", "label": "artifact-028.tsx", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:29", "label": "artifact-029.json", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:30", "label": "artifact-030.csv", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:31", "label": "artifact-031.pdf", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:32", "label": "artifact-032.yaml", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:33", "label": "artifact-033.md", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:34", "label": "artifact-034.py", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:35", "label": "artifact-035.ts", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:36", "label": "artifact-036.tsx", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:37", "label": "artifact-037.json", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:38", "label": "artifact-038.csv", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:39", "label": "artifact-039.pdf", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:obsidian:file:40", "label": "artifact-040.yaml", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:2", "synthetic": true}, {"id": "demo:obsidian:file:41", "label": "artifact-041.md", "kind": "file", "source": "obsidian", "parent_id": "demo:obsidian:folder:1", "synthetic": true}, {"id": "demo:sessions:root", "label": "Claude and Codex", "kind": "folder", "source": "sessions", "parent_id": null, "synthetic": true}, {"id": "demo:sessions:folder:1", "label": "collection-01", "kind": "folder", "source": "sessions", "parent_id": "demo:sessions:root", "synthetic": true}, {"id": "demo:sessions:folder:2", "label": "collection-02", "kind": "folder", "source": "sessions", "parent_id": "demo:sessions:root", "synthetic": true}, {"id": "demo:sessions:file:1", "label": "artifact-001.md", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:2", "label": "artifact-002.py", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:3", "label": "artifact-003.ts", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:4", "label": "artifact-004.tsx", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:5", "label": "artifact-005.json", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:6", "label": "artifact-006.csv", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:7", "label": "artifact-007.pdf", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:8", "label": "artifact-008.yaml", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:9", "label": "artifact-009.md", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:10", "label": "artifact-010.py", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:11", "label": "artifact-011.ts", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:12", "label": "artifact-012.tsx", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:13", "label": "artifact-013.json", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:14", "label": "artifact-014.csv", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:15", "label": "artifact-015.pdf", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:16", "label": "artifact-016.yaml", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:17", "label": "artifact-017.md", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:18", "label": "artifact-018.py", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:19", "label": "artifact-019.ts", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:20", "label": "artifact-020.tsx", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:21", "label": "artifact-021.json", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:22", "label": "artifact-022.csv", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:23", "label": "artifact-023.pdf", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:24", "label": "artifact-024.yaml", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:25", "label": "artifact-025.md", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:26", "label": "artifact-026.py", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:27", "label": "artifact-027.ts", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:28", "label": "artifact-028.tsx", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:29", "label": "artifact-029.json", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:30", "label": "artifact-030.csv", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:31", "label": "artifact-031.pdf", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:sessions:file:32", "label": "artifact-032.yaml", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:2", "synthetic": true}, {"id": "demo:sessions:file:33", "label": "artifact-033.md", "kind": "file", "source": "sessions", "parent_id": "demo:sessions:folder:1", "synthetic": true}, {"id": "demo:deploys:root", "label": "Vercel and Render", "kind": "folder", "source": "deploys", "parent_id": null, "synthetic": true}, {"id": "demo:deploys:folder:1", "label": "collection-01", "kind": "folder", "source": "deploys", "parent_id": "demo:deploys:root", "synthetic": true}, {"id": "demo:deploys:folder:2", "label": "collection-02", "kind": "folder", "source": "deploys", "parent_id": "demo:deploys:root", "synthetic": true}, {"id": "demo:deploys:file:1", "label": "artifact-001.md", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:1", "synthetic": true}, {"id": "demo:deploys:file:2", "label": "artifact-002.py", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:2", "synthetic": true}, {"id": "demo:deploys:file:3", "label": "artifact-003.ts", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:1", "synthetic": true}, {"id": "demo:deploys:file:4", "label": "artifact-004.tsx", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:2", "synthetic": true}, {"id": "demo:deploys:file:5", "label": "artifact-005.json", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:1", "synthetic": true}, {"id": "demo:deploys:file:6", "label": "artifact-006.csv", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:2", "synthetic": true}, {"id": "demo:deploys:file:7", "label": "artifact-007.pdf", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:1", "synthetic": true}, {"id": "demo:deploys:file:8", "label": "artifact-008.yaml", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:2", "synthetic": true}, {"id": "demo:deploys:file:9", "label": "artifact-009.md", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:1", "synthetic": true}, {"id": "demo:deploys:file:10", "label": "artifact-010.py", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:2", "synthetic": true}, {"id": "demo:deploys:file:11", "label": "artifact-011.ts", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:1", "synthetic": true}, {"id": "demo:deploys:file:12", "label": "artifact-012.tsx", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:2", "synthetic": true}, {"id": "demo:deploys:file:13", "label": "artifact-013.json", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:1", "synthetic": true}, {"id": "demo:deploys:file:14", "label": "artifact-014.csv", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:2", "synthetic": true}, {"id": "demo:deploys:file:15", "label": "artifact-015.pdf", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:1", "synthetic": true}, {"id": "demo:deploys:file:16", "label": "artifact-016.yaml", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:2", "synthetic": true}, {"id": "demo:deploys:file:17", "label": "artifact-017.md", "kind": "file", "source": "deploys", "parent_id": "demo:deploys:folder:1", "synthetic": true}], "diagnostic": "Synthetic nodes only. No local or cloud source was read."}, "metrics": {"total_tasks": 4, "active_runs": 1, "ledger_entries": 2, "accepted_rules": 2}, "tasks": [{"id": "demo_brief", "title": "Frame the product brief", "status": "done", "prompt": "Turn a customer problem into an evidence-backed build plan.", "run_id": 101, "workspace_path": "C:/Tri-AI/demo/workspace", "telemetry": {"run_id": 101, "run_status": "done", "run_outcome": "passed", "started_at": 1791058707, "ended_at": 1791058742, "heartbeat_at": null, "worker_pid": null, "claim_lock": null, "claim_expires": null, "step_key": null, "branch_name": null, "worktree_path": null, "workspace_kind": null, "model": "local/planner", "provider": "ollama", "requested_model": null, "requested_provider": null, "requested_runtime": null, "agent_runtime": null, "summary": "Requirements, constraints, and a release rubric were retained.", "error": null, "phases": [{"key": "claimed", "state": "done", "evidence": "A bounded brief was accepted."}, {"key": "worktree_prep", "state": "done", "evidence": "Isolated demo workspace prepared."}, {"key": "agent_active", "state": "done", "evidence": "Planner produced a build contract."}, {"key": "verify_gate", "state": "done", "evidence": "Scope and evidence checks passed."}], "artifacts": [], "logs": []}}, {"id": "demo_research", "title": "Research the operating context", "status": "done", "prompt": "Find the constraints, sources, and user expectations that shape the build.", "run_id": 102, "workspace_path": "C:/Tri-AI/demo/workspace", "telemetry": {"run_id": 102, "run_status": "done", "run_outcome": "passed", "started_at": 1791058747, "ended_at": 1791058825, "heartbeat_at": null, "worker_pid": null, "claim_lock": null, "claim_expires": null, "step_key": null, "branch_name": null, "worktree_path": null, "workspace_kind": null, "model": "local/researcher", "provider": "ollama", "requested_model": null, "requested_provider": null, "requested_runtime": null, "agent_runtime": null, "summary": "Sources and design constraints were recorded for downstream work.", "error": null, "phases": [{"key": "claimed", "state": "done", "evidence": "Research role claimed."}, {"key": "worktree_prep", "state": "done", "evidence": "Source ledger opened."}, {"key": "agent_active", "state": "done", "evidence": "Evidence synthesis completed."}, {"key": "verify_gate", "state": "done", "evidence": "Citations inspected before handoff."}], "artifacts": [], "logs": []}}, {"id": "demo_build", "title": "Build and verify the release candidate", "status": "running", "prompt": "Produce a testable, reviewable release candidate rather than an unverified draft.", "run_id": 103, "workspace_path": "C:/Tri-AI/demo/workspace", "telemetry": {"run_id": 103, "run_status": "running", "run_outcome": null, "started_at": 1791058829, "ended_at": null, "heartbeat_at": 1791058895, "worker_pid": 103, "claim_lock": "demo-worker:103", "claim_expires": null, "step_key": "verify_gate", "branch_name": "demo/release-candidate", "worktree_path": null, "workspace_kind": "worktree", "model": "local/coder", "provider": "ollama", "requested_model": null, "requested_provider": null, "requested_runtime": null, "agent_runtime": null, "summary": "Implementation is being checked against the release rubric.", "error": null, "phases": [{"key": "claimed", "state": "done", "evidence": "Worker role bound to the task."}, {"key": "worktree_prep", "state": "done", "evidence": "Worktree and tool budget established."}, {"key": "agent_active", "state": "done", "evidence": "Implementation evidence retained."}, {"key": "verify_gate", "state": "active", "evidence": "Tests, review, and visual checks are running."}], "artifacts": [], "logs": [{"name": "agent", "path": "C:/Tri-AI/demo/runs/103/agent.log", "lines": ["Verifier is comparing the candidate against the written acceptance checks."], "truncated": false, "error": null}]}}, {"id": "demo_release", "title": "Prepare the human release decision", "status": "ready", "prompt": "Package diff, evidence, rollback notes, and the approval request.", "run_id": null, "workspace_path": "C:/Tri-AI/demo/workspace", "telemetry": {"phases": [], "logs": []}}], "edges": [{"parent_id": "demo_brief", "child_id": "demo_research"}, {"parent_id": "demo_research", "child_id": "demo_build"}, {"parent_id": "demo_build", "child_id": "demo_release"}], "ledger_events": [{"timestamp": 1791058825, "task_id": "demo_research", "outcome": "passed", "verify_exit": 0, "seconds": 78.0}, {"timestamp": 1791058742, "task_id": "demo_brief", "outcome": "passed", "verify_exit": 0, "seconds": 35.0}], "ledger_errors": [], "rules": [{"proposal_id": "demo:verify-before-release", "rule_id": "verify-before-release", "workspace_path": "C:/Tri-AI/demo/workspace", "task_kind": "release", "checks": ["tests_pass", "review_present", "rollback_note_present"], "citations": [{"source_path": "demo://release-rubric", "source_line": 1, "line_digest": "demo-release-rubric"}]}, {"proposal_id": "demo:source-evidence", "rule_id": "retain-source-evidence", "workspace_path": "C:/Tri-AI/demo/workspace", "task_kind": "research", "checks": ["citation_recorded", "claim_scoped"], "citations": [{"source_path": "demo://research-contract", "source_line": 1, "line_digest": "demo-research-contract"}]}], "rule_task_links": [{"proposal_id": "demo:verify-before-release", "task_id": "demo_brief"}, {"proposal_id": "demo:verify-before-release", "task_id": "demo_research"}, {"proposal_id": "demo:verify-before-release", "task_id": "demo_build"}, {"proposal_id": "demo:verify-before-release", "task_id": "demo_release"}, {"proposal_id": "demo:source-evidence", "task_id": "demo_brief"}, {"proposal_id": "demo:source-evidence", "task_id": "demo_research"}, {"proposal_id": "demo:source-evidence", "task_id": "demo_build"}, {"proposal_id": "demo:source-evidence", "task_id": "demo_release"}], "memory_errors": [], "brain": {"status": "demonstration", "item_count": 5, "inbox_count": 0, "edge_count": 4, "diagnostic": null, "items": [{"id": "m_goal", "title": "Outcome: verified release candidate", "kind": "goal", "source": "operator brief", "project": "tri-ai", "trust": "reviewed", "created_at": 1791058687}, {"id": "m_scope", "title": "Constraint: public change requires approval", "kind": "constraint", "source": "safety policy", "project": "tri-ai", "trust": "reviewed", "created_at": 1791058692}, {"id": "m_research", "title": "Research ledger: cited constraints retained", "kind": "evidence", "source": "research worker", "project": "tri-ai", "trust": "reviewed", "created_at": 1791058807}, {"id": "m_build", "title": "Build contract: acceptance checks are explicit", "kind": "plan", "source": "planner worker", "project": "tri-ai", "trust": "reviewed", "created_at": 1791058752}, {"id": "m_review", "title": "Release packet: diff and rollback ready", "kind": "handoff", "source": "verifier worker", "project": "tri-ai", "trust": "unreviewed", "created_at": 1791058892}], "edges": [{"id": "e_goal_scope", "source_id": "m_goal", "target_id": "m_scope", "relation": "bounded_by", "evidence_item_id": "m_scope"}, {"id": "e_scope_research", "source_id": "m_scope", "target_id": "m_research", "relation": "guides", "evidence_item_id": "m_research"}, {"id": "e_research_build", "source_id": "m_research", "target_id": "m_build", "relation": "informs", "evidence_item_id": "m_build"}, {"id": "e_build_review", "source_id": "m_build", "target_id": "m_review", "relation": "verified_by", "evidence_item_id": "m_review"}]}, "routing": {"status": "demonstration", "source": "demo://model-routes.json", "version": "demo-routes-v1", "default_route": "local-coder", "roles": {"builder": "local-coder", "designer": "local-coder", "reviewer": "local-reasoner", "operator": "local-reasoner", "researcher": "local-reasoner", "lead": "claude-cli", "product_strategist": "local-reasoner"}, "routes": [{"name": "local-coder", "model": "local/coder", "provider": "ollama", "admitted": true, "evidence": "Probed on the local machine and served as itself. Handles build steps.", "lane": "local"}, {"name": "local-reasoner", "model": "local/reasoner", "provider": "ollama", "admitted": true, "evidence": "Probed on the local machine. Plans and reviews.", "lane": "local"}, {"name": "claude-cli", "model": "claude/subscription", "provider": "claude", "admitted": true, "evidence": "Runs through a flat-rate subscription CLI. Used for escalations.", "lane": "claude"}, {"name": "codex-cli", "model": "codex/subscription", "provider": "codex", "admitted": true, "evidence": "Runs through a flat-rate subscription CLI. Used for second-opinion builds.", "lane": "codex"}, {"name": "free-tier-research", "model": "free/research", "provider": "custom", "admitted": false, "evidence": "Not admitted in this demonstration: the probe did not return the requested model.", "lane": "local"}]}, "capabilities": {"status": "demonstration", "total": 6, "active": 4, "archived": 0, "routable": 4, "gated": 2, "candidates": 0, "diagnostic": null, "items": [{"id": "demo:research", "name": "Research worker", "kind": "agent", "availability": "available", "adapter_status": "routable", "health_status": "demo-ready", "risk_status": "reviewed", "tags": ["web", "sources"]}, {"id": "demo:builder", "name": "Build worker", "kind": "agent", "availability": "available", "adapter_status": "routable", "health_status": "demo-ready", "risk_status": "reviewed", "tags": ["code", "ui"]}, {"id": "demo:verifier", "name": "Verification worker", "kind": "agent", "availability": "available", "adapter_status": "gated", "health_status": "demo-ready", "risk_status": "reviewed", "tags": ["tests", "review"]}, {"id": "demo:release", "name": "Release gate", "kind": "policy", "availability": "approval-required", "adapter_status": "gated", "health_status": "human-gate", "risk_status": "reviewed", "tags": ["deploy", "rollback"]}]}, "radar": {"status": "demonstration", "generated_at": "demo", "candidate_count": 2, "evaluated_count": 2, "error_count": 0, "diagnostic": null, "candidates": [{"name": "Visual regression harness", "source": "capability radar", "url": "demo://visual-regression", "disposition": "evaluate", "stars": 0, "signals": ["ui", "verification"]}, {"name": "Source provenance adapter", "source": "capability radar", "url": "demo://provenance", "disposition": "gated", "stars": 0, "signals": ["research", "evidence"]}], "evaluations": [{"name": "Visual regression harness", "disposition": "evaluate", "static_verdict": "demonstration", "dynamic_status": "not-run"}, {"name": "Source provenance adapter", "disposition": "gated", "static_verdict": "demonstration", "dynamic_status": "not-run"}]}, "daemons": {"status": "demonstration", "processes": {"planner": true, "research": true, "verifier": true}, "diagnostic": "Demonstration scenario only. No live task or daemon state is represented."}, "_captured": 1791058897}</script>
+<script type="module">
+// Pure projection from /api/snapshot to what the Cortex sphere may draw.
+//
+// The sphere's regions are Tri-AI's fixed architecture. Everything that moves
+// or counts comes from the snapshot: a pulse exists only for a running task
+// with a fresh heartbeat and a recorded phase, and accepted/rejected come
+// only from ledger rows. Nothing here is random, and nothing is invented.
+
+const REGIONS = Object.freeze([
+  { k: "src", g: "Sources", n: "Sources", lon: -150, lat: 10, w: 0.10, c: "#888780",
+    i: "Where work enters: Telegram, the laptop, Drive, GitHub, Obsidian and the phone. Indexed items are metadata only." },
+  { k: "pln", g: "Planner", n: "Planner", lon: -92, lat: 36, w: 0, c: "#378ADD",
+    i: "Claims a task and prepares its workspace. A request can split into a graph of small tasks, or stay on one." },
+  { k: "spa", g: "Specialists", n: "Research and docs", lon: -40, lat: 54, w: 0, c: "#1D9E75",
+    i: "Research, writing and judgment roles. Their routes are a policy by task type, not a measured quality score." },
+  { k: "spb", g: "Specialists", n: "Specialists", lon: -20, lat: 4, w: 0.04, c: "#1D9E75",
+    i: "The agent doing the work. A run sits here until its served model is recorded." },
+  { k: "spc", g: "Specialists", n: "Test, review, ops", lon: -50, lat: -44, w: 0, c: "#1D9E75",
+    i: "Testing, review and operations roles." },
+  { k: "lcl", g: "Lanes", n: "Local, free", lon: 40, lat: 46, w: 0, c: "#7F77DD",
+    i: "Ollama on the desktop, through the native local agent." },
+  { k: "api", g: "Lanes", n: "Free API", lon: 60, lat: -2, w: 0, c: "#7F77DD",
+    i: "Hermes routes through OmniRoute and FreeLLMAPI. Only routes that answered as themselves are admitted." },
+  { k: "sub", g: "Lanes", n: "Subscription", lon: 38, lat: -50, w: 0, c: "#7F77DD",
+    i: "Claude and Codex CLIs. Credited only when the run recorded that runtime, never from a model name." },
+  { k: "ver", g: "Gates", n: "Verify gate", lon: 116, lat: 4, w: 0.06, c: "#BA7517",
+    i: "A verify command's exit code decides. The agent's own report is never evidence." },
+  { k: "evi", g: "Gates", n: "Evidence", lon: 158, lat: -40, w: 0.02, c: "#85B7EB",
+    i: "Ledger rows, run receipts and retained memory." },
+  { k: "hum", g: "Gates", n: "Human gate", solo: true, orbit: true, c: "#D4537E",
+    i: "Outside the system on purpose. Publishing, deploys, DNS and paid actions wait for the operator." },
+]);
+
+const ARCS = Object.freeze([
+  ["src", "pln"], ["pln", "spa"], ["pln", "spb"], ["pln", "spc"],
+  ["spa", "lcl"], ["spa", "api"], ["spa", "sub"],
+  ["spb", "lcl"], ["spb", "api"], ["spb", "sub"],
+  ["spc", "lcl"], ["spc", "api"], ["spc", "sub"],
+  ["lcl", "ver"], ["api", "ver"], ["sub", "ver"],
+  ["ver", "hum"], ["ver", "evi"],
+]);
+
+const PHASES = Object.freeze(["claimed", "worktree_prep", "agent_active", "verify_gate"]);
+const PHASE_LABELS = Object.freeze({
+  claimed: "Claimed", worktree_prep: "Workspace", agent_active: "Agent", verify_gate: "Verify",
+});
+
+const STALE_SECONDS = 15 * 60;
+const MAX_POINTS = 600;
+const ACCEPTED = new Set(["passed"]);
+const REJECTED = new Set(["failed", "quarantined"]);
+
+// Which lane a run used. The recorded runtime wins; a subscription is credited
+// only by runtime, because a hosted model family reached through Hermes is
+// still a free-route run.
+function laneOf(telemetry = {}) {
+  const runtime = String(telemetry.agent_runtime || telemetry.requested_runtime || "").toLowerCase();
+  if (runtime === "claude" || runtime === "codex") return "sub";
+  if (runtime === "ollama-native") return "lcl";
+  if (!telemetry.model) return null;
+  const served = `${telemetry.model} ${telemetry.provider || ""}`.toLowerCase();
+  if (served.includes("ollama")) return "lcl";
+  return "api";
+}
+
+function currentPhase(telemetry = {}) {
+  const active = (telemetry.phases || []).find((p) => p.state === "active")?.key;
+  const key = active || telemetry.step_key;
+  return PHASES.includes(key) ? key : null;
+}
+
+function isRunning(task) {
+  const status = task.telemetry?.run_status;
+  return status == null ? task.status === "running" : status === "running";
+}
+
+function arcFor(phase, lane) {
+  if (phase === "claimed") return ["src", "pln"];
+  if (phase === "worktree_prep") return ["pln", "spb"];
+  if (phase === "agent_active") return ["spb", lane || "spb"];
+  return [lane || "spb", "ver"];
+}
+
+function hash(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 4294967296;
+}
+
+function stamp(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value <= 0) return "--:--";
+  const date = new Date(value * 1000);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function buildSphereModel(snapshot = {}, nowMs = Date.now()) {
+  const tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks : [];
+  const ledger = Array.isArray(snapshot.ledger_events) ? snapshot.ledger_events : [];
+  const nowSeconds = nowMs / 1000;
+
+  const pulses = [];
+  const laneLoad = { lcl: 0, api: 0, sub: 0 };
+  const blocked = [];
+  const rows = [];
+
+  for (const task of tasks) {
+    const telemetry = task.telemetry || {};
+    const phase = currentPhase(telemetry);
+    const lane = laneOf(telemetry);
+    const heartbeat = Number(telemetry.heartbeat_at);
+    const running = isRunning(task);
+    const stale = running && heartbeat > 0 && nowSeconds - heartbeat > STALE_SECONDS;
+    let state = task.status || "unknown";
+    if (running) state = stale ? "stale" : (phase ? "running" : "unreported");
+
+    if (running && !stale && phase) {
+      const [from, to] = arcFor(phase, lane);
+      pulses.push({ taskId: task.id, title: task.title || task.id, phase, lane, from, to,
+                    seed: hash(String(task.id)) });
+      if (lane && phase !== "claimed" && phase !== "worktree_prep") laneLoad[lane] += 1;
+    }
+    if (task.status === "blocked") {
+      blocked.push({ id: task.id, title: task.title || task.id,
+                     reason: String(telemetry.error || telemetry.run_outcome || "blocked") });
+    }
+    rows.push({ id: task.id, title: task.title || task.id, status: task.status, state, phase,
+                phaseIndex: phase ? PHASES.indexOf(phase) : (task.status === "done" ? 4 : -1),
+                lane, model: telemetry.model || null, outcome: telemetry.run_outcome || null });
+  }
+
+  const order = { running: 0, unreported: 1, stale: 2, blocked: 3, ready: 4, todo: 5, done: 6 };
+  rows.sort((a, b) => (order[a.state] ?? 7) - (order[b.state] ?? 7));
+
+  let accepted = 0;
+  let rejected = 0;
+  for (const event of ledger) {
+    if (ACCEPTED.has(event.outcome)) accepted += 1;
+    else if (REJECTED.has(event.outcome)) rejected += 1;
+  }
+  const log = ledger.slice()
+    .sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0))
+    .slice(-30)
+    .map((e) => `[${stamp(e.timestamp)}] ${String(e.outcome || "event").toUpperCase()} ${e.task_id || ""}`
+      + (e.verify_exit == null ? "" : ` exit ${e.verify_exit}`));
+
+  const graph = snapshot.file_graph || {};
+  const items = Array.isArray(graph.items) ? graph.items : [];
+  const stride = Math.max(1, Math.ceil(items.length / MAX_POINTS));
+  const points = [];
+  for (let i = 0; i < items.length && points.length < MAX_POINTS; i += stride) {
+    const item = items[i] || {};
+    points.push({ id: String(item.id ?? i), source: String(item.source || ""),
+                  kind: String(item.kind || "file"), seed: hash(String(item.id ?? i)) });
+  }
+
+  const sources = (Array.isArray(graph.sources) ? graph.sources : [])
+    .filter((s) => s && typeof s.id === "string")
+    .map((s) => ({ id: s.id, label: String(s.label || s.id), count: Number(s.node_count) || 0,
+                   authorized: s.authorized !== false, seed: hash(s.id) }));
+
+  const brain = snapshot.brain || {};
+  const memory = {
+    status: String(brain.status || "unknown"),
+    count: Number(brain.item_count) || 0,
+    inbox: Number(brain.inbox_count) || 0,
+    items: (Array.isArray(brain.items) ? brain.items : []).slice(0, 40).map((m) => ({
+      id: String(m.id), title: String(m.title || m.id), kind: String(m.kind || "memory"),
+      trust: String(m.trust || "unreviewed"), source: String(m.source || ""), seed: hash(String(m.id)) })),
+    rules: Array.isArray(snapshot.rules) ? snapshot.rules : [],
+    links: Array.isArray(snapshot.rule_task_links) ? snapshot.rule_task_links : [],
+    diagnostic: brain.diagnostic || null,
+  };
+
+  const routing = snapshot.routing || {};
+  const routeItems = (Array.isArray(routing.routes) ? routing.routes : []).map((r) => {
+    const provider = String(r.provider || "").toLowerCase();
+    let laneKey = "api";
+    if (provider.startsWith("ollama")) laneKey = "lcl";
+    else if (provider === "claude" || provider === "codex") laneKey = "sub";
+    return { name: String(r.name), model: String(r.model || ""), provider: String(r.provider || ""),
+             admitted: r.admitted === true, evidence: String(r.evidence || ""), laneKey };
+  });
+  const routes = {
+    status: String(routing.status || "unknown"), version: routing.version || null,
+    items: routeItems, admitted: routeItems.filter((r) => r.admitted).length,
+    roles: routing.roles && typeof routing.roles === "object" ? routing.roles : {},
+    defaultRoute: routing.default_route || null,
+  };
+
+  const live = rows.find((r) => r.state === "running") || null;
+  const liveTask = live ? tasks.find((t) => t.id === live.id) : null;
+  const now = liveTask ? {
+    id: liveTask.id, title: liveTask.title || liveTask.id, phase: live.phase, lane: live.lane,
+    model: liveTask.telemetry?.model || null, requestedModel: liveTask.telemetry?.requested_model || null,
+    startedAt: Number(liveTask.telemetry?.started_at) || null,
+    summary: liveTask.telemetry?.summary || null,
+  } : null;
+
+  return {
+    demo: Boolean(snapshot.demo),
+    sealed: Boolean(snapshot.sealed),
+    counts: { accepted, rejected, blocked: blocked.length,
+              running: pulses.length, tasks: tasks.length },
+    pulses, laneLoad, blocked, tasks: rows, log,
+    points, pointsSynthetic: Boolean(graph.synthetic),
+    indexedCount: Number(graph.item_count) || items.length,
+    sources, memory, routes, now,
+    graphStatus: String(graph.status || "unknown"),
+    graphDiagnostic: graph.diagnostic || null,
+  };
+}
+
+// Cortex brain: a canvas renderer for the model cortex-sphere-model.mjs
+// projects from /api/snapshot.
+//
+// Two layers, kept visibly distinct so ambient motion is never read as work:
+//   * The cortex surface. Every neuron belongs to an indexed source; each
+//     source is a lobe, coloured, sized by its real item count. Impulses
+//     cascade along its synapses. This is ambient: it shows what Tri-AI can
+//     read, not what it is doing.
+//   * The inner core. Tri-AI's pipeline (planner, specialists, lanes, verify
+//     gate, evidence) with the human gate in orbit outside. Bright traces
+//     here are running tasks with a fresh heartbeat and a recorded phase.
+// Ambient firing uses a seeded generator so the scene is reproducible; the
+// console owns all data access and nothing here writes.
+
+// Black and green: every source is a different green, so regions stay distinct without leaving the palette.
+const SOURCE_COLORS = ["#5fe0a0", "#b6ef6a", "#2fc4a0", "#e1f59b", "#7ad7c9", "#3fe070", "#a6e3b8", "#8fcf52", "#c8f5df", "#54b98a"];
+const MEMORY_COLOR = "#e6f5c9";
+const CORE = 0.52;
+const D = 3.4;
+const NEURON_BUDGET = 12000;
+const TRACT = "#5fe0a0";
+const HUB_GREENS = { pln: "#e9fff2", spa: "#8fe8b8", spb: "#8fe8b8", spc: "#8fe8b8", lcl: "#b6ef6a", api: "#2fc4a0", sub: "#5fe0a0", ver: "#ffffff", evi: "#e6f5c9", hum: "#d8e46a", src: "#5fe0a0" };
+function mix(h, k) { const n = parseInt(h.slice(1), 16); const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((x) => Math.round(x + (255 - x) * k)); return `#${c.map((x) => x.toString(16).padStart(2, "0")).join("")}`; }
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function ll(lon, lat) { const a = lon * Math.PI / 180, b = lat * Math.PI / 180; return [Math.cos(b) * Math.sin(a), Math.sin(b), Math.cos(b) * Math.cos(a)]; }
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function len(a) { return Math.sqrt(dot(a, a)); }
+function norm(a) { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
+function scale(a, k) { return [a[0] * k, a[1] * k, a[2] * k]; }
+function slerp(a, b, t) {
+  const d = Math.max(-1, Math.min(1, dot(a, b))), om = Math.acos(d), so = Math.sin(om);
+  if (so < 1e-4) return a;
+  const k1 = Math.sin((1 - t) * om) / so, k2 = Math.sin(t * om) / so;
+  return [a[0] * k1 + b[0] * k2, a[1] * k1 + b[1] * k2, a[2] * k1 + b[2] * k2];
+}
+function arcPt(a, b, t, r, lift = 0.16) {
+  const p = slerp(norm(a), norm(b), t), l = r * (1 + lift * Math.sin(Math.PI * t));
+  return scale(p, l);
+}
+// Between two core points the path arcs around the core; between the core and
+// the surface or the orbit it runs straight, bowed slightly outward.
+function segPt(a, b, t) {
+  const la = len(a), lb = len(b);
+  if (Math.abs(la - lb) < 0.05) return arcPt(a, b, t, la);
+  const m = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  return scale(norm(m), (la + (lb - la) * t) * (1 + 0.12 * Math.sin(Math.PI * t)));
+}
+function hexA(h, a) { const n = parseInt(h.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; }
+function angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
+function orbitPos(th) { const ro = 1.32, ti = 0.42; return [ro * Math.cos(th), ro * Math.sin(th) * Math.sin(ti), ro * Math.sin(th) * Math.cos(ti)]; }
+function faceAngles(v) {
+  const yaw = Math.atan2(-v[0], v[2]), zp = Math.sqrt(v[0] * v[0] + v[2] * v[2]);
+  return { yaw, pitch: Math.max(-1.1, Math.min(1.1, Math.atan2(v[1], zp))) };
+}
+function fibDir(i, n) { const y = 1 - 2 * (i + 0.5) / n, r = Math.sqrt(1 - y * y), th = i * Math.PI * (3 - Math.sqrt(5)); return [Math.cos(th) * r, y, Math.sin(th) * r]; }
+function lum(c) {
+  let m = c.match(/\d+(\.\d+)?/g);
+  if (c[0] === "#") { const n = parseInt(c.slice(1, 7), 16); m = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  return m ? (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) / 255 : 0;
+}
+
+function mountSphere({ canvas, viewport, onHover = () => {}, onSource = () => {}, onTask = () => {} }) {
+  const ctx = canvas.getContext("2d");
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let W = 900, H = 600, cx = 450, cy = 300, Rr = 240, dark = true;
+  const rng = mulberry32(20261003);
+
+  const st = {
+    density: 1, motion: !reduce, hover: null, filter: "All", t: 0,
+    yaw: 0.6, pitch: 0.22, drag: null, target: null, follow: null, orb: 0.4, model: null, lastLedger: null,
+  };
+
+  function size() {
+    W = viewport.clientWidth || 900; H = viewport.clientHeight || 600;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Fit the whole brain between the top line and the controls. Perspective and
+    // the long arcs push the silhouette to about 1.12 R, so size from that.
+    const top = 64, bottom = 96;
+    cx = W / 2; cy = top + (H - top - bottom) / 2;
+    Rr = Math.max(80, Math.min(W * 0.42, (H - top - bottom) / 2 / 1.12));
+  }
+  function rot(v) {
+    const cyw = Math.cos(st.yaw), syw = Math.sin(st.yaw), cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
+    const x = v[0] * cyw + v[2] * syw, z = -v[0] * syw + v[2] * cyw;
+    return [x, v[1] * cp - z * sp, v[1] * sp + z * cp];
+  }
+  function pr(v) { const q = rot(v), s = D / (D - q[2]); return [cx + q[0] * Rr * s, cy - q[1] * Rr * s, q[2], s]; }
+
+  // --- inner core: Tri-AI's pipeline -------------------------------------------
+  const RM = {};
+  for (const r of REGIONS) RM[r.k] = { ...r, v: r.orbit ? orbitPos(st.orb) : scale(ll(r.lon, r.lat), r.k === "src" ? 1 : CORE) };
+  for (const r of Object.values(RM)) if (HUB_GREENS[r.k]) r.c = HUB_GREENS[r.k];
+  const RLIST = Object.values(RM);
+  const coreGroups = { Sources: ["src"], Planner: ["pln"], Specialists: ["spa", "spb", "spc"], Lanes: ["lcl", "api", "sub"], Gates: ["ver", "evi", "hum"] };
+  const inPipeline = (k) => k !== "src";
+  const linked = (a, b) => ARCS.some((x) => (x[0] === a && x[1] === b) || (x[0] === b && x[1] === a));
+
+  // --- cortex: neurons per source ------------------------------------------------
+  let lobes = [], neurons = [], synapses = [], adjacency = [], sourceKey = "";
+  let memoryNodes = [], blockedNodes = [], anchors = [], tracts = [];
+  const impulses = [];
+
+  function buildCortex(sources) {
+    const key = sources.map((s) => `${s.id}:${s.count}`).join("|");
+    if (key === sourceKey) return;
+    sourceKey = key;
+    const local = mulberry32(7919);
+    const list = sources.length ? sources : [{ id: "_none", label: "No source index", count: 0, authorized: false }];
+    // Each source's share of the surface follows its share of indexed items
+    // (square-rooted so one huge source cannot erase the rest), with a floor so
+    // a source holding a handful of items is still a visible region.
+    const raw = list.map((s) => (s.count > 0 ? Math.sqrt(s.count) : 0));
+    const rawTotal = raw.reduce((a, b) => a + b, 0) || 1;
+    const floor = Math.min(0.04, 0.5 / list.length);
+    let target = list.map((s, i) => (s.count > 0 ? Math.max(floor, raw[i] / rawTotal) : floor * 0.5));
+    const tsum = target.reduce((a, b) => a + b, 0); target = target.map((t) => t / tsum);
+    lobes = list.map((s, i) => ({ ...s, color: s.id === "_none" ? "#6b7280" : SOURCE_COLORS[i % SOURCE_COLORS.length],
+      center: fibDir(i, list.length), share: target[i], idx: i, live: s.count > 0, n: 0 }));
+    for (const l of lobes) l.pale = mix(l.color, 0.55);
+    // Neurons cover the whole surface evenly, then each is claimed by a source
+    // through a weighted nearest-centre rule. The weights are tuned until every
+    // source's region holds its target share, so the regions tile the brain.
+    const total = NEURON_BUDGET;
+    const dirs = [];
+    for (let i = 0; i < total; i += 1) {
+      const d = fibDir(i, total);
+      dirs.push(norm([d[0] + (local() - 0.5) * 0.05, d[1] + (local() - 0.5) * 0.05, d[2] + (local() - 0.5) * 0.05]));
+    }
+    const w = lobes.map(() => 0);
+    let owner = new Array(total).fill(0);
+    for (let iter = 0; iter < 40; iter += 1) {
+      const counts = lobes.map(() => 0);
+      for (let i = 0; i < total; i += 1) {
+        let best = 0, bs = -1e9;
+        for (const l of lobes) { const sc = dot(dirs[i], l.center) + w[l.idx]; if (sc > bs) { bs = sc; best = l.idx; } }
+        owner[i] = best; counts[best] += 1;
+      }
+      for (const l of lobes) w[l.idx] += 0.35 * (l.share - counts[l.idx] / total);
+    }
+    neurons = dirs.map((d, i) => {
+      const big = local() < 0.06;
+      return { v: scale(d, 1.02 - 0.4 * local() ** 1.7), lobe: owner[i], size: big ? 2.8 + local() * 1.6 : 1 + local() * 1.6,
+        accent: local() < 0.05, phase: local() * 6.283, glow: 0 };
+    });
+    for (const l of lobes) {
+      const members = neurons.filter((n) => n.lobe === l.idx);
+      l.n = members.length;
+      if (members.length) l.center = norm(members.reduce((acc, n) => [acc[0] + n.v[0], acc[1] + n.v[1], acc[2] + n.v[2]], [0, 0, 0]));
+    }
+    // Synapses: each neuron to its two nearest neighbours in the same lobe,
+    // plus long tracts between neighbouring lobes, like white matter.
+    synapses = []; adjacency = neurons.map(() => []);
+    const seen = new Set();
+    const add = (i, j, tract) => {
+      const key2 = i < j ? `${i}-${j}` : `${j}-${i}`; if (seen.has(key2)) return;
+      seen.add(key2); const id = synapses.length; synapses.push({ a: i, b: j, tract }); adjacency[i].push(id); adjacency[j].push(id);
+    };
+    const byLobe = lobes.map((l) => neurons.map((n, i) => (n.lobe === l.idx ? i : -1)).filter((i) => i >= 0));
+    for (const members of byLobe) {
+      for (const i of members) {
+        const a = neurons[i].v, best = [];
+        for (const j of members) {
+          if (j === i) continue;
+          const b = neurons[j].v, d = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+          if (best.length < 3) { best.push([d, j]); best.sort((x, y) => x[0] - y[0]); } else if (d < best[2][0]) { best[2] = [d, j]; best.sort((x, y) => x[0] - y[0]); }
+        }
+        for (const [d, j] of best) if (d < 0.03) add(i, j, false);
+      }
+    }
+    for (let p = 0; p < lobes.length; p += 1) {
+      for (let q = p + 1; q < lobes.length; q += 1) {
+        if (dot(lobes[p].center, lobes[q].center) < 0.1) continue;
+        for (let k = 0; k < 4; k += 1) {
+          const i = byLobe[p][Math.floor(local() * byLobe[p].length)], j = byLobe[q][Math.floor(local() * byLobe[q].length)];
+          if (i != null && j != null) add(i, j, true);
+        }
+      }
+    }
+    // Anchors: bright white nodes, more for bigger sources, sitting on the surface.
+    anchors = [];
+    for (const l of lobes) {
+      if (!l.live) continue;
+      const k = 1 + Math.floor(l.share * 9);
+      const members = byLobe[l.idx].filter((i) => len(neurons[i].v) > 0.96);
+      for (let a = 0; a < k && members.length; a += 1) anchors.push(members[Math.floor(local() * members.length)]);
+    }
+    // Long faint tracts sweeping across the brain, like the arcs in a field map.
+    tracts = [];
+    for (let k = 0; k < 260; k += 1) {
+      const i = Math.floor(local() * neurons.length), j = Math.floor(local() * neurons.length);
+      if (dot(norm(neurons[i].v), norm(neurons[j].v)) > 0.2) continue;
+      tracts.push({ a: i, b: j, lobe: neurons[i].lobe, tint: local() < 0.25 });
+    }
+    impulses.length = 0;
+  }
+
+  function buildLive(model) {
+    memoryNodes = model.memory.items.map((m, i, all) => {
+      const a = (i / Math.max(1, all.length)) * 2 * Math.PI, ring = 11 + (i % 3) * 6;
+      return { ...m, v: scale(ll(158 + ring * Math.cos(a), -40 + ring * Math.sin(a)), CORE * 1.02) };
+    });
+    blockedNodes = model.blocked.slice(0, 8).map((b, i) => {
+      const lon = -120 + (i % 4) * 11, lat = (i < 4 ? 62 : -12) - Math.floor(i / 4) * 7;
+      return { ...b, v: scale(ll(lon, lat), CORE * 1.04) };
+    });
+  }
+
+  // --- ambient firing ---------------------------------------------------------------
+  function seedImpulse() {
+    if (!synapses.length) return;
+    // Larger sources fire more often: pick a lobe by share, then a synapse in it.
+    let roll = rng(), lobe = lobes[0];
+    for (const l of lobes) { if (!l.live) continue; roll -= l.share; if (roll <= 0) { lobe = l; break; } }
+    const start = neurons.findIndex((n, i) => n.lobe === lobe.idx && adjacency[i].length && rng() < 0.02);
+    const from = start >= 0 ? start : Math.floor(rng() * neurons.length);
+    if (!adjacency[from].length) return;
+    const sid = adjacency[from][Math.floor(rng() * adjacency[from].length)];
+    impulses.push({ sid, from, t: 0, hops: 3 + Math.floor(rng() * 6), speed: 0.0035 + rng() * 0.003 });
+  }
+  function stepImpulses(dt) {
+    const rate = Math.min(1.6, 0.5 + lobes.filter((l) => l.live).length * 0.08) * st.density;
+    if (impulses.length < 70 && rng() < rate * dt / 16.7) seedImpulse();
+    for (let k = impulses.length - 1; k >= 0; k -= 1) {
+      const p = impulses[k]; p.t += p.speed * dt;
+      if (p.t < 1) continue;
+      const s = synapses[p.sid], to = s.a === p.from ? s.b : s.a;
+      neurons[to].glow = 1;
+      p.hops -= 1;
+      const next = adjacency[to].filter((id) => id !== p.sid);
+      if (p.hops <= 0 || !next.length) { impulses.splice(k, 1); continue; }
+      p.sid = next[Math.floor(rng() * next.length)]; p.from = to; p.t = 0;
+    }
+    for (const n of neurons) if (n.glow > 0) n.glow = Math.max(0, n.glow - 0.0024 * dt);
+  }
+
+  // --- tasks in the core ---------------------------------------------------------------
+  function pulseT(p) { return ((st.t * 0.00016 + p.seed) % 1 + 1) % 1; }
+  function pulsePos(p) {
+    const a = RM[p.from], b = RM[p.to];
+    if (!a || !b) return null;
+    if (p.from === p.to) { const w = 0.05 * Math.sin(st.t * 0.003 + p.seed * 6); return scale(a.v, 1.1 + w); }
+    return segPt(a.v, b.v, pulseT(p));
+  }
+  const trails = new Map();
+  let flashVer = { t: 0, color: "#6fbf73" };
+
+  const theme = { txt: "#e5e8ee", mut: "#8a93a3", line: "rgba(148,163,184,.25)", bg: "#0c0f14" };
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    theme.txt = cs.getPropertyValue("--text").trim() || theme.txt;
+    theme.mut = cs.getPropertyValue("--muted").trim() || theme.mut;
+    theme.line = cs.getPropertyValue("--line-strong").trim() || theme.line;
+    theme.bg = cs.getPropertyValue("--canvas").trim() || theme.bg;
+    dark = lum(theme.txt) > 0.55;
+  }
+  function lobeDim(idx) {
+    if (st.filter === "Pipeline" || st.filter === "Memory" || st.filter === "Blocked") return true;
+    if (st.hover?.kind === "source" && st.hover.lobe !== idx) return true;
+    return false;
+  }
+  function coreDim(k) {
+    if (st.filter === "Sources") return true;
+    if (st.filter === "Memory") return k !== "evi";
+    if (st.filter === "Blocked") return k !== "pln";
+    const h = st.hover?.kind === "region" ? st.hover.reg : null;
+    return Boolean(h && h !== k && !linked(h, k));
+  }
+  function label(text, x, y, alpha, color = theme.txt, weight = 500) {
+    ctx.globalAlpha = alpha; ctx.font = `${weight} 12px "Segoe UI Variable Text", system-ui, sans-serif`;
+    ctx.lineJoin = "round"; ctx.lineWidth = 3; ctx.strokeStyle = theme.bg; ctx.strokeText(text, x, y);
+    ctx.fillStyle = color; ctx.fillText(text, x, y);
+  }
+  function glow(x, y, r, color, alpha) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(color, alpha)); g.addColorStop(1, hexA(color, 0));
+    ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+
+  function step(dt) {
+    const f = dt / 16.7;
+    if (st.motion) { st.t += dt; stepImpulses(dt); }
+    st.orb += (st.motion ? 0.0014 : 0) * f;
+    RM.hum.v = orbitPos(st.orb);
+    if (st.follow && st.model) {
+      const p = st.model.pulses.find((x) => x.taskId === st.follow), pos = p && pulsePos(p);
+      if (pos) st.target = faceAngles(pos);
+    }
+    if (st.target && !st.drag) {
+      const k = reduce ? 1 : 0.06 * f;
+      st.yaw += angDiff(st.yaw, st.target.yaw) * k; st.pitch += (st.target.pitch - st.pitch) * k;
+      if (!st.follow && Math.abs(angDiff(st.yaw, st.target.yaw)) < 0.004 && Math.abs(st.target.pitch - st.pitch) < 0.004) st.target = null;
+    } else if (!st.drag && st.motion) {
+      st.yaw += 0.0011 * f;
+    }
+    if (flashVer.t > 0) flashVer.t = Math.max(0, flashVer.t - 0.025 * f);
+  }
+
+  function drawCortex(front) {
+    const visible = Math.round(neurons.length * (0.25 + 0.75 * st.density));
+    // Node size follows the brain's size on screen, so a phone does not get boulders.
+    const sizeK = Math.max(0.4, Math.min(1, Rr / 420));
+    // Synapses batched per lobe and per hemisphere: one path per colour.
+    for (const lobe of lobes) {
+      const dim = lobeDim(lobe.idx);
+      ctx.beginPath();
+      let any = false;
+      for (const s of synapses) {
+        const a = neurons[s.a], b = neurons[s.b];
+        if (s.a >= visible || s.b >= visible || a.lobe !== lobe.idx) continue;
+        if ((a.z + b.z > 0) !== front) continue;
+        ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); any = true;
+      }
+      if (!any) continue;
+      ctx.strokeStyle = lobe.color; ctx.lineWidth = front ? 0.55 : 0.4;
+      ctx.globalAlpha = (dim ? 0.03 : front ? 0.2 : 0.05) * (lobe.live ? 1 : 0.5);
+      ctx.stroke();
+    }
+    for (let i = 0; i < visible; i += 1) {
+      const n = neurons[i]; if ((n.z >= 0) !== front) continue;
+      const lobe = lobes[n.lobe], dim = lobeDim(n.lobe), depth = (n.z + 1) / 2;
+      const twinkle = 0.75 + 0.25 * Math.sin(st.t * 0.0016 + n.phase);
+      const shell = 0.55 + 0.45 * Math.min(1, (len(n.v) - 0.6) / 0.4);
+      const a = (dim ? 0.08 : front ? 0.95 : 0.2) * (0.25 + 0.75 * depth) * twinkle * shell * (lobe.live ? 1 : 0.45);
+      const r = n.size * n.s * sizeK * (front ? 1 : 0.7) * (1 + n.glow * 1.2);
+      ctx.globalAlpha = a; ctx.fillStyle = n.accent || n.glow > 0.3 ? lobe.color : lobe.pale;
+      ctx.fillRect(n.sx - r / 2, n.sy - r / 2, r, r);
+    }
+    ctx.lineWidth = 0.7;
+    for (const t of tracts) {
+      const a = neurons[t.a], b = neurons[t.b];
+      if ((a.z + b.z > 0) !== front || lobeDim(t.lobe)) continue;
+      ctx.beginPath();
+      for (let k = 0; k <= 24; k += 1) { const q = pr(arcPt(a.v, b.v, k / 24, 1, 0.1)); if (k) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }
+      ctx.strokeStyle = t.tint ? lobes[t.lobe].color : TRACT; ctx.globalAlpha = front ? (t.tint ? 0.2 : 0.11) : 0.04; ctx.stroke();
+    }
+    if (dark) ctx.globalCompositeOperation = "lighter";
+    for (const i of anchors) {
+      const n = neurons[i]; if ((n.z >= 0) !== front || lobeDim(n.lobe)) continue;
+      ctx.globalAlpha = 1; glow(n.sx, n.sy, 14 * n.s, lobes[n.lobe].color, front ? 0.4 : 0.1);
+    }
+    ctx.globalCompositeOperation = "source-over";
+    for (const i of anchors) {
+      const n = neurons[i]; if ((n.z >= 0) !== front || lobeDim(n.lobe)) continue;
+      ctx.globalAlpha = front ? 1 : 0.3; ctx.fillStyle = "#f4fbf8";
+      ctx.beginPath(); ctx.arc(n.sx, n.sy, 3.6 * n.s, 0, 2 * Math.PI); ctx.fill();
+    }
+    if (dark) ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < visible; i += 1) {
+      const n = neurons[i]; if (n.glow < 0.05 || (n.z >= 0) !== front) continue;
+      ctx.globalAlpha = 1; glow(n.sx, n.sy, 9 * n.s, lobes[n.lobe].color, 0.55 * n.glow * (front ? 1 : 0.4));
+    }
+    for (const p of impulses) {
+      const s = synapses[p.sid], a = neurons[p.from], b = neurons[s.a === p.from ? s.b : s.a];
+      if (!a || !b || ((a.z + b.z > 0) !== front)) continue;
+      const x = a.sx + (b.sx - a.sx) * p.t, y = a.sy + (b.sy - a.sy) * p.t;
+      ctx.globalAlpha = front ? 0.95 : 0.35; ctx.fillStyle = lobes[a.lobe].color;
+      ctx.beginPath(); ctx.arc(x, y, front ? 1.6 : 1.1, 0, 2 * Math.PI); ctx.fill();
+      ctx.globalAlpha = 1; glow(x, y, front ? 6 : 4, lobes[a.lobe].color, front ? 0.5 : 0.2);
+    }
+    ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+  }
+
+  function drawCore() {
+    for (const r of RLIST) { const q = pr(r.v); r.sx = q[0]; r.sy = q[1]; r.z = q[2]; r.s = q[3]; }
+    ctx.globalAlpha = 1; glow(cx, cy, Rr * CORE * 1.5, "#1f9a5c", 0.07);
+    // A small globe at the centre: the router everything passes through.
+    ctx.strokeStyle = TRACT; ctx.lineWidth = 0.6;
+    for (let m = 0; m < 6; m += 1) {
+      ctx.beginPath();
+      for (let k = 0; k <= 32; k += 1) { const th = k / 32 * 2 * Math.PI, lon = m / 6 * Math.PI; const q = pr(scale([Math.cos(th) * Math.sin(lon), Math.sin(th), Math.cos(th) * Math.cos(lon)], 0.11)); if (k) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }
+      ctx.globalAlpha = 0.4; ctx.stroke();
+    }
+    for (let la = -2; la <= 2; la += 1) {
+      ctx.beginPath(); const y = la / 3, rr = Math.sqrt(1 - y * y);
+      for (let k = 0; k <= 32; k += 1) { const th = k / 32 * 2 * Math.PI; const q = pr(scale([Math.cos(th) * rr, y, Math.sin(th) * rr], 0.11)); if (k) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }
+      ctx.globalAlpha = 0.4; ctx.stroke();
+    }
+    // Orbit of the human gate.
+    let prev = null;
+    for (let k = 0; k <= 96; k += 1) {
+      const q = pr(orbitPos(k / 96 * 2 * Math.PI));
+      if (prev) { ctx.beginPath(); ctx.moveTo(prev[0], prev[1]); ctx.lineTo(q[0], q[1]); ctx.strokeStyle = "#d8e46a"; ctx.globalAlpha = q[2] > 0 ? 0.3 : 0.1; ctx.lineWidth = 1; ctx.setLineDash([2, 5]); ctx.stroke(); }
+      prev = q;
+    }
+    ctx.setLineDash([]);
+    for (const [x, y] of ARCS) {
+      const ra = RM[x], rb = RM[y], dim = coreDim(x) && coreDim(y);
+      const hot = st.hover?.kind === "region" && (st.hover.reg === x || st.hover.reg === y);
+      let pp = null;
+      for (let k = 0; k <= 20; k += 1) {
+        const q = pr(segPt(ra.v, rb.v, k / 20));
+        if (pp) { ctx.beginPath(); ctx.moveTo(pp[0], pp[1]); ctx.lineTo(q[0], q[1]); ctx.strokeStyle = ra.c; ctx.globalAlpha = (dim ? 0.06 : hot ? 0.9 : 0.4) * (0.4 + 0.6 * (q[2] + 1) / 2); ctx.lineWidth = hot ? 1.6 : 1; ctx.stroke(); }
+        pp = q;
+      }
+    }
+    for (const b of blockedNodes) {
+      const q1 = pr(RM.pln.v), q2 = pr(b.v);
+      ctx.beginPath(); ctx.moveTo(q1[0], q1[1]); ctx.lineTo(q2[0], q2[1]); ctx.strokeStyle = "#e5675f"; ctx.globalAlpha = coreDim("pln") ? 0.1 : 0.55; ctx.setLineDash([3, 4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (dark) ctx.globalCompositeOperation = "lighter";
+    if (st.model) {
+      for (const p of st.model.pulses) {
+        const pos = pulsePos(p); if (!pos) continue;
+        const q = pr(pos), followed = st.follow === p.taskId;
+        const trail = trails.get(p.taskId) || []; trail.push([q[0], q[1]]); if (trail.length > 20) trail.shift(); trails.set(p.taskId, trail);
+        for (let k = 1; k < trail.length; k += 1) {
+          if (Math.hypot(trail[k][0] - trail[k - 1][0], trail[k][1] - trail[k - 1][1]) > 70) continue;
+          ctx.beginPath(); ctx.moveTo(trail[k - 1][0], trail[k - 1][1]); ctx.lineTo(trail[k][0], trail[k][1]);
+          ctx.strokeStyle = "#f2f5fa"; ctx.globalAlpha = (k / trail.length) * (followed ? 0.95 : 0.7); ctx.lineWidth = followed ? 2.6 : 1.8; ctx.stroke();
+        }
+        ctx.globalAlpha = 1; glow(q[0], q[1], followed ? 20 : 14, "#c9ffe0", 0.75);
+        ctx.beginPath(); ctx.arc(q[0], q[1], followed ? 4.2 : 3.2, 0, 2 * Math.PI); ctx.fillStyle = "#ffffff"; ctx.fill();
+        p.sx = q[0]; p.sy = q[1]; p.z = q[2];
+      }
+    }
+    ctx.globalCompositeOperation = "source-over";
+    const hubs = RLIST.filter((r) => inPipeline(r.k)).sort((a, b) => a.z - b.z);
+    for (const r of hubs) {
+      const dim = coreDim(r.k), depth = (r.z + 1) / 2, rad = (r.k === "ver" ? 7.5 : r.orbit ? 7 : 5.5) * r.s;
+      if (dark) ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 1; glow(r.sx, r.sy, rad * 3.4, r.c, (dim ? 0.08 : 0.42) * (0.5 + 0.5 * depth));
+      ctx.globalCompositeOperation = "source-over";
+      if (r.k === "ver") {
+        ctx.save(); ctx.translate(r.sx, r.sy); ctx.rotate(st.t * 0.0011);
+        ctx.beginPath(); ctx.arc(0, 0, rad + 6, 0, 4.4); ctx.strokeStyle = r.c; ctx.globalAlpha = dim ? 0.15 : 0.8; ctx.lineWidth = 1.2; ctx.stroke(); ctx.restore();
+        if (flashVer.t > 0) { ctx.beginPath(); ctx.arc(r.sx, r.sy, rad + 4 + (1 - flashVer.t) * 26, 0, 2 * Math.PI); ctx.strokeStyle = flashVer.color; ctx.globalAlpha = flashVer.t; ctx.lineWidth = 2; ctx.stroke(); }
+      }
+      ctx.globalAlpha = (dim ? 0.25 : 1) * (0.55 + 0.45 * depth);
+      ctx.beginPath(); ctx.arc(r.sx, r.sy, rad, 0, 2 * Math.PI); ctx.fillStyle = r.c; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = theme.bg; ctx.stroke();
+      if (!dim && (r.z > -0.3 || r.orbit)) label(r.n, r.sx + rad + 6, r.sy + 4, 0.5 + 0.5 * depth);
+    }
+    for (const m of memoryNodes) {
+      const q = pr(m.v), rad = (m.trust === "reviewed" ? 3 : 2.3) * q[3];
+      m.sx = q[0]; m.sy = q[1]; m.z = q[2];
+      ctx.globalAlpha = (coreDim("evi") ? 0.15 : 0.95) * (0.45 + 0.55 * (q[2] + 1) / 2);
+      ctx.beginPath(); ctx.arc(q[0], q[1], rad, 0, 2 * Math.PI);
+      if (m.trust === "reviewed") { ctx.fillStyle = MEMORY_COLOR; ctx.fill(); } else { ctx.strokeStyle = MEMORY_COLOR; ctx.lineWidth = 1.2; ctx.stroke(); }
+    }
+    for (const b of blockedNodes) {
+      const q = pr(b.v), rad = 5 * q[3], dim = st.filter !== "All" && st.filter !== "Blocked" && st.filter !== "Pipeline";
+      b.sx = q[0]; b.sy = q[1]; b.z = q[2];
+      ctx.globalAlpha = dim ? 0.2 : 1;
+      ctx.beginPath(); ctx.arc(q[0], q[1], rad + 4 + 2 * Math.sin(st.t * 0.004), 0, 2 * Math.PI); ctx.strokeStyle = "#e5675f"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath(); ctx.arc(q[0], q[1], rad, 0, 2 * Math.PI); ctx.fillStyle = "#e5675f"; ctx.fill();
+      if (!dim && q[2] > -0.3) label(b.id, q[0] + rad + 6, q[1] + 4, 0.9, "#f3a7a1");
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawLobeLabels() {
+    for (const lobe of lobes) {
+      if (!lobe.live) continue;
+      const q = pr(scale(lobe.center, 1.08));
+      if (q[2] < 0.2 || lobeDim(lobe.idx)) continue;
+      ctx.font = '600 12px "Segoe UI Variable Text", system-ui, sans-serif';
+      label(lobe.label, q[0] - ctx.measureText(lobe.label).width / 2, q[1], Math.min(1, (q[2] - 0.2) * 2.2), lobe.color, 600);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (const n of neurons) { const q = pr(n.v); n.sx = q[0]; n.sy = q[1]; n.z = q[2]; n.s = q[3]; }
+    ctx.globalAlpha = 1; glow(cx, cy, Rr * 1.3, "#1f9a5c", 0.09);
+    drawCortex(false);
+    drawCore();
+    drawCortex(true);
+    drawLobeLabels();
+  }
+
+  // --- hit testing ------------------------------------------------------------------------
+  function hitAt(x, y) {
+    let best = null, bd = 1e9;
+    const consider = (d, lim, info) => { if (d < lim && d < bd) { bd = d; best = info; } };
+    if (st.model) for (const p of st.model.pulses) if (p.sx != null) consider(Math.hypot(p.sx - x, p.sy - y) - 4, 14, { kind: "task", id: p.taskId, title: p.title, text: `${PHASE_LABELS[p.phase]} · ${p.lane ? RM[p.lane].n : "model not yet recorded"}` });
+    for (const b of blockedNodes) if (b.sx != null) consider(Math.hypot(b.sx - x, b.sy - y) - 3, 13, { kind: "blocked", id: b.id, title: b.id, text: `Blocked: ${b.reason}` });
+    for (const m of memoryNodes) if (m.sx != null) consider(Math.hypot(m.sx - x, m.sy - y), 8, { kind: "memory", id: m.id, title: m.title, text: `${m.kind} · ${m.trust}` });
+    for (const r of RLIST) if (inPipeline(r.k) && r.sx != null && (r.z > -0.4 || r.orbit)) consider(Math.hypot(r.sx - x, r.sy - y), 13, { kind: "region", reg: r.k, title: r.n, text: r.i });
+    if (!best) {
+      for (const n of neurons) {
+        if (n.z < 0) continue;
+        const d = Math.hypot(n.sx - x, n.sy - y);
+        if (d < 7 && d < bd) { bd = d; const l = lobes[n.lobe]; best = { kind: "source", lobe: l.idx, id: l.id, title: l.label, text: l.live ? `${l.count.toLocaleString()} indexed items. Click to browse; metadata only.` : "No indexed items yet." }; }
+      }
+    }
+    return best;
+  }
+  const pos = (ev) => { const b = canvas.getBoundingClientRect(); return [ev.clientX - b.left, ev.clientY - b.top]; };
+  canvas.addEventListener("pointerdown", (ev) => { const p = pos(ev); st.drag = { x: p[0], y: p[1], moved: false }; canvas.style.cursor = "grabbing"; try { canvas.setPointerCapture(ev.pointerId); } catch { /* optional */ } });
+  canvas.addEventListener("pointermove", (ev) => {
+    const p = pos(ev);
+    if (st.drag) {
+      const dx = p[0] - st.drag.x, dy = p[1] - st.drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) { st.drag.moved = true; st.target = null; st.follow = null; }
+      if (st.drag.moved) { st.yaw += dx * 0.007; st.pitch = Math.max(-1.1, Math.min(1.1, st.pitch + dy * 0.005)); st.drag.x = p[0]; st.drag.y = p[1]; }
+    } else { st.hover = hitAt(p[0], p[1]); onHover(st.hover, p[0], p[1]); canvas.style.cursor = st.hover ? "pointer" : "grab"; }
+  });
+  canvas.addEventListener("pointerup", (ev) => {
+    const p = pos(ev);
+    if (st.drag && !st.drag.moved) {
+      const h = hitAt(p[0], p[1]);
+      if (h?.kind === "source" && h.id !== "_none") { onSource(h.id); api.focusSource(h.id); }
+      else if (h?.kind === "task" || h?.kind === "blocked") onTask(h.id);
+      else if (h?.kind === "region") st.target = faceAngles(RM[h.reg].v);
+    }
+    st.drag = null; canvas.style.cursor = "grab";
+  });
+  canvas.addEventListener("pointerleave", () => { if (!st.drag) { st.hover = null; onHover(null); } });
+
+  const api = {
+    update(model) {
+      buildCortex(model.sources); buildLive(model);
+      st.model = model;
+      const key = model.log.join("|");
+      if (st.lastLedger !== null && key !== st.lastLedger && model.log.length) flashVer = { t: 1, color: /PASSED/.test(model.log[model.log.length - 1]) ? "#6fbf73" : "#e5675f" };
+      st.lastLedger = key;
+      if (st.follow && !model.pulses.some((p) => p.taskId === st.follow)) st.follow = null;
+    },
+    setFilter(g) {
+      st.filter = g; st.follow = null;
+      if (g === "Memory") st.target = faceAngles(RM.evi.v);
+      else if (g === "Blocked" && blockedNodes[0]) st.target = faceAngles(blockedNodes[0].v);
+      else if (g === "Pipeline") st.target = faceAngles(RM.spb.v);
+    },
+    setDensity(x) { st.density = Math.max(0, Math.min(1, x)); },
+    setMotion(on) { st.motion = on; },
+    focusTask(id) {
+      if (st.model?.pulses.some((p) => p.taskId === id)) { st.follow = id; return true; }
+      st.follow = null;
+      const b = blockedNodes.find((x) => x.id === id);
+      if (b) { st.target = faceAngles(b.v); return true; }
+      return false;
+    },
+    focusSource(id) { const l = lobes.find((x) => x.id === id); if (l) { st.follow = null; st.target = faceAngles(l.center); } },
+    following() { return st.follow; },
+    colorForSource(id) { return lobes.find((x) => x.id === id)?.color || "#6b7280"; },
+    groups: Object.keys(coreGroups),
+  };
+
+  window.addEventListener("resize", size);
+  if (window.ResizeObserver) new ResizeObserver(size).observe(viewport);
+  size(); readTheme();
+  let last = performance.now(), frames = 0;
+  function frame(now) {
+    const dt = Math.min(50, now - last); last = now;
+    step(dt); frames += 1; if (frames % 60 === 0) readTheme();
+    draw(); requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  return api;
+}
+
+// Kaya console. Every panel of the classic console, around the Cortex brain.
+// Data comes from the same read-only feeds: the /events stream (falling back
+// to /api/snapshot), the source browse endpoint and the artifact route. All
+// operator text is set with textContent, never parsed as HTML, because task
+// titles arrive from Telegram.
+
+const demo = new URLSearchParams(location.search).get("demo") === "1";
+const $ = (id) => document.getElementById(id);
+const SVG = "http://www.w3.org/2000/svg";
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text != null) node.textContent = String(text);
+  return node;
+}
+function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+function icon(kind) {
+  const svg = document.createElementNS(SVG, "svg"); svg.setAttribute("viewBox", "0 0 16 16"); svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(SVG, "path");
+  path.setAttribute("d", kind === "folder" ? "M1.5 4.5v8h13v-6.5h-6.5l-1.5-1.5z" : "M4 1.5h5l3 3v10h-8z M9 1.5v3h3");
+  path.setAttribute("stroke-linejoin", "round"); svg.append(path); return svg;
+}
+function ago(seconds) {
+  const s = Number(seconds); if (!Number.isFinite(s) || s <= 0) return "unknown";
+  const d = Math.max(0, Date.now() / 1000 - s);
+  if (d < 60) return `${Math.round(d)}s ago`;
+  if (d < 3600) return `${Math.round(d / 60)}m ago`;
+  if (d < 86400) return `${Math.round(d / 3600)}h ago`;
+  return `${Math.round(d / 86400)}d ago`;
+}
+function clock(seconds) {
+  const s = Number(seconds); if (!Number.isFinite(s) || s <= 0) return "–";
+  return new Date(s * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function duration(start, end) {
+  const a = Number(start), b = Number(end) || Date.now() / 1000;
+  if (!a) return "–";
+  const d = Math.max(0, Math.round(b - a));
+  return d < 60 ? `${d}s` : d < 3600 ? `${Math.floor(d / 60)}m ${d % 60}s` : `${Math.floor(d / 3600)}h ${Math.floor((d % 3600) / 60)}m`;
+}
+function pairs(root, entries) {
+  const dl = root.tagName === "DL" ? root : el("dl", "pairs");
+  for (const [k, v] of entries) { if (v == null || v === "") continue; dl.append(el("dt", null, k), el("dd", null, v)); }
+  if (dl !== root) root.append(dl);
+  return dl;
+}
+function plural(n, word) { return `${n} ${word}${n === 1 ? "" : "s"}`; }
+const LANE_NAMES = { lcl: "Local", api: "Free API", sub: "Subscription" };
+
+const state = { data: null, model: null, selected: null, lane: "lcl", boardFilter: "all", browse: null, streamFails: 0, dockTab: "tasks" };
+
+// --- the brain -------------------------------------------------------------------
+const tip = $("tip");
+const sphere = mountSphere({
+  canvas: $("sphereCanvas"),
+  viewport: $("stage"),
+  onHover(info, x, y) {
+    if (!info) { tip.hidden = true; return; }
+    clear(tip); tip.append(el("b", null, info.title), el("span", null, info.text)); tip.hidden = false;
+    const stage = $("stage"), w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = `${Math.max(8, Math.min(stage.clientWidth - w - 8, x + 14))}px`;
+    tip.style.top = `${Math.max(8, Math.min(stage.clientHeight - h - 8, y + 14))}px`;
+  },
+  onSource(id) { const s = state.model?.sources.find((x) => x.id === id); if (s) openSource(s); },
+  onTask(id) { selectTask(id); showDockTab("tasks"); },
+});
+for (const g of ["All", "Sources", "Pipeline", "Memory", "Blocked"]) {
+  const b = el("button", null, g); b.type = "button"; b.setAttribute("aria-pressed", g === "All" ? "true" : "false");
+  b.addEventListener("click", () => { sphere.setFilter(g); for (const o of $("viewSeg").children) o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+  $("viewSeg").append(b);
+}
+$("density").addEventListener("input", (e) => sphere.setDensity(Number(e.target.value)));
+$("motion").addEventListener("click", (e) => {
+  const on = e.currentTarget.getAttribute("aria-pressed") !== "true";
+  e.currentTarget.setAttribute("aria-pressed", String(on)); e.currentTarget.textContent = on ? "Pause motion" : "Resume motion";
+  sphere.setMotion(on);
+});
+$("dockToggle").addEventListener("click", (e) => {
+  const hidden = $("shell").classList.toggle("dock-hidden");
+  e.currentTarget.textContent = hidden ? "Show panel" : "Hide panel";
+  e.currentTarget.setAttribute("aria-expanded", String(!hidden));
+});
+
+// --- header ---------------------------------------------------------------------------
+function setStatus(id, text, toneName) { const node = $(id); node.className = `status ${toneName || ""}`; node.querySelector("span").textContent = text; }
+function renderBar(data, model) {
+  if (model.sealed) setStatus("modeStatus", "Sealed, sign in", "bad");
+  else if (model.demo) setStatus("modeStatus", "Demo data", "demo");
+  else if (model.counts.running) setStatus("modeStatus", `Live · ${plural(model.counts.running, "task")} running`, "ok");
+  else setStatus("modeStatus", "Live · idle", "ok");
+  const tally = $("tally"); clear(tally);
+  const rows = model.log.length;
+  for (const [k, v, bad] of [["Tasks", model.counts.tasks], ["Running", model.counts.running], ["Blocked", model.counts.blocked, model.counts.blocked > 0],
+                              [`Passed, last ${rows}`, model.counts.accepted], [`Failed, last ${rows}`, model.counts.rejected],
+                              ["Indexed", model.indexedCount.toLocaleString()]]) {
+    const d = el("div"); d.append(el("dt", null, k), el("dd", bad ? "bad" : null, v)); tally.append(d);
+  }
+  const services = $("services"); clear(services);
+  const procs = data.daemons?.processes;
+  if (procs && typeof procs === "object" && !Array.isArray(procs)) for (const [name, up] of Object.entries(procs)) services.append(el("span", up ? "up" : "down", name));
+  else if (Array.isArray(procs)) for (const p of procs) services.append(el("span", p.alive ? "up" : "down", p.name || p.role || "process"));
+}
+setInterval(() => { $("clock").textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }); tickNow(); }, 1000);
+
+// --- sources ------------------------------------------------------------------------------
+function renderSources(model, data) {
+  const list = $("sourceList"); clear(list);
+  const q = $("sourceSearch").value.trim().toLowerCase();
+  const max = Math.max(1, ...model.sources.map((s) => s.count));
+  $("sourceTotal").textContent = model.sources.length ? `${model.sources.length} · ${model.indexedCount.toLocaleString()}` : "";
+  const sources = model.sources.filter((s) => !q || s.label.toLowerCase().includes(q) || s.id.includes(q)).sort((a, b) => b.count - a.count);
+  if (!model.sources.length) list.append(el("li", "empty", model.graphDiagnostic || "No source index is attached."));
+  else if (!sources.length) list.append(el("li", "empty", "No source matches that filter."));
+  for (const s of sources) {
+    const li = el("li");
+    const row = el("button", `source${s.count ? "" : " pending"}`); row.type = "button"; row.dataset.focusKey = `source:${s.id}`;
+    row.setAttribute("aria-current", state.browse?.source === s.id ? "true" : "false");
+    const color = sphere.colorForSource(s.id);
+    const sw = el("span", "sw"); sw.style.background = color;
+    const share = el("span", "share"), fill = el("span");
+    fill.style.width = `${Math.max(s.count ? 2 : 0, (Math.sqrt(s.count) / Math.sqrt(max)) * 100)}%`; fill.style.background = color; share.append(fill);
+    row.append(sw, el("span", "name", s.label), el("span", "count num", s.count.toLocaleString()), share);
+    row.addEventListener("click", () => openSource(s));
+    li.append(row); list.append(li);
+  }
+  $("sourceNote").textContent = model.demo
+    ? "Synthetic demonstration records. No local or cloud source was read."
+    : "Metadata only. Each coloured region of the brain is one source, sized from its exact item count; names stay on the device until you open a folder.";
+}
+$("sourceSearch").addEventListener("input", () => state.model && renderSources(state.model, state.data));
+
+function openSource(source) {
+  state.browse = { source: source.id, stack: [{ id: null, name: source.label }], offset: 0 };
+  sphere.focusSource(source.id);
+  renderSources(state.model, state.data);
+  loadBranch(0);
+}
+function drawBrowser(message, items = [], hasMore = false) {
+  const root = $("sourceBrowser"); clear(root);
+  if (!state.browse) { root.hidden = true; return; }
+  root.hidden = false;
+  const crumbs = el("nav", "crumbs"); crumbs.setAttribute("aria-label", "Folder path");
+  state.browse.stack.forEach((entry, i) => {
+    if (i) crumbs.append(el("span", null, "/"));
+    if (i === state.browse.stack.length - 1) crumbs.append(el("span", "here", entry.name));
+    else { const b = el("button", null, entry.name); b.type = "button"; b.addEventListener("click", () => { state.browse.stack.length = i + 1; loadBranch(0); }); crumbs.append(b); }
+  });
+  const close = el("button", null, "Close"); close.type = "button";
+  close.addEventListener("click", () => { state.browse = null; drawBrowser(); renderSources(state.model, state.data); });
+  crumbs.append(el("span", null, "·"), close);
+  root.append(crumbs);
+  if (message) root.append(el("p", "browser-note", message));
+  const list = el("ul", "entries");
+  for (const item of items) {
+    const folder = item.kind === "folder", li = el("li");
+    const row = el(folder ? "button" : "div", "entry"); if (folder) row.type = "button";
+    const meta = folder ? "" : item.size != null ? `${Math.max(1, Math.round(item.size / 1024)).toLocaleString()} KB` : item.kind || "";
+    row.append(icon(folder ? "folder" : "file"), el("span", "label", item.name || item.label || item.id), el("span", "meta", meta));
+    if (folder) row.addEventListener("click", () => { state.browse.stack.push({ id: item.id, name: item.name || item.label || item.id }); loadBranch(0); });
+    li.append(row); list.append(li);
+  }
+  root.append(list);
+  const pager = el("div", "pager");
+  if (state.browse.offset > 0) { const b = el("button", "btn-quiet", "Previous"); b.type = "button"; b.addEventListener("click", () => loadBranch(Math.max(0, state.browse.offset - 50))); pager.append(b); }
+  if (hasMore) { const b = el("button", "btn-quiet", "Next 50"); b.type = "button"; b.addEventListener("click", () => loadBranch(state.browse.offset + 50)); pager.append(b); }
+  if (pager.children.length) root.append(pager);
+}
+async function loadBranch(offset) {
+  const browse = state.browse; if (!browse) return;
+  const parent = browse.stack[browse.stack.length - 1];
+  browse.offset = offset;
+  if (state.model?.demo) {
+    const children = (state.data.file_graph?.items || []).filter((i) => i.source === browse.source && (i.parent_id || null) === (parent.id || null));
+    drawBrowser(children.length ? "" : "No synthetic records in this folder.", children.slice(offset, offset + 50).map((i) => ({ id: i.id, name: i.label, kind: i.kind })), offset + 50 < children.length);
+    return;
+  }
+  drawBrowser("Loading…");
+  const params = new URLSearchParams({ source: browse.source, offset: String(offset) });
+  if (parent.id) params.set("parent", parent.id);
+  try {
+    const response = await fetch(`/api/file-graph/children?${params}`, { credentials: "same-origin", cache: "no-store" });
+    if (!response.ok) throw new Error(response.status === 503 ? "The index changed since the browse catalog was built. Refresh the catalog, then try again." : response.status === 404 ? "This folder is no longer in the index." : "This folder couldn't be opened.");
+    const page = await response.json();
+    if (state.browse !== browse || browse.stack[browse.stack.length - 1] !== parent) return;
+    drawBrowser(page.items.length ? "" : "This folder has no indexed items.", page.items, page.has_more);
+  } catch (exc) { if (state.browse === browse) drawBrowser(exc.message || "Browsing is unavailable."); }
+}
+
+// --- right rail ------------------------------------------------------------------------------
+function renderNow(model, data) {
+  const root = $("now"); clear(root);
+  const last = (data.ledger_events || [])[0];
+  if (model.now) {
+    const s = el("span", "state run"); s.append(el("i"), el("span", null, `Running · ${PHASE_LABELS[model.now.phase]}`)); root.append(s);
+    root.append(el("h2", null, model.now.title));
+    const steps = el("div", "steps"), at = PHASES.indexOf(model.now.phase);
+    PHASES.forEach((p, i) => { const step = el("span", i < at ? "done" : i === at ? "active" : ""); step.append(el("b"), el("em", null, PHASE_LABELS[p])); steps.append(step); });
+    root.append(steps);
+    pairs(root, [["Task", model.now.id], ["Lane", model.now.lane ? LANE_NAMES[model.now.lane] : "Not yet recorded"],
+                 ["Requested", model.now.requestedModel || "No pin"], ["Served", model.now.model || "Not yet recorded"],
+                 ["Elapsed", duration(model.now.startedAt)]]);
+    root.dataset.started = String(model.now.startedAt || "");
+  } else {
+    const s = el("span", model.sealed ? "state" : "state idle"); s.append(el("i"), el("span", null, model.sealed ? "Sealed" : "Idle")); root.append(s);
+    root.append(el("h2", null, model.sealed ? "Sign in to see the live board" : "Nothing is running"));
+    root.append(el("p", null, model.counts.blocked ? `${plural(model.counts.blocked, "task")} blocked. Open Tasks below to see why.` : "Send a request from Telegram to start a task."));
+    if (last) pairs(root, [["Last verdict", `${last.outcome} · ${last.task_id}`], ["When", ago(last.timestamp)]]);
+    root.dataset.started = "";
+  }
+}
+function tickNow() {
+  const started = Number($("now").dataset.started);
+  if (!started) return;
+  const dds = $("now").querySelectorAll("dd"), lastDd = dds[dds.length - 1];
+  if (lastDd) lastDd.textContent = duration(started);
+}
+function renderLoad(model) {
+  const root = $("laneLoad"); clear(root);
+  const total = Math.max(1, model.counts.running);
+  for (const key of ["lcl", "api", "sub"]) {
+    const n = model.laneLoad[key] || 0, row = el("div", "row"), track = el("span", "bar-track"), fill = el("span");
+    fill.style.width = `${(n / total) * 100}%`; track.append(fill);
+    row.append(el("span", null, LANE_NAMES[key]), track, el("span", "num", n)); root.append(row);
+  }
+  if (!model.counts.running) root.append(el("p", "empty", "No task is using a lane right now."));
+}
+const LANES = [
+  { key: "lcl", tab: "Local", runtime: "ollama-native",
+    receives: "Task prompt and required artifact paths", tools: "List, read and write files in the task workspace; no shell",
+    returns: "Served model, tool and write counts, verifier result", routeLane: "lcl" },
+  { key: "api", tab: "Free API", runtime: "hermes",
+    receives: "Task prompt, role brief and inlined skill text", tools: "Whatever Hermes enables for the run",
+    returns: "Requested and served model from the usage file, verifier result", routeLane: "api" },
+  { key: "claude", tab: "Claude", runtime: "claude",
+    receives: "Full task prompt, starting in the task workspace", tools: "Claude Code's tools in that workspace",
+    returns: "Exit status and workspace diff; the verifier still decides", routeLane: "sub", provider: "claude" },
+  { key: "codex", tab: "Codex", runtime: "codex",
+    receives: "Full task prompt on stdin, workspace-write mode", tools: "Codex's tools in that workspace",
+    returns: "Exit status and workspace diff; the verifier still decides", routeLane: "sub", provider: "codex" },
+];
+for (const lane of LANES) {
+  const b = el("button", null, lane.tab); b.type = "button"; b.setAttribute("role", "tab");
+  b.setAttribute("aria-selected", lane.key === state.lane ? "true" : "false");
+  b.addEventListener("click", () => { state.lane = lane.key; for (const o of $("laneTabs").children) o.setAttribute("aria-selected", o === b ? "true" : "false"); renderLanes(state.model, state.data); });
+  $("laneTabs").append(b);
+}
+function runsOnLane(data, lane) {
+  return (data.tasks || []).filter((t) => {
+    const tel = t.telemetry || {};
+    const runtime = String(tel.agent_runtime || tel.requested_runtime || "").toLowerCase(), provider = String(tel.provider || "").toLowerCase();
+    if (lane.key === "claude" || lane.key === "codex") return runtime === lane.key;
+    if (lane.key === "lcl") return runtime === "ollama-native" || provider.startsWith("ollama");
+    return tel.model && !["claude", "codex", "ollama-native"].includes(runtime) && !provider.startsWith("ollama");
+  });
+}
+function renderLanes(model, data) {
+  if (!model) return;
+  const lane = LANES.find((l) => l.key === state.lane), root = $("laneLens"); clear(root);
+  const routes = model.routes.items.filter((r) => r.laneKey === lane.routeLane && (!lane.provider || r.provider.toLowerCase() === lane.provider));
+  const admitted = routes.filter((r) => r.admitted).length, runs = runsOnLane(data, lane);
+  const verdict = el("span", `verdict ${admitted ? "ok" : routes.length ? "warn" : ""}`);
+  verdict.append(el("i"), el("span", null, admitted ? plural(admitted, "admitted route") : routes.length ? "Registered, not admitted" : "No route registered"));
+  root.append(verdict);
+  pairs(root, [["Runtime", lane.runtime], ["Receives", lane.receives], ["Tools", lane.tools], ["Returns", lane.returns], ["On the board", plural(runs.length, "recorded run")]]);
+  for (const r of routes) {
+    const card = el("div", "route"), head = el("div", `model${r.admitted ? " admitted" : ""}`);
+    head.append(el("i"), el("span", "id", r.model || r.name)); card.append(head);
+    if (r.evidence) card.append(el("p", null, r.evidence));
+    root.append(card);
+  }
+  $("routeVersion").textContent = model.routes.version || "";
+  const observed = $("observed"); clear(observed);
+  const counts = new Map();
+  for (const t of data.tasks || []) { const tel = t.telemetry || {}; if (!tel.model) continue; const k = `${tel.model}${tel.provider ? ` @ ${tel.provider}` : ""}`; counts.set(k, (counts.get(k) || 0) + 1); }
+  if (!counts.size) observed.append(el("li", "empty", "No served model is recorded on the board."));
+  for (const [k, n] of [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)) { const li = el("li"); li.append(el("span", "id", k), el("span", "num", plural(n, "run"))); observed.append(li); }
+  const roles = $("roleRoutes"); clear(roles);
+  const entries = Object.entries(model.routes.roles);
+  if (!entries.length) roles.append(el("dd", "empty", "No role routes are loaded."));
+  for (const [role, route] of entries) roles.append(el("dt", null, role.replace(/_/g, " ")), el("dd", "id", route));
+}
+
+// --- dock ---------------------------------------------------------------------------------------
+const DOCK = [["tasks", "Tasks"], ["ledger", "Ledger"], ["brain", "Brain"], ["capabilities", "Capabilities"], ["radar", "Radar"]];
+for (const [key, label] of DOCK) {
+  const b = el("button", null, label); b.type = "button"; b.setAttribute("role", "tab"); b.dataset.tab = key;
+  b.setAttribute("aria-selected", key === state.dockTab ? "true" : "false"); b.setAttribute("aria-controls", `panel-${key}`);
+  b.addEventListener("click", () => showDockTab(key));
+  $("dockTabs").append(b);
+}
+function showDockTab(key) {
+  state.dockTab = key;
+  const card = document.getElementById(`panel-${key}`);
+  if (card) card.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+}
+const FILTERS = [["all", "All"], ["running", "Running"], ["blocked", "Blocked"], ["done", "Done"]];
+for (const [key, label] of FILTERS) {
+  const b = el("button", null, label); b.type = "button"; b.setAttribute("aria-pressed", key === "all" ? "true" : "false");
+  b.addEventListener("click", () => { state.boardFilter = key; for (const o of $("boardFilters").children) o.setAttribute("aria-pressed", o === b ? "true" : "false"); renderBoard(state.model); });
+  $("boardFilters").append(b);
+}
+function tone(row) {
+  if (row.status === "blocked" || row.outcome === "failed") return ["tone-bad", "#ec7a72"];
+  if (row.state === "running") return ["tone-run", "#8fb3e8"];
+  if (row.state === "stale") return ["tone-warn", "#dcaa4f"];
+  if (row.status === "done") return ["tone-ok", "#74c47c"];
+  return ["tone-idle", "#858d9b"];
+}
+function renderBoard(model) {
+  const body = $("board"); clear(body);
+  const rows = model.tasks.filter((r) => state.boardFilter === "all" || (state.boardFilter === "running" ? r.state === "running" : state.boardFilter === "blocked" ? r.status === "blocked" : r.status === "done"));
+  $("boardCount").textContent = `${rows.length} of ${model.tasks.length}`;
+  if (!rows.length) {
+    const tr = el("tr"), td = el("td", "empty", model.sealed ? "Sign in to see the board." : model.tasks.length ? "No task matches this filter." : "No tasks yet. Send a request from Telegram to start one.");
+    td.colSpan = 4; tr.append(td); body.append(tr); return;
+  }
+  for (const row of rows) {
+    const tr = el("tr"); tr.tabIndex = 0; tr.dataset.focusKey = `task:${row.id}`; tr.setAttribute("aria-selected", state.selected === row.id ? "true" : "false");
+    const [cls, color] = tone(row), prog = el("span", "progress");
+    for (let k = 0; k < 5; k += 1) { const i = el("i"); if (k < row.phaseIndex) i.style.background = "#74c47c"; else if (k === row.phaseIndex) i.style.background = color; prog.append(i); }
+    const tdProg = el("td"); tdProg.append(prog);
+    const tdState = el("td", "r"); tdState.append(el("span", `state-word ${cls}`, row.state === "running" && row.phase ? PHASE_LABELS[row.phase] : row.status || row.state));
+    tr.append(el("td", "id", row.id), el("td", "ttl", row.title), tdProg, tdState);
+    tr.addEventListener("click", () => selectTask(row.id));
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectTask(row.id); } });
+    body.append(tr);
+  }
+}
+function selectTask(id) {
+  state.selected = id;
+  sphere.focusTask(id);
+  renderBoard(state.model); renderInspector();
+}
+function renderInspector() {
+  const root = $("inspector"); clear(root);
+  const data = state.data, task = data && (data.tasks || []).find((t) => t.id === state.selected);
+  if (!task) { root.append(el("p", "empty", "Select a task to see its run, lifecycle, artifacts and logs.")); return; }
+  const tel = task.telemetry || {};
+  root.append(el("h2", null, task.title || task.id), el("p", "sub", `${task.id} · ${task.status}${tel.run_id != null ? ` · run ${tel.run_id}` : ""}`));
+  if (tel.error) root.append(el("p", "callout-bad", tel.error));
+  pairs(root, [
+    ["Runtime", tel.agent_runtime || tel.requested_runtime || "hermes (default)"],
+    ["Requested", tel.requested_model ? `${tel.requested_model}${tel.requested_provider ? ` @ ${tel.requested_provider}` : ""}` : "No pin"],
+    ["Served", tel.model ? `${tel.model}${tel.provider ? ` @ ${tel.provider}` : ""}` : "Not recorded"],
+    ["Outcome", tel.run_outcome ? `${tel.run_status || ""} · ${tel.run_outcome}` : tel.run_status],
+    ["Started", tel.started_at ? `${clock(tel.started_at)} (${ago(tel.started_at)})` : null],
+    ["Duration", tel.started_at ? duration(tel.started_at, tel.ended_at) : null],
+    ["Worker", tel.claim_lock], ["Workspace", task.workspace_path], ["Worktree", tel.worktree_path || tel.branch_name], ["Summary", tel.summary],
+  ]);
+  if ((tel.phases || []).length) {
+    root.append(el("h4", null, "Lifecycle"));
+    const list = el("ul", "timeline");
+    for (const p of tel.phases) { const li = el("li", p.state), t = el("div"); t.append(el("span", null, PHASE_LABELS[p.key] || p.key), el("small", null, p.evidence || p.state)); li.append(el("i"), t); list.append(li); }
+    root.append(list);
+  }
+  const ids = (data.rule_task_links || []).filter((l) => l.task_id === task.id).map((l) => l.proposal_id);
+  const rules = (data.rules || []).filter((r) => ids.includes(r.proposal_id));
+  if (rules.length) {
+    root.append(el("h4", null, "Governing memory"));
+    const list = el("ul", "records");
+    for (const r of rules) { const li = el("li"); li.append(el("b", null, r.rule_id), el("p", null, (r.checks || []).join(" · "))); list.append(li); }
+    root.append(list);
+  }
+  const artifacts = tel.artifacts || [];
+  if (artifacts.length) {
+    root.append(el("h4", null, `Artifacts (${artifacts.length})`));
+    artifacts.forEach((a, index) => {
+      const row = el("div", "artifact"); row.append(el("span", "id", a.path || `artifact ${index + 1}`));
+      if (!state.model.demo) {
+        const pv = el("button", "btn-quiet", "Preview"); pv.type = "button"; pv.addEventListener("click", () => openPreview(task.id, index, a.path));
+        const op = el("a", "btn-quiet", "Open"); op.href = `/artifact/${encodeURIComponent(task.id)}/${index}`; op.target = "_blank"; op.rel = "noopener";
+        row.append(pv, op);
+      }
+      root.append(row);
+    });
+  }
+  for (const log of tel.logs || []) {
+    root.append(el("h4", null, `${log.name} log${log.truncated ? " (tail)" : ""}`));
+    root.append(el("pre", "tail", log.error ? log.error : (log.lines || []).join("\n") || "Empty."));
+  }
+  if (task.prompt) { root.append(el("h4", null, "Request")); root.append(el("pre", "tail", task.prompt)); }
+}
+function openPreview(taskId, index, path) {
+  $("previewTitle").textContent = path || "Artifact";
+  $("previewFrame").src = `/artifact/${encodeURIComponent(taskId)}/${index}`;
+  $("preview").showModal();
+}
+$("previewClose").addEventListener("click", () => { $("preview").close(); $("previewFrame").src = "about:blank"; });
+
+function renderLedger(data) {
+  const body = $("ledger"); clear(body);
+  const rows = data.ledger_events || [];
+  if (!rows.length) { const tr = el("tr"), td = el("td", "empty", "No ledger rows in this snapshot."); td.colSpan = 5; tr.append(td); body.append(tr); }
+  for (const e of rows) {
+    const tr = el("tr"); tr.tabIndex = 0;
+    const cls = e.outcome === "passed" ? "tone-ok" : /fail|quarant/.test(e.outcome || "") ? "tone-bad" : "tone-warn";
+    const td = el("td"); td.append(el("span", `state-word ${cls}`, e.outcome));
+    tr.append(el("td", "num", clock(e.timestamp)), el("td", "id", e.task_id), td, el("td", "r num", e.verify_exit ?? "–"), el("td", "r num", e.seconds != null ? Math.round(e.seconds) : "–"));
+    tr.addEventListener("click", () => { selectTask(e.task_id); showDockTab("tasks"); });
+    body.append(tr);
+  }
+}
+function renderMemory(model) {
+  const root = $("memory"); clear(root);
+  const m = model.memory, left = el("div"), right = el("div");
+  left.append(el("h4", null, `Memories (${m.count})`));
+  const facts = el("div", "facts"); facts.append(el("span", null, "Inbox "), el("b", null, m.inbox), el("span", null, "Status "), el("b", null, m.status)); left.append(facts);
+  if (m.diagnostic) left.append(el("p", "empty", m.diagnostic));
+  const list = el("ul", "records");
+  for (const item of m.items) { const li = el("li", `mem${item.trust === "reviewed" ? "" : " unreviewed"}`); li.append(el("b", null, item.title), el("p", null, `${item.kind} · ${item.trust}${item.source ? ` · ${item.source}` : ""}`)); list.append(li); }
+  if (!m.items.length) list.append(el("li", "empty", "No retained memories in this snapshot."));
+  left.append(list);
+  right.append(el("h4", null, `Accepted rules (${m.rules.length})`));
+  const rl = el("ul", "records");
+  for (const r of m.rules) { const li = el("li"); li.append(el("b", null, r.rule_id), el("p", null, `${r.task_kind || "rule"} · ${(r.checks || []).join(" · ")} · ${plural((r.citations || []).length, "citation")}`)); rl.append(li); }
+  if (!m.rules.length) rl.append(el("li", "empty", "No accepted rules yet."));
+  right.append(rl);
+  root.append(left, right);
+}
+function flag(text) {
+  const t = String(text || "").toLowerCase();
+  const cls = /routable|available|ready|reviewed|adopt/.test(t) ? "tone-ok" : /gated|approval|evaluate|pending|hold/.test(t) ? "tone-warn" : /reject|missing|error|fail/.test(t) ? "tone-bad" : "tone-idle";
+  return el("span", `flag ${cls}`, text || "–");
+}
+function renderCapabilities(data) {
+  const c = data.capabilities || {}, root = $("capabilities"); clear(root);
+  const wrap = el("div", "listing"), facts = el("div", "facts");
+  for (const [k, v] of [["Total", c.total], ["Routable", c.routable], ["Active", c.active], ["Gated", c.gated], ["Archived", c.archived], ["Candidates", c.candidates]]) if (v != null) facts.append(el("span", null, `${k} `), el("b", null, Number(v).toLocaleString()));
+  wrap.append(facts);
+  if (c.diagnostic) wrap.append(el("p", "empty", c.diagnostic));
+  const list = el("ul", "records");
+  for (const item of c.items || []) { const li = el("li"), head = el("div"); head.append(flag(item.adapter_status), el("b", null, item.name)); li.append(head, el("p", null, [item.kind, item.availability, item.health_status, (item.tags || []).join(", ")].filter(Boolean).join(" · "))); list.append(li); }
+  if (!(c.items || []).length) list.append(el("li", "empty", "No capability records in this snapshot."));
+  wrap.append(list); root.append(wrap);
+}
+function renderRadar(data) {
+  const r = data.radar || {}, root = $("radar"); clear(root);
+  const wrap = el("div", "listing"), facts = el("div", "facts");
+  for (const [k, v] of [["Candidates", r.candidate_count], ["Evaluated", r.evaluated_count], ["Errors", r.error_count]]) if (v != null) facts.append(el("span", null, `${k} `), el("b", null, v));
+  if (r.generated_at) facts.append(el("span", null, `Generated ${r.generated_at}`));
+  wrap.append(facts);
+  if (r.diagnostic) wrap.append(el("p", "empty", r.diagnostic));
+  const evals = new Map((r.evaluations || []).map((e) => [e.name, e]));
+  const list = el("ul", "records");
+  for (const c of r.candidates || []) {
+    const e = evals.get(c.name), li = el("li"), head = el("div"); head.append(flag(c.disposition), el("b", null, c.name));
+    li.append(head, el("p", null, [c.source, (c.signals || []).join(", "), e ? `${e.static_verdict} / ${e.dynamic_status}` : ""].filter(Boolean).join(" · "))); list.append(li);
+  }
+  if (!(r.candidates || []).length) list.append(el("li", "empty", "The radar has no candidates in this snapshot."));
+  wrap.append(list); root.append(wrap);
+}
+function renderStage(model) {
+  const root = $("stageStatus"); clear(root);
+  const live = model.sources.filter((s) => s.count).length;
+  root.append(el("strong", null, model.sealed ? "Sealed" : model.counts.running ? `${plural(model.counts.running, "task")} running` : "Idle"),
+    el("span", null, model.sealed ? "Sign in to see the board." : `${model.indexedCount.toLocaleString()} indexed items across ${plural(live, "source")}. Each coloured region is one source; bright traces in the core are running tasks.`));
+  $("dockMeta").textContent = `${plural(model.counts.tasks, "task")} · ${`${model.memory.count} ${model.memory.count === 1 ? "memory" : "memories"}`} · ${(state.data.capabilities?.routable ?? 0).toLocaleString()} routable capabilities`;
+}
+
+// --- data feed -------------------------------------------------------------------------------
+// The stream pushes every two seconds whether or not anything changed.
+// Re-rendering an identical snapshot would reset focus and hover for nothing,
+// and rebuilding a changed one must hand keyboard focus back to the same row.
+let lastRaw = "";
+function renderRaw(raw) {
+  if (raw === lastRaw) return;
+  lastRaw = raw;
+  const focusKey = document.activeElement?.dataset?.focusKey;
+  render(JSON.parse(raw));
+  if (focusKey) document.querySelector(`[data-focus-key="${CSS.escape(focusKey)}"]`)?.focus();
+}
+function render(data) {
+  state.data = data;
+  const model = buildSphereModel(data);
+  state.model = model;
+  if (!state.selected && model.now) state.selected = model.now.id;
+  sphere.update(model);
+  renderBar(data, model); renderStage(model); renderSources(model, data); renderNow(model, data); renderLoad(model); renderLanes(model, data);
+  renderBoard(model); renderInspector(); renderLedger(data); renderMemory(model); renderCapabilities(data); renderRadar(data);
+}
+
+function sealedSnapshot() {
+  const raw = JSON.parse(document.getElementById("demoSnapshot").textContent);
+  const delta = Math.floor(Date.now() / 1000) - raw._captured;
+  const lo = raw._captured - 86400 * 30, hi = raw._captured + 3600;
+  const shift = (o) => {
+    if (Array.isArray(o)) return o.map(shift);
+    if (o && typeof o === "object") { const r = {}; for (const [k, v] of Object.entries(o)) r[k] = shift(v); return r; }
+    return typeof o === "number" && Number.isInteger(o) && o > lo && o < hi ? o + delta : o;
+  };
+  delete raw._captured;
+  return shift(raw);
+}
+const SEALED = sealedSnapshot();
+function poll() { renderRaw(JSON.stringify(SEALED)); }
+function openStream() { setStatus("streamStatus", "Sealed demo", "ok"); }
+// --- theme ------------------------------------------------------------------------------------
+function setTheme(mode) {
+  document.documentElement.dataset.theme = mode;
+  $("themeToggle").textContent = mode === "light" ? "Dark theme" : "Light theme";
+  try { localStorage.setItem("kaya-theme", mode); } catch { /* storage unavailable */ }
+}
+let savedTheme = "dark";
+try { savedTheme = localStorage.getItem("kaya-theme") || "dark"; } catch { /* default */ }
+setTheme(savedTheme);
+$("themeToggle").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
+
+poll();
+openStream();
+
+// Boxes fade in once as they scroll into view.
+{
+  const cards = document.querySelectorAll(".card");
+  if (!("IntersectionObserver" in window)) cards.forEach((c) => c.classList.add("in"));
+  else {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => { if (e.isIntersecting) { setTimeout(() => e.target.classList.add("in"), i * 50); io.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    cards.forEach((c) => io.observe(c));
+    // Never leave a box invisible if the observer is slow or unavailable.
+    setTimeout(() => cards.forEach((c) => c.classList.add("in")), 2500);
+  }
+}
+
+</script>
+</body>
+</html>
