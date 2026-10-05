@@ -1,227 +1,264 @@
-<h1>Tri-AI</h1>
+# Tri-AI
 
-<p>
-  <strong>A delegated task is accepted or rejected by a verification command's exit code,<br>
-  never by the agent's own report.</strong>
-</p>
+**A multi-agent build system that accepts work only when a verification command exits 0 —
+never on the agent's own report.**
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Ledger](https://img.shields.io/badge/ledger-9%2F9%20verified-2ea043)](evidence/ledger.jsonl)
-![Marginal cost](https://img.shields.io/badge/marginal%20cost-%240-2ea043)
-[![Tests](https://img.shields.io/badge/tests-1%2C494%20passing-2ea043)](tests/)
-[![Routes](https://img.shields.io/badge/routes-20%20of%20574%20admitted-8b949e)](evidence/MODEL_SWEEP.md)
+A request, typically a plain message sent from a phone over Telegram, becomes a graph of
+specialist tasks on an always-on GPU desktop. Each task runs on the cheapest model route that has
+proven it can do agentic work, inside a contained process, against a task-specific verifier. A
+passing exit code completes the task. Anything else reverts the workspace and records why. Every
+attempt lands in an append-only ledger, and a read-only console (Kaya, with its Cortex view) shows
+what ran, on which model, and what the verifier said.
 
-A local-first agent execution system for turning a scoped request into a reviewable delivery:
-research, plan, build, verify, and prepare the release decision. It routes work to bounded
-specialists, retains evidence, and refuses to accept a delegated result on an agent's word alone.
+This repository is a sealed, scrubbed showcase of that system. The creator,
+[Ardit Mishra](https://arditmishra.com), runs a larger private deployment; the
+[section below](#this-repository-vs-the-private-system) says exactly what differs.
 
-> **Live visual demo:** [Open the interactive dashboard](https://tri-ai-demo.onrender.com/).
-> It sleeps on Render's free tier, so the first load spends **30–60 seconds** on Render's own
-> waking screen before the board appears. That wait is the hosting, not the application.
-> It is intentionally a labeled simulation that illustrates
-> the task graph, retained memory, capability routing, verification loop, and human release gate
-> without exposing an operator's live tasks, logs, machines, or credentials. See
-> [the demo guide](docs/SHOWCASE.md).
+> **Live demo:** [tri-ai.arditmishra.com](https://tri-ai.arditmishra.com/) — a labelled
+> simulation with synthetic data, served as one static, self-contained page. It never connects
+> to a live board, model provider or agent. [Demo guide](docs/SHOWCASE.md) ·
+> [run it locally](docs/PUBLIC_DEMO.md).
 
-**Reproduce it:** [`docs/PUBLIC_DEMO.md`](docs/PUBLIC_DEMO.md) has the
-copy-paste local run, boundary checks, and a no-secrets Render Blueprint path.
+<img src="docs/img/cortex-hero.png" alt="The Kaya console in the sealed public demo: a rotating sphere of synthetic source regions with planner, specialist and human-gate nodes, labelled Demo data and Sealed demo." width="100%">
 
 <img src="docs/img/verify-gate.svg" alt="A claimed task runs on a free model; the model's own report is discarded; a verify command's exit code decides whether the work is accepted or reverted." width="100%">
 
-<img src="docs/img/tri-ai-system.svg" alt="Tri-AI routes a task through research, planning, build, verification, retained evidence, and a human release gate." width="100%">
+## Why the gate exists
 
-## The one idea
-
-This is not caution for its own sake. Observed on the same free model, the same day:
+Observed on the same free model, on the same day:
 
 | task | oracle | result |
 |---|---|---|
-| Delete two project entries | `grep` returns empty | perfect |
+| Delete two project entries | `grep` returns empty | correct |
 | Rewrite three prose strings | *none* | **deleted 387 of 389 lines and reported success** |
 
-The difference was not difficulty. It was whether a command could judge the result. So the rule
-that falls out of it:
+The difference was not difficulty. It was whether a command could judge the result. The rule
+that follows:
 
 > If you cannot write a command that proves the task worked, the task does not belong in the
-> queue. Leave it for the expensive model.
+> queue.
 
-Everything else in this repo is downstream of that sentence.
+Everything else in this repository is downstream of that rule.
 
-## What is actually automated
+## How it works
 
-Being precise about this matters more than the architecture diagram, because the interesting
-claim is not "I built an agent system" — it is "I know exactly which parts of it I can trust."
+```mermaid
+flowchart TB
+    phone([Phone]) --> tg["Telegram intake<br/>interfaces/telegram_daemon.py<br/>telegram_control.py"]
+    tg --> interp["Message interpreter<br/>interpreter.py"]
+    interp --> decomp["Decomposer<br/>decomposer.py"]
+    decomp --> plan["Planner + route admission<br/>planner.py · route_admission.py"]
+    plan --> boardDB[("Task board<br/>board.py (SQLite)")]
+    boardDB --> worker["Worker<br/>worker_daemon.py · worker.py"]
+    worker --> exec["Agent runtime<br/>executor.py"]
+    exec --> hermes["Hermes → OmniRoute<br/>free hosted models"]
+    exec --> ollama["Ollama<br/>local model"]
+    exec --> subs["Claude / Codex CLI<br/>subscription, last"]
+    hermes --> verify{"Verify command<br/>exit 0?"}
+    ollama --> verify
+    subs --> verify
+    verify -- yes --> accept[Accept]
+    verify -- no --> revert["Revert workspace<br/>escalate route"]
+    revert -. retry .-> boardDB
+    accept --> ledgerF[("Ledger<br/>ledger.py")]
+    revert --> ledgerF
+    ledgerF --> brainM["Retained memory<br/>memory/brain.py"]
+    ledgerF --> cortex["Kaya / Cortex console<br/>dashboard/kaya_web.py (read-only)"]
+```
 
-**Execution**
+Every box is a module in `src/`. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) walks through each
+one, with diagrams of the task lifecycle, the escalation chain and the fan-out graph.
 
-| capability | status |
+**1. Verification-gated acceptance.** Every task on the board carries a `verify_command`. The
+worker claims it, runs the agent, then runs the verifier itself. Only exit 0 completes the task.
+Any other outcome — non-zero exit, timeout, a declared artifact that was never written — reverts
+the workspace (stash, never delete), re-checks that the tree is clean, and records the failure.
+If the revert itself fails, the workspace is quarantined and the worker stops.
+(`src/worker.py`, `tests/test_worker_verify_gate.py`, `tests/test_declared_artifact_gate.py`)
+
+**2. Leased claims, earned heartbeats, contained processes.** A claim is an atomic lease, proven
+under real cross-process contention. The lease is renewed only when the run shows observable
+progress — new agent output or a changed file — so a wedged agent stops being renewed and its
+task is reclaimed, while a live worker keeps its claim. Each agent runs inside a Windows Job
+Object, so a timeout or kill takes the whole process tree with it. Liveness has one
+implementation (`src/process_liveness.py`), because two plausible-looking alternatives each
+shipped wrong answers in opposite directions.
+(`tests/test_claim_contention.py`, `tests/test_claim_heartbeat.py`, `tests/test_reclaim.py`)
+
+**3. Free models first, admitted by measurement.** A model route is usable only after it passes
+an agentic probe — a disposable repository, a real file write, a verifier — *and* the model the
+provider actually served equals the one requested. A served model that differs from the pin is
+treated as an environment failure: the workspace is restored and the work is not verified. An
+unadmitted route in a graph rejects the whole graph before any task exists.
+(`src/route_admission.py`, `src/routing_probe.py`, `src/model_routes.py`)
+
+**4. Ordered escalation.** When a task fails on its route, the next attempt moves one step down
+an ordered chain: local and free hosted routes first, a flat-rate subscription next, the
+subscription CLIs last. *(Private build; see the table below.)*
+
+**5. Multi-agent decomposition.** A large request is split into a dependency graph of
+specialists (researcher, designer, builder, reviewer, and so on). The graph is validated whole or
+not written at all. In the private build the specialists share one isolated repository per
+request, hand off through `notes/NN-role.md` files, and finish in an integration node that is
+the only one held to the full deliverable gate. (`src/decomposer.py`, `src/planner.py`)
+
+**6. A console that cannot act.** Kaya is the operator console; the Cortex is its view of source
+regions, task flow and verifier outcomes. It opens the board with SQLite `mode=ro` and
+`PRAGMA query_only=ON`, and AST tests fail the build if a dashboard module imports the board's
+write path. It never fabricates telemetry: a stage that did not run renders as *skipped* or
+*not recorded*. (`src/dashboard/kaya_web.py`, `tests/test_dashboard*.py`)
+
+<table>
+  <tr>
+    <td width="62%"><img src="docs/img/cortex-sphere.webp" alt="The Cortex sphere rotating; bright traces mark the running synthetic task." width="100%"></td>
+    <td width="38%"><img src="docs/img/cortex-mobile.png" alt="The same console at phone width, 390 pixels." width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/img/cortex-stats.png" alt="Console summary: task counts, the running task's claim, workspace, agent and verify stages, and lane load across local, free API and subscription routes." width="100%"></td>
+  </tr>
+</table>
+
+*Captured from the live sealed demo at tri-ai.arditmishra.com; every task, source and route in it is synthetic.*
+
+## What is proven
+
+| claim | number | source |
+|---|---|---|
+| Queued tasks that passed their own verifier | 9 of 9, across 6 repositories, ~1,216 s of agent time, $0 metered spend | [`evidence/ledger.jsonl`](evidence/ledger.jsonl), [how to check it](evidence/README.md) |
+| Models listed by the router vs. models that answered as themselves | 574 listed, 20 concrete ids answered as requested, 517 refused | [`evidence/MODEL_SWEEP.md`](evidence/MODEL_SWEEP.md) (2026-09-30) |
+| Aliases that served a different model | all 22 `auto/*` aliases, at HTTP 200 — `auto/claude-opus` returned `google/gemma-4-31b-it` | same sweep |
+| Wider free-route sweep (private) | 2,372 catalogued, 724 free candidates, 54 answered as themselves; 13 coding candidates ran the agentic probe and 9 passed | private sweep, 2026-10-04 |
+| First fully free verified build (private) | a complete app build passed its verifier (10 of 10 promises) on Kimi K3, NVIDIA free tier, after Mistral Codestral failed and one Kimi K3 attempt timed out; no subscription involved | private ledger, 2026-10-04 |
+| Test suite, this repository | **1,497 tests**, 0 skipped, 364 s | `python tests/run.py` on this revision, 2026-10-05 |
+| Test suite, private build | **1,702 tests**, 7 skipped | private `trunk`, 2026-10-05 |
+
+The alias finding mattered in practice: three roles had been pinned to `auto/best-coding` for
+29 recorded runs because the name sounded right. Model attribution in the ledger before
+2026-09-30 is therefore not evidence, and the route registry was rebuilt from measurement rather
+than patched.
+
+Local model selection was measured the same way. Three candidates were given one prompt with
+three commands whose answers were known, one designed to fail. `qwen3.5:4b` reported the failure
+with its exit code; `gemma4` (8B) hid it; `deepseek-r1:8b` invented a GPU that is not installed.
+The smallest model won. The design rule that came out of it: **never ask a model to derive a fact
+from raw output — have the command emit the fact.** Details in [docs/ROUTING.md](docs/ROUTING.md).
+
+## This repository vs. the private system
+
+The public repository is a sealed showcase: synthetic demo data, no private sources, no live
+board, no credentials. It carries the core engine — board, worker gate, leases, containment,
+route admission, decomposition, Telegram intake, memory, console — as it stood when the
+showcase was cut. The private build has kept moving.
+
+| | this repository | private build |
+|---|---|---|
+| Python modules in `src/` | 53 | 57 |
+| Test files | 96 | 109 |
+| Tests passing | 1,497 | 1,702 (7 skipped) |
+| Lines of Python in `src/` | ~23,300 | ~25,300 |
+| Agent runtimes | Hermes, Claude CLI, Codex CLI argv builders; no caller selects between them | runtime carried per task from intake to ledger: Hermes, Claude, Codex, and a native Ollama runtime (`ollama_agent.py`) with workspace-bounded file tools |
+| Routing | admission by probe and served-model match; one route per role | the same admission, plus an ordered escalation chain: a local Ollama model, free hosted routes (NVIDIA, OpenRouter, Mistral, Google AI Studio), routes through a flat Google AI Pro subscription (Antigravity), then the Claude subscription |
+| Admitted routes | a registry snapshot (`config/model-routes.tri-ai.json`) with 5 admitted free routes on Mistral and NVIDIA | more than a dozen admitted free hosted routes, one local model, five Antigravity routes and the Claude subscription — each admitted on a recorded probe |
+| Decomposition | request → validated dependency graph of specialists | the same, plus a shared per-request repository, `notes/` handoff between specialists, and a final integration node that carries the deliverable gate |
+| Workspace isolation | shared workspace per alias | a fresh Git repository per request (`request_workspace.py`), seeded only with the trusted verifier |
+| Telegram intake | message → task, reply-to-refine | the same, plus follow-up handling that reads a short reply together with the question it answers |
+| Cortex / Kaya | sealed demo with seven synthetic source regions | authenticated, read-only console over the operator's real board, ledger and source index across many sources |
+| Data | synthetic | real tasks, runs and ledger |
+
+Numbers for this repository were measured on this revision with `ls` and `python tests/run.py`.
+Private numbers come from the private repository's `git log` and its integration notes; the
+private sweeps and ledger are not published because they carry machine and account details.
+
+## Quickstart (public demo)
+
+Needs Git and Python 3.11+. No API key, model, database or Telegram account.
+
+```powershell
+git clone https://github.com/Ardit-Mishra/tri-ai.git
+cd tri-ai
+.\scripts\run_public_demo.ps1
+```
+
+Open `http://127.0.0.1:3018`. The header reads `Demo data` and `Sealed demo`.
+[docs/PUBLIC_DEMO.md](docs/PUBLIC_DEMO.md) has the boundary checks and a no-secrets Render
+Blueprint for hosting your own copy.
+
+## Running the tests
+
+```powershell
+python tests/run.py        # full suite; exit 0 pass, 1 fail
+```
+
+Most of the suite needs a local [Hermes Agent](https://hermes-agent.nousresearch.com) install:
+`src/board.py` uses Hermes' kanban kernel as a library and adds the one thing that kernel lacks,
+a `verify_command` per task. Set `TRIAI_HERMES_HOME` if the checkout is not in the default
+location. The kernel is used, never edited — Hermes replaces whole package trees on update, so an
+in-place patch would be reverted silently, and the board would keep working while verification
+quietly stopped. The migration runs from this side, through the kernel's own
+`add_column_if_missing`.
+
+Several tests spawn real processes and kill them, because "exactly one of two concurrent
+claimants wins" and "a dead worker's lease is reclaimed, a live one's is not" are not observable
+in a single process. The suite therefore takes minutes.
+
+The public-release checks alone need nothing but Python:
+
+```powershell
+python -m unittest tests.test_public_release_boundary tests.test_public_cortex_demo
+```
+
+## Repository layout
+
+| path | what |
 |---|---|
-| Queued work runs unattended and self-verifies | **working** — `src/run_queue.py` |
-| A worker claims from the board, runs the graph, and gates on a verify command | **working** — `src/worker.py`, `tests/test_worker_verify_gate.py` |
-| A failed task reverts itself before the next one starts | **working** |
-| A task board that stores a verify command per node | **working** — `src/board.py` |
-| Atomic claim proven under real cross-process contention | **working** — `tests/test_claim_contention.py` |
-| A dead worker's task returns to the queue; a live one's does not | **working** — `tests/test_reclaim.py` |
-| A request becomes a dependency graph of specialist tasks | **working** — `src/decomposer.py`, 53 tests |
-| A graph is validated whole, or no row is written | **working** — `src/planner.py` |
-| Work that can never move is detected rather than left silent | **working** — `src/standstill.py`, 25 tests |
-| Every attempt is written to an auditable ledger | **working** |
-
-**Routing**
-
-| capability | status |
-|---|---|
-| A model lane never dead-ends | **working** — fallback chain |
-| Routes are admitted only after end-to-end measurement | **working** — [`evidence/MODEL_SWEEP.md`](evidence/MODEL_SWEEP.md) |
-| An unadmitted route rejects the whole graph before any task exists | **working** — `src/route_admission.py` |
-| A served model that differs from the pin is an environment failure, not a pass | **working** |
-| A prompt too long for the command line is refused before the spawn | **working** — `src/executor.py` |
-| Skill instructions reach the model as text, not as a path to a file | **working** — `src/capabilities.py` |
-| Three agent runtimes — local Hermes, Claude CLI, Codex CLI — build correct argv | **working** — `tests/test_agent_runtimes.py` |
-| …and something chooses between those three per task | **not wired** — `run_agent(runtime=…)` works; no caller selects it |
-| Lane choice is overridden by measured ledger outcomes | **working** — `src/lane_select.py` |
-
-**Reach**
-
-| capability | status |
-|---|---|
-| Long jobs survive the laptop going offline | **working** — scheduled tasks on the desktop |
-| GPU training dispatched from the laptop, run on the desktop | **working** |
-| A plain message from a phone becomes a task and reports back | **working** — `src/telegram_control.py`, 41 conversation tests |
-| A reply to a completion card refines that task | **working** |
-| The premium CLI keeps working on a free model when quota runs out | **working** — `claude-free` / `cf` |
-| A read-only console over the tailnet, session-gated | **working** — `src/dashboard/kaya_web.py` |
-| …that can also *start* or retry a task | **not built** — the console is read-only by construction |
-| The desktop is the always-on runtime and the laptop only a client | **not true yet** — the daemons run there; every recorded run is still the laptop's |
-| A surface on the phone that is not Telegram | **not built** |
-
-**The honest ceiling:** free and local agents do chores, test suites, builds, training runs and
-mechanically verifiable work. Feature work stays human-driven with review. This system is
-*supervised for features, autonomous for verifiable work* — and the ledger is what makes that
-statement checkable rather than assertable.
-
-## 574 models, 20 of them usable
-
-The routing above is only worth anything if a route means what it says. It did not.
-
-Every model the router listed was called once with the same one-line prompt, and the
-**served** model name in each response was compared against the one requested. The full
-rows are in [`evidence/model-sweep-2026-09-30.json`](evidence/model-sweep-2026-09-30.json);
-the reading is in [`evidence/MODEL_SWEEP.md`](evidence/MODEL_SWEEP.md).
-
-| | |
-|---|---|
-| listed | **574** across 13 providers |
-| answered as the model requested | **20** concrete ids |
-| refused | 517 |
-| answered **as a different model** | 22 — every `auto/*` alias, at HTTP 200 |
-
-`auto/claude-opus` returns `google/gemma-4-31b-it`. So does `auto/reasoning`, and
-`auto/pro-coding`. Sixteen alias names, two models behind them.
-
-This was not a theoretical finding. Three roles had been pinned to `auto/best-coding` for
-**29 recorded runs** because the name sounded right. A pin can be dropped at three
-independent layers — not entitled, served as something else, or silently replaced in the
-usage file the ledger reads — so admission now requires all three to be checked.
-
-One consequence stated plainly: **model attribution in the ledger before 2026-09-30 is not
-evidence**, and the registry was rebuilt from measurement rather than patched.
-
-## Evidence
-
-The ledger is the point, and it is in this repository: [`evidence/ledger.jsonl`](evidence/ledger.jsonl)
-— nine entries, exit codes and captured output intact, absolute paths redacted and nothing else
-changed. A project arguing that an agent's report is never evidence should not ask you to take its
-own headline number on trust. [`evidence/README.md`](evidence/README.md) shows how to check it.
-
-Latest full state:
-
-- **9 of 9** queued tasks passed across **6 repositories**
-- **~1,216 seconds** of agent time
-- **$0** — no metered API was called
-- Its most recent run independently re-verified work that had just been finished by hand,
-  including the assertion that no explanation a production service serves is ungrounded
-
-Model selection was itself made by measurement rather than by reputation. Three candidate local
-models were scored on one prompt containing three commands whose answers were known in advance,
-one of them designed to fail:
-
-| model | GPU query | list count | **deliberate failure** |
-|---|---|---|---|
-| `gemma4:latest` (8.0B) | ran | miscounted | **hid it entirely** |
-| `deepseek-r1:8b` (8.2B) | **invented a GPU that isn't installed** | fabricated | never ran it |
-| **`qwen3.5:4b` (4.7B)** | correct | correct | **reported it, with the exit code** |
-
-The smallest model won, at 3.4 GB against 9.6 GB. The one that invents hardware was deliberately
-*not* made the fallback: a fallback that fabricates is worse than no fallback.
-
-That experiment also produced the design rule the whole system now follows:
-
-> **Never ask a model to derive a fact from raw output. Have the command emit the fact.**
-
-Asked to count a 17-row list by eye, the same model answered 15, then 18. Given
-`ollama list | tail -n +2 | wc -l`, it answered 17.
+| `src/board.py` | task board on the Hermes kanban kernel, plus `verify_command` |
+| `src/worker.py`, `src/worker_daemon.py` | claim → agent → verify → accept or revert |
+| `src/executor.py` | agent runtimes, process containment, verifier execution |
+| `src/route_admission.py`, `src/routing_probe.py`, `src/model_routes.py` | route registry and admission |
+| `src/decomposer.py`, `src/planner.py` | request → validated task graph |
+| `src/telegram_control.py`, `src/interfaces/telegram_daemon.py`, `src/interpreter.py` | phone intake |
+| `src/daemon_supervisor.py` | keeps the worker and Telegram daemons running |
+| `src/ledger.py`, `src/memory/` | append-only evidence and retained memory |
+| `src/dashboard/` | Kaya console and Cortex view (read-only) |
+| `public-demo/` | the sealed demo server and its synthetic snapshot |
+| `evidence/` | the published ledger and model sweep |
+| `config/` | example registries; real ones live outside the clone |
+| `docs/` | architecture, routing, setup, operations |
 
 ## Documentation
 
 | | |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | what each component is and why it exists |
-| [docs/SETUP.md](docs/SETUP.md) | building it from nothing |
-| [docs/ROUTING.md](docs/ROUTING.md) | which model gets which task, and the fallback chain |
-| [docs/MODEL_ROUTES.md](docs/MODEL_ROUTES.md) | the route registry, and what a route must prove to be admitted |
-| [evidence/MODEL_SWEEP.md](evidence/MODEL_SWEEP.md) | all 574 models called once, and what came back |
-| [docs/OPERATING.md](docs/OPERATING.md) | the commands you actually type |
-| [docs/AUTONOMY.md](docs/AUTONOMY.md) | scheduling, continuity, and what is genuinely unattended |
-| [docs/SHOWCASE.md](docs/SHOWCASE.md) | the public dashboard demo and how to discuss it honestly |
-| [docs/BRAIN_ARCHITECTURE.md](docs/BRAIN_ARCHITECTURE.md) | retained evidence: provenance, trust labels, recall |
-| [docs/CAPABILITY_CATALOG.md](docs/CAPABILITY_CATALOG.md) | how a role acquires the skills it is given |
-| [docs/PUBLIC_DEMO.md](docs/PUBLIC_DEMO.md) | run and deploy the sealed public demo from a clean clone |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | components, task lifecycle, escalation chain, fan-out graph |
+| [docs/ROUTING.md](docs/ROUTING.md) | how a model route is chosen, admitted and escalated |
+| [docs/MODEL_ROUTES.md](docs/MODEL_ROUTES.md) | the route registry format |
+| [evidence/MODEL_SWEEP.md](evidence/MODEL_SWEEP.md) | all 574 listed models called once, and what came back |
+| [docs/SETUP.md](docs/SETUP.md) | building the runtime from nothing |
+| [docs/OPERATING.md](docs/OPERATING.md) | day-to-day commands |
+| [docs/AUTONOMY.md](docs/AUTONOMY.md) | scheduling, continuity, what is genuinely unattended |
+| [docs/BRAIN_ARCHITECTURE.md](docs/BRAIN_ARCHITECTURE.md) | retained memory: provenance, trust labels, recall |
+| [docs/CAPABILITY_CATALOG.md](docs/CAPABILITY_CATALOG.md) | how a role is given its skills |
+| [docs/SHOWCASE.md](docs/SHOWCASE.md) | what the public demo shows |
 | [DECISIONS.md](DECISIONS.md) | why it is built this way, and what is still unknown |
 | [SECURITY.md](SECURITY.md) | public-release boundary and vulnerability reporting |
 
-## Running the tests
+## Limits
 
-```powershell
-tests\run.ps1        # full verification suite; exit 0 pass, 1 fail
-```
-
-**They need a local Hermes Agent install**, because the board is that project's kanban kernel used
-as a library rather than a reimplementation of it — `src/board.py` imports `hermes_cli.kanban_db`
-and adds one thing the kernel has no concept of: a `verify_command` per task. Point
-`TRIAI_HERMES_HOME` at the checkout if it is not in the default location. There is no CI here for
-the same reason: the dependency is a local install, not a package.
-
-The kernel is used and never edited. That install replaces whole package trees when it updates, so
-an in-place patch would be reverted silently — and the failure mode is the bad kind, where the board
-keeps working while verification quietly stops. The migration therefore runs from this side, against
-this project's own board file, through the kernel's own `add_column_if_missing`.
-
-Several tests deliberately spawn real processes and kill them, because the properties under test —
-that exactly one of two concurrent claimants wins, and that a dead worker's lease is reclaimed while
-a live worker's is extended — are not observable in a single process. That is why the suite takes
-minutes rather than seconds.
+Free and local agents reliably do chores, test suites, builds and other mechanically verifiable
+work. Feature work with no meaningful verifier stays human-reviewed. The system is supervised
+for features and autonomous for verifiable work, and the ledger is what makes that statement
+checkable. Autonomous runs never push, merge to a default branch, deploy, or touch credentials.
 
 ## Scope and safety
 
-Autonomous work runs on feature branches. It never pushes, never merges to a default branch,
-never deploys, and never touches credentials. Every run is reviewable after the fact.
+This repository contains no hostnames, addresses, tokens or keys; where one is needed the docs
+use a placeholder. That is enforced, not promised. `tests/test_public_release_boundary.py` reads
+the Git index and fails on any tracked file carrying an operator identity, matched by shape — a
+machine-name pattern, a private address range, and a home-directory path derived from whoever
+runs the check — so no real value is ever written down to search for. `scripts/release_guard.py`
+runs on `pre-push` and refuses to push a branch to a public remote unless its `RELEASE_SCOPE`
+file declares it public.
 
-This repository documents the architecture. It contains no hostnames, IP addresses, tokens or
-keys; where one is required the docs use a placeholder.
-
-That is enforced rather than promised. `tests/test_public_release_boundary.py` reads the Git
-index and fails on any tracked file carrying an operator identity, and
-`scripts/release_guard.py` runs on `pre-push` and refuses a branch to a public remote unless
-it declares itself public in `RELEASE_SCOPE`. A branch that has not said it is publishable is
-not publishable, which is the safe default for every branch holding real paths.
-
-Identity is matched by *shape* — a hostname pattern, an address range, and a home directory
-derived from whoever runs the check. An earlier version of this check held a literal list of
-the real values so that it could search for them, which published all five in the repository
-the check exists to protect. There is no allowlist now; fixtures that need to name a host say
-`kaya.example`, and ones that need a non-loopback peer use RFC 5737 documentation space.
-
-## Licence
+## License
 
 MIT — see [LICENSE](LICENSE).

@@ -1,145 +1,257 @@
 # Architecture
 
-Five components. Each does one thing, and each can fail without taking the others down.
+Tri-AI turns a request into verified work. Its parts are deliberately ordinary — a SQLite task
+board, a worker loop, a router, a verifier — and the design effort goes into one property: an
+agent's own report never decides whether its work is accepted.
 
-```
-                       ┌──────────────────────────────────────────┐
-   phone               │  DESKTOP  (always on, USA)               │
-   ┌────────┐          │                                          │
-   │Telegram│──────────▶  Hermes gateway ("Bob")                  │
-   └────────┘          │    └─ qwen3.5:4b  → gemma4 fallback      │
-                       │  Ollama · 17 models                      │
-                       │  RTX 3060, 12 GB VRAM                    │
-                       │  Windows Task Scheduler ── durability    │
-                       └───────────────▲──────────────────────────┘
-                                       │ Tailscale (SSH, private net)
-                       ┌───────────────┴──────────────────────────┐
-                       │  LAPTOP  (build machine, travels)        │
-                       │                                          │
-                       │  Claude Code ──── judgment, orchestration│
-                       │  OmniRoute :20128 ── model router        │
-                       │  Ollama · 11 models                      │
-                       │  Hermes CLI ── the delegated worker      │
-                       │  the git repositories                    │
-                       └──────────────────────────────────────────┘
-```
+Module names below are files in `src/`. Parts marked *private build* exist in the creator's
+private deployment and are described here so the diagrams are complete; they are not in this
+repository (see the [README](../README.md#this-repository-vs-the-private-system)).
 
----
+## Where things run
 
-## 1. Hermes — the worker
-
-[Hermes Agent](https://hermes-agent.nousresearch.com) is a CLI coding agent. In this system it is
-the thing that *does* delegated work. Two modes matter:
-
-**One-shot.** `hermes -z "<prompt>"` runs a single task and exits. This is what the continuity
-queue drives. It is not a daemon; nothing to keep alive, nothing to restart.
-
-**Gateway.** `hermes gateway run` is a long-lived process that answers a chat surface — here,
-Telegram. On this system it is called *Bob*. It is a completely separate thing from `-z`, and the
-two never interact.
-
-Hermes also ships `cron`, `kanban` (with a `swarm` verb) and `webhook` subcommands. They exist and
-work; this system does not currently use them (see [AUTONOMY.md](AUTONOMY.md) for why).
-
-### Two Hermes facts that cost real time to learn
-
-1. **`cd` does not persist between commands** in Hermes' terminal tool. Its shell starts in the
-   home directory each time. Every command it runs must carry its own `cd <repo> &&`, or the agent
-   reports "not a git repository" from the wrong directory and the task *looks* broken when it is
-   merely lost. The queue runner prepends this instruction to every prompt automatically.
-
-2. **Hermes requires a model with ≥ 64,000 context.** This silently disqualifies otherwise good
-   local models — `qwen3:14b` (40,960) and `qwen2.5-coder:14b` (32,768) are both out, despite
-   fitting comfortably in 12 GB of VRAM. Check `ollama show <model>` before assuming a model is
-   usable.
-
----
-
-## 2. OmniRoute — the router
-
-An LLM router (`npx omniroute`, config in `~/.omniroute`) serving an OpenAI-compatible API on
-`localhost:20128`. It aggregates many providers behind one endpoint and, importantly, exposes
-**semantic lanes** rather than only model names:
-
-| lane | meaning |
+| machine | role |
 |---|---|
-| `auto/best-free` | best currently-working free model |
-| `auto/coding:free` | free model biased toward code |
-| `auto/cheap` | cheapest paid option |
-| `auto/offline` | local only |
+| Desktop (always on, 12 GB GPU) | runs the supervisor, the worker, the Telegram daemon, Ollama, the router and the console |
+| Laptop | development and review; a client of the desktop, not a dependency of it |
+| Phone | sends requests and receives completion cards over Telegram |
 
-**Prefer lanes to model names.** Free hosted models are renamed and retired constantly — one
-provider model in this system's chain went to `410 Gone` without warning, which meant the fallback
-had silently not existed for weeks. A lane survives that churn; a hardcoded name does not.
+`src/daemon_supervisor.py` keeps the worker (`worker_daemon.py`) and the Telegram daemon
+(`interfaces/telegram_daemon.py`) running and records their state. Long jobs are registered as
+scheduled tasks rather than launched over a remote shell, because a process started over SSH dies
+with the session ([AUTONOMY.md](AUTONOMY.md)).
 
-Two operational notes: it answers `/models` but **404s on `/health`**, so a naive health probe
-reports it down when it is fine; and `/` redirects (307) to `/dashboard`. Probe `/models`.
+## System flow
 
----
-
-## 3. Ollama — local inference
-
-Runs on both machines, listening on `0.0.0.0:11434` so each is reachable from the other over
-Tailscale. The desktop carries the larger set (17 models) because it has the GPU.
-
-**The VRAM ceiling is the real constraint.** The desktop's RTX 3060 has 12 GB, and Ollama keeps a
-loaded chat model resident. Models above roughly 12 GB (`gemma4:31b` at 19 GB, `gpt-oss:20b` at
-13 GB) partially offload to CPU and become unusably slow — they are not "a bit slower", they are a
-different order of magnitude. Before dispatching a GPU training job, check what Ollama is holding:
-
-```
-nvidia-smi --query-gpu=memory.used,memory.total --format=csv
-```
-
----
-
-## 4. Tailscale — the private network
-
-A WireGuard mesh giving each machine a stable private address regardless of which network it is
-on. This is what makes "laptop in another country" a non-event: `ssh desktop` works from a hotel
-as it does from home, with no port forwarding and nothing exposed to the public internet.
-
-**SSH-launched processes die with the session.** This is the single most expensive lesson in the
-system's history: a long training run started over SSH is killed the moment the connection drops,
-which — travelling — is constantly. Long work is registered as a **Windows scheduled task** and
-triggered, never launched directly. See [AUTONOMY.md](AUTONOMY.md).
-
-Note that the desktop's SSH shell is **PowerShell**, not `cmd` or `bash`. Commands with `&`, `>nul`
-or bash conditionals will fail in confusing ways.
-
----
-
-## 5. The continuity queue — the part that makes it a system
-
-`src/run_queue.py`. A queue of tasks, each carrying a `verify` command whose exit code decides
-pass or fail. It is the only component that is bespoke, and it is under 200 lines.
-
-```
-task ──▶ branch guard ──▶ hermes -z ──▶ VERIFY COMMAND ──▶ pass → ledger
-                │                              │
-                │ wrong branch                 │ non-zero
-                ▼                              ▼
-              skip                     git checkout -- .   (revert)
-                                              │
-                                              ▼
-                                            ledger
+```mermaid
+flowchart TB
+    subgraph intake["Intake"]
+        phone([Phone]) --> tgd["interfaces/telegram_daemon.py"]
+        tgd --> tgc["telegram_control.py"]
+        tgc --> interp["interpreter.py<br/>what is being asked"]
+        tgc --> pre["intake_preflight.py<br/>named file missing?"]
+    end
+    subgraph planning["Planning"]
+        interp --> decomp["decomposer.py<br/>split into specialists?"]
+        decomp --> planner["planner.py<br/>validate whole graph"]
+        planner --> admit["route_admission.py<br/>every route admitted?"]
+        reqws["request_workspace.py<br/>fresh repo per request<br/>(private build)"]
+        decomp -.-> reqws
+    end
+    admit -- "all nodes valid" --> board[("board.py<br/>SQLite task board")]
+    admit -- "any node invalid" --> refuse[No task written]
+    subgraph execution["Execution"]
+        board --> worker["worker.py<br/>claim · lease · heartbeat"]
+        worker --> exec["executor.py<br/>Job Object containment"]
+        exec --> hermes["Hermes → OmniRoute<br/>free hosted routes"]
+        exec --> oll["ollama_agent.py → Ollama<br/>(private build)"]
+        exec --> cli["Claude CLI / Codex CLI"]
+        hermes --> ver{"executor.run_verify<br/>exit 0?"}
+        oll --> ver
+        cli --> ver
+        ver -- yes --> done[Task done]
+        ver -- no --> rev["Revert workspace<br/>record reason"]
+        rev --> esc["model_routes.escalation_for<br/>(private build)"]
+        esc -. next route .-> board
+    end
+    done --> ledger[("ledger.py<br/>append-only")]
+    rev --> ledger
+    ledger --> brain["memory/brain.py"]
+    ledger --> kaya["dashboard/kaya_web.py<br/>Kaya / Cortex, read-only"]
+    done --> report["completion_report.py<br/>card back to the phone"]
+    classDef private stroke-dasharray: 5 5
+    class reqws,oll,esc private
 ```
 
-Four properties, in order of importance:
+### Intake
 
-1. **The verify command decides.** The agent's report is never evidence.
-2. **A failed task is reverted** before the next one runs, so a broken attempt cannot contaminate
-   what follows.
-3. **The branch is checked first.** Wrong branch means skip, not edit-blind.
-4. **Everything lands in `ledger.jsonl`** — agent exit, verify exit, duration, output tail.
+`telegram_control.py` turns a plain message into either a task or a question back. The
+interpreter (`interpreter.py`) restates the request and decides whether it is clear enough to
+start; a reply to a completion card is read as a refinement of that task rather than a new one.
+`intake_preflight.py` warns, before the task is confirmed, when a request names a file that is not
+in the target workspace — the usual sign of a mis-aimed run.
 
-It needs no daemon, no server and no session. `python run_queue.py` and walk away.
+### Planning
 
----
+`decomposer.py` decides whether a request warrants splitting and, if so, asks Hermes for a
+decomposition and builds a graph of specialist nodes. `planner.py` validates the graph whole —
+dependency cycles, nodes without a verify command, unadmitted routes — and writes every node or
+none.
+`route_admission.py` is the check that a node's `model_route` resolves to an admitted route in
+the operator's registry; graph input never carries raw model or provider strings.
 
-## Why not a "real" agent framework
+### Execution
 
-Because the failure this system is designed around is not *insufficient orchestration*, it is
-*plausible wrong answers accepted as correct*. A more elaborate graph of agents does not fix that;
-an exit code does. Every piece here is chosen to keep the verification surface small enough to
-trust: one bespoke file, and four off-the-shelf components each doing one job.
+`worker.py` is the loop that matters. For one claimed task:
+
+1. **Precheck** the workspace: clean tree, expected branch for task-owned worktrees.
+2. **Run the agent** through `executor.py`, inside a Windows Job Object so the whole process
+   tree is killed on timeout. A prompt too long for the command line is refused before spawn.
+3. **Check the served model.** If the usage record shows a different model from the one
+   requested, the run is an environment failure: the workspace is restored and the verifier is
+   not run over work the requested model did not do.
+4. **Check declared artifacts.** A task that names a file it must produce cannot pass on a
+   text-only claim.
+5. **Run the verifier** (`executor.run_verify`). Only exit 0 completes the task.
+6. **Otherwise revert**: `executor.revert` stashes (never deletes), then `git status --porcelain`
+   must come back clean. If it does not, the workspace is quarantined and the worker stops.
+
+A retry is given the previous attempt's verifier reasons, read from its `verify.log`, so it does
+not repeat the same mistake blind.
+
+### Evidence and console
+
+`ledger.py` appends one line per attempt: agent exit, verify exit, duration, requested and served
+model, runtime, output tail and, in the private build, which escalation step ran it.
+`memory/brain.py` keeps retained context with provenance and trust labels
+([BRAIN_ARCHITECTURE.md](BRAIN_ARCHITECTURE.md)). `dashboard/kaya_web.py` serves Kaya, the
+console, and its Cortex view. It opens the board read-only (`mode=ro`, `PRAGMA query_only=ON`);
+AST tests fail if a dashboard module imports the board.
+
+## Task lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> ready: planner writes node
+    ready --> running: atomic claim (lease)
+    running --> running: heartbeat on observable progress
+    running --> ready: lease expires, worker proven dead (reclaim)
+    running --> verifying: agent exits, served model matches
+    running --> ready: served model differs, workspace restored
+    verifying --> done: verify exit 0
+    verifying --> ready: verify fails, workspace reverted, attempts remain
+    verifying --> blocked: verify fails, attempt budget spent
+    running --> quarantined: revert fails or tree still dirty
+    done --> [*]
+```
+
+Three properties make this hold under real conditions:
+
+- **The claim is atomic.** `tests/test_claim_contention.py` races two real processes for one
+  task; exactly one wins.
+- **The heartbeat is earned, not timed.** A heartbeat on a timer would vouch for a run hung on a
+  dead socket. The lease is renewed only when the agent produced output or changed a file since
+  the last beat. Hermes one-shot writes its stdout once, at exit, so file changes are the signal
+  that actually moves during a run. Silence stops the beat and the kernel stops renewing.
+- **Reclaim checks liveness correctly.** On Windows, `os.kill(pid, 0)` reports live processes as
+  dead and a bare `OpenProcess` handle reports dead ones as live. `process_liveness.py` uses
+  `GetExitCodeProcess` and requires `STILL_ACTIVE`. A dead worker's task returns to `ready`; a
+  live worker's claim is left alone (`tests/test_reclaim.py`).
+
+## Routing and escalation
+
+A route is a named entry in an operator-owned registry: runtime, model, provider, and whether it
+is admitted. Admission requires an agentic probe — Hermes (or the route's runtime) in a disposable
+repository, a marker file written, a verifier passed — and a usage record whose served model is
+exactly the requested one. A route whose name sounds right proves nothing: in the published sweep
+every `auto/*` alias served a different model at HTTP 200 ([MODEL_SWEEP.md](../evidence/MODEL_SWEEP.md)).
+
+In the private build, a failed task moves one step down an ordered chain, free routes first. The
+builder chain as of 2026-10-05, ordered by a one-build-per-route benchmark (build passers fastest
+first, then routes that had only passed the marker probe):
+
+```mermaid
+flowchart LR
+    own["Task's own route<br/>e.g. Mistral Codestral"] -- fail --> l1["Local Ollama<br/>Ornith 9B"]
+    l1 -- fail --> f1["NVIDIA<br/>Nemotron 3 Super 120B"]
+    f1 -- fail --> f2["NVIDIA<br/>Kimi K3"]
+    f2 -- fail --> f3["NVIDIA<br/>Laguna XS 2.1"]
+    f3 -- fail --> f4["OpenRouter free<br/>Qwen 3.8 27B"]
+    f4 -- fail --> f5["Mistral<br/>Mistral Code"]
+    f5 -- fail --> f6["Google AI Studio<br/>Gemini 3.5 Flash Lite"]
+    f6 -- fail --> s1["Antigravity (AI Pro)<br/>Gemini Pro agent"]
+    s1 -- fail --> s2["Antigravity (AI Pro)<br/>Gemini 3.7 Flash"]
+    s2 -- fail --> s3["Claude CLI<br/>subscription"]
+    s3 -- fail --> blocked[Blocked for review]
+    subgraph free["Free: local and hosted free tiers"]
+        l1
+        f1
+        f2
+        f3
+        f4
+        f5
+        f6
+    end
+    subgraph flat["Flat-rate subscriptions"]
+        s1
+        s2
+        s3
+    end
+```
+
+Rules the chain obeys (`model_routes.escalation_for`, `worker.py`):
+
+- Every step must be an admitted route; a broken policy is logged and the task stays on its own
+  route rather than failing.
+- A subscription runtime never receives a Hermes model pin.
+- The attempt budget is the chain's length plus the task's own attempt, so the circuit breaker
+  does not block a task before the chain is exhausted.
+- Each ledger line records `escalated_to`. Turning escalation off keeps every task free.
+
+[ROUTING.md](ROUTING.md) covers the measurements behind the order.
+
+## Fan-out: one request, many specialists
+
+```mermaid
+flowchart TB
+    req[Request from the phone] --> warrant{"decomposer.warrants_attempt"}
+    warrant -- no --> single[Single task, single agent]
+    warrant -- yes --> dec["decomposer.run_hermes_decompose"]
+    dec --> fan{"Two or more parts?"}
+    fan -- no --> single
+    fan -- yes --> ws["request_workspace.prepare<br/>fresh Git repo, trusted verify.py only"]
+    ws --> buildg["decomposer.build_graph"]
+    buildg --> write["planner.write_graph<br/>all nodes or none"]
+    write --> r["Researcher<br/>writes notes/01-researcher.md"]
+    write --> d["Designer<br/>writes notes/02-designer.md"]
+    r --> b["Builder<br/>reads notes/, writes code"]
+    d --> b
+    b --> rv["Reviewer<br/>writes notes/04-reviewer.md"]
+    rv --> integ["Integration node (lead)<br/>assembles the full deliverable"]
+    r --> integ
+    d --> integ
+    b --> integ
+    integ --> gate{"Full deliverable gate<br/>verify exit 0?"}
+    gate -- yes --> card[Completion card to the phone]
+    gate -- no --> retry[Revert, retry or escalate]
+```
+
+The roles above are an example; the decomposer chooses them per request. What the graph
+guarantees in the private build:
+
+- **Every node sees the whole request**, labelled as context, and is told to read `notes/` and
+  the existing workspace first. A part the decomposer forgot to assign is still visible to
+  someone.
+- **Non-build nodes must leave a file.** Research, design, review and docs nodes declare
+  `notes/NN-role.md` as an expected artifact, so the worker's declared-artifact check fails a
+  node that only answered in prose — before its dependants start.
+- **Specialists share one repository per request**, created by `request_workspace.py` and
+  seeded with nothing but the trusted verifier, so each node builds on the last one's files and
+  no request can see another's.
+- **Only the integration node carries the full deliverable gate.** Specialists run with
+  `taste_scope: "skip"`; the final node, which depends on every specialist, runs with
+  `taste_scope: "final"`. A fan-out cannot escape the gate a single agent is held to, and a
+  research node is not failed for having no web page.
+
+In this repository the decomposer, graph validation and Telegram fan-out exist; the shared
+per-request repository, the `notes/` handoff and the integration node are private-build only.
+
+## Hermes facts that cost real time
+
+[Hermes Agent](https://hermes-agent.nousresearch.com) is the default agent runtime, called as a
+one-shot (`hermes -z "<prompt>"`). Two of its behaviours shape the prompts Tri-AI writes:
+
+1. **`cd` does not persist between commands** in its terminal tool; every shell starts in the home
+   directory. Each command must carry its own `cd <repo> &&`, or the agent reports "not a git
+   repository" and the task looks broken when it is only lost. `executor.py` adds this instruction to
+   every Hermes prompt.
+2. **Hermes needs a model with at least 64,000 tokens of context.** That silently disqualifies
+   `qwen3:14b` (40,960) and `qwen2.5-coder:14b` (32,768) — including as Hermes' auxiliary
+   compression model, which aborted one benchmark build. Check `ollama show <model>` first.
+
+## Why not a general agent framework
+
+The failure this system is built around is not too little orchestration. It is a plausible wrong
+answer accepted as correct. A more elaborate graph of agents does not fix that; an exit code does.
+The fan-out graph exists to divide work, and every node in it — including the last — still has to
+pass a command that does not care what the agent says about itself.

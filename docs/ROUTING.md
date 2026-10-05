@@ -1,5 +1,74 @@
 # Routing — which model gets which task
 
+## Current routing (October 2026)
+
+Routing now rests on one rule: **a route is used only after it has proven itself, and the proof is
+measured, not named.**
+
+**Admission.** A route is a named registry entry — runtime, model, provider — that starts out
+unadmitted. It is admitted only when an agentic probe passes: the route's runtime works in a
+disposable repository, writes a marker file, passes a verifier, and leaves a usage record whose
+served model is exactly the requested one. A graph that names an unadmitted route is rejected
+before any task exists (`src/route_admission.py`), and at runtime a served model that differs
+from the pin is an environment failure rather than a pass ([MODEL_ROUTES.md](MODEL_ROUTES.md)).
+
+Why the second half matters: of 574 models one router listed, 22 answered at HTTP 200 as a
+*different* model — every `auto/*` alias ([MODEL_SWEEP.md](../evidence/MODEL_SWEEP.md)). A wider
+private sweep on 2026-10-04 catalogued 2,372 models; 724 were free candidates, 54 answered as
+themselves, and of the 13 coding-relevant ones put through the agentic probe, 9 passed. Answering
+a one-line prompt is not the same as doing agentic work, so a transport check never admits a
+route on its own.
+
+**Role routes.** Each specialist role maps to one admitted route: in this repository's registry
+snapshot (`config/model-routes.tri-ai.json`), Mistral Codestral for build, design and review,
+NVIDIA Nemotron Ultra for research and planning, and NVIDIA Gemma for mechanical work. These are
+task-fit choices, not per-role benchmarks.
+
+**Escalation (private build).** When a task fails on its role's route, the worker relaunches it on
+the next step of an ordered chain — local and free hosted routes first, flat-rate subscriptions
+last. The order below comes from a one-build-per-route benchmark on 2026-10-05: one real
+single-file app build per route, one attempt, no escalation, in a fresh isolated workspace.
+
+| route | result | seconds |
+|---|---|---|
+| NVIDIA Nemotron 3 Super 120B | pass, 6 of 6 promises | 112 |
+| NVIDIA Kimi K3 | pass in an earlier run, 10 of 10 promises, after one 1,800 s timeout | ~618 |
+| NVIDIA Laguna XS 2.1 | timeout at 1,800 s, no turn recorded | 1,800 |
+| OpenRouter Qwen 3.8 27B (free) | timeout at 1,800 s, no turn recorded | 1,800 |
+| Mistral Code | aborted: Hermes' auxiliary compression model had 32,768 tokens of context, below its 64,000 floor | 1,717 |
+| NVIDIA Gemma 4 31B | pin not honoured: served `auto/smart` | 174 |
+
+Build passers go first, fastest first; routes that had passed only the marker probe follow; Gemma
+was taken out of the chain while its route stays admitted for mechanical work:
+
+```mermaid
+flowchart LR
+    own[Role route] -- fail --> a["Local: Ornith 9B"]
+    a -- fail --> b["Nemotron 3 Super"]
+    b -- fail --> c["Kimi K3"]
+    c -- fail --> d["Laguna XS 2.1"]
+    d -- fail --> e["Qwen 3.8 27B free"]
+    e -- fail --> f["Mistral Code"]
+    f -- fail --> g["Gemini 3.5 Flash Lite"]
+    g -- fail --> h["Antigravity: Gemini Pro agent"]
+    h -- fail --> i["Antigravity: Gemini 3.7 Flash"]
+    i -- fail --> j["Claude CLI subscription"]
+    j -- fail --> k[Blocked]
+```
+
+The local model earned its place the same way: on the desktop's 12 GB GPU, models up to about
+9 GB run fully on the GPU, 12.8–13.3 GB models run slowly with CPU offload, and 16.8–18.5 GB models
+failed. Of the new local candidates, `ornith:9b` passed the marker probe and a coding fixture 3 of 3
+with exact identity; two others scored 0 of 2 and 1 of 2 and stayed unadmitted.
+
+The rest of this page records how routing worked before admission and escalation existed. The
+measurements in it — the 64K context floor, the VRAM ceiling, the honest-model experiment — still
+hold; the specific policy table and fallback chain have been superseded.
+
+---
+
+## Earlier routing (September 2026)
+
 Two separate mechanisms, and conflating them is the most common source of confusion:
 
 - **The policy** — a human/orchestrator decision about *which tier of machine and model a kind of
@@ -22,7 +91,7 @@ reported a failure the 8B models hid.
 
 ---
 
-## Policy: task class → tier
+### Policy: task class → tier (superseded)
 
 | task class | primary | fallback | runs on |
 |---|---|---|---|
@@ -46,7 +115,7 @@ Two constraints that override the table:
 
 ---
 
-## The fallback chain
+### The Hermes fallback chain (superseded by escalation)
 
 Four levels deep, checked with `hermes fallback list`. Tried in order when the level above fails
 with a rate limit, a 5xx, or a connection error.
@@ -73,7 +142,7 @@ hermes fallback list
 hermes fallback remove <model>
 ```
 
-### Why a semantic lane sits at level 1
+#### Why a semantic lane sat at level 1
 
 The chain in this system was once configured with a specific hosted model at the fallback
 position. That model was retired and began returning **410 Gone**. Nothing surfaced an error,

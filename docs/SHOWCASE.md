@@ -1,6 +1,8 @@
 # Tri-AI Showcase
 
-**Interactive demo:** [tri-ai-demo.onrender.com](https://tri-ai-demo.onrender.com/)
+**Interactive demo:** [tri-ai.arditmishra.com](https://tri-ai.arditmishra.com/)
+(a static, self-contained page; [`docs/PUBLIC_DEMO.md`](PUBLIC_DEMO.md) also describes
+a Render Blueprint for hosting your own copy)
 
 ## What the public demo demonstrates
 
