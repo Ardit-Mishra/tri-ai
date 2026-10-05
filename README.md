@@ -16,7 +16,8 @@ This repository is a sealed, scrubbed showcase of that system. The creator,
 
 > **Live demo:** [tri-ai.arditmishra.com](https://tri-ai.arditmishra.com/) — a labelled
 > simulation with synthetic data, served as one static, self-contained page. It never connects
-> to a live board, model provider or agent. [Demo guide](docs/SHOWCASE.md) ·
+> to a live board, model provider or agent; its *Private console* option leads only to the
+> operator's passphrase login. [Demo guide](docs/SHOWCASE.md) ·
 > [run it locally](docs/PUBLIC_DEMO.md).
 
 <img src="docs/img/cortex-hero.png" alt="The Kaya console in the sealed public demo: a rotating sphere of synthetic source regions with planner, specialist and human-gate nodes, labelled Demo data and Sealed demo." width="100%">
@@ -92,9 +93,10 @@ treated as an environment failure: the workspace is restored and the work is not
 unadmitted route in a graph rejects the whole graph before any task exists.
 (`src/route_admission.py`, `src/routing_probe.py`, `src/model_routes.py`)
 
-**4. Ordered escalation.** When a task fails on its route, the next attempt moves one step down
-an ordered chain: local and free hosted routes first, a flat-rate subscription next, the
-subscription CLIs last. *(Private build; see the table below.)*
+**4. Ordered escalation.** When a task fails or times out on its route, the next attempt moves
+one step down an ordered chain: a local model and free hosted routes first, routes through a
+flat-rate Google AI Pro subscription next, the Claude subscription last. Nothing metered is ever
+called. *(Private build; see the table below.)*
 
 **5. Multi-agent decomposition.** A large request is split into a dependency graph of
 specialists (researcher, designer, builder, reviewer, and so on). The graph is validated whole or
@@ -130,7 +132,7 @@ write path. It never fabricates telemetry: a stage that did not run renders as *
 | Wider free-route sweep (private) | 2,372 catalogued, 724 free candidates, 54 answered as themselves; 13 coding candidates ran the agentic probe and 9 passed | private sweep, 2026-10-04 |
 | First fully free verified build (private) | a complete app build passed its verifier (10 of 10 promises) on Kimi K3, NVIDIA free tier, after Mistral Codestral failed and one Kimi K3 attempt timed out; no subscription involved | private ledger, 2026-10-04 |
 | Test suite, this repository | **1,497 tests**, 0 skipped, 364 s | `python tests/run.py` on this revision, 2026-10-05 |
-| Test suite, private build | **1,702 tests**, 7 skipped | private `trunk`, 2026-10-05 |
+| Test suite, private build | **1,712 tests**, 7 skipped | private `trunk`, 2026-10-05 |
 
 The alias finding mattered in practice: three roles had been pinned to `auto/best-coding` for
 29 recorded runs because the name sounded right. Model attribution in the ledger before
@@ -154,7 +156,7 @@ showcase was cut. The private build has kept moving.
 |---|---|---|
 | Python modules in `src/` | 53 | 57 |
 | Test files | 96 | 109 |
-| Tests passing | 1,497 | 1,702 (7 skipped) |
+| Tests passing | 1,497 | 1,712 (7 skipped) |
 | Lines of Python in `src/` | ~23,300 | ~25,300 |
 | Agent runtimes | Hermes, Claude CLI, Codex CLI argv builders; no caller selects between them | runtime carried per task from intake to ledger: Hermes, Claude, Codex, and a native Ollama runtime (`ollama_agent.py`) with workspace-bounded file tools |
 | Routing | admission by probe and served-model match; one route per role | the same admission, plus an ordered escalation chain: a local Ollama model, free hosted routes (NVIDIA, OpenRouter, Mistral, Google AI Studio), routes through a flat Google AI Pro subscription (Antigravity), then the Claude subscription |
