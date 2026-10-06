@@ -351,13 +351,13 @@ def ladder(p, slug):
     rows = [
         (32, 80, "Local model, on my own GPU", ["Ollama: Ornith 9B"], "free"),
         (144, 124, "Free hosted models", ["NVIDIA: Nemotron 3 Super, Kimi K3,", "        Laguna XS 2.1",
-                                           "OpenRouter: Qwen 3.8 27B  ·  Mistral Code",
+                                           "OpenRouter: Qwen 3.8 27B  ·  Mistral: Mistral Code",
                                            "Google AI Studio: Gemini 3.5 Flash Lite"], "free tier"),
         (300, 80, "Flat-rate subscription", ["Google AI Pro, through Antigravity"], "flat fee"),
         (412, 80, "Claude subscription, last", ["claude-subscription"], "flat fee"),
     ]
     rows[1] = (144, 124, rows[1][2], ["NVIDIA: Nemotron 3 Super, Kimi K3, Laguna XS 2.1",
-                                      "OpenRouter: Qwen 3.8 27B  ·  Mistral Code",
+                                      "OpenRouter: Qwen 3.8 27B  ·  Mistral: Mistral Code",
                                       "Google AI Studio: Gemini 3.5 Flash Lite"], rows[1][4])
     # Rails.
     s += f'<line x1="44" y1="24" x2="44" y2="500" stroke="{p["text"]}" stroke-width="3" stroke-linecap="round"/>\n'

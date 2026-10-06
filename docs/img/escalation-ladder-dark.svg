@@ -28,7 +28,7 @@
 <rect x="488" y="160" width="92" height="26" rx="13" fill="none" stroke="rgba(120,220,160,0.28)"/>
 <text x="572" y="178" class="m" font-size="14" fill="#a9bcae" text-anchor="end" font-weight="400">free tier</text>
 <text x="148" y="206" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">NVIDIA: Nemotron 3 Super, Kimi K3, Laguna XS 2.1</text>
-<text x="148" y="228" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">OpenRouter: Qwen 3.8 27B  ·  Mistral Code</text>
+<text x="148" y="228" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">OpenRouter: Qwen 3.8 27B  ·  Mistral: Mistral Code</text>
 <text x="148" y="250" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">Google AI Studio: Gemini 3.5 Flash Lite</text>
 <line x1="44" y1="330" x2="96" y2="330" stroke="#e2ece5" stroke-width="3" stroke-linecap="round"/>
 <line x1="96" y1="330" x2="128" y2="330" stroke="rgba(120,220,160,0.28)" stroke-width="1.4"/>
