@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 336" width="900" height="336" role="img" aria-labelledby="flow-dark-title flow-dark-desc">
+<title id="flow-dark-title">How a request flows through Tri-AI</title>
+<desc id="flow-dark-desc">Five steps: a request is sent from a phone, split into specialist tasks, each task runs on a free model, a test command checks the work, and passing work is kept while failing work is retried.</desc>
+<style>
+.s{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,Roboto,&quot;Helvetica Neue&quot;,Arial,sans-serif}
+.m{font-family:ui-monospace,SFMono-Regular,&quot;SF Mono&quot;,Menlo,Consolas,&quot;Liberation Mono&quot;,monospace}
+</style>
+<rect x="0.5" y="0.5" width="899" height="335" rx="12" fill="#050a07" stroke="rgba(120,220,160,0.22)"/>
+<defs>
+<marker id="m-a" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#a9bcae"/></marker>
+<marker id="m-ok" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#5fe0a0"/></marker>
+<marker id="m-bad" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#e5675f"/></marker>
+<marker id="m-warn" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#dcaa4f"/></marker>
+</defs>
+<rect x="22" y="20" width="160" height="296" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<circle cx="46" cy="44" r="13" fill="none" stroke="#a9bcae" stroke-width="1.4"/>
+<text x="46" y="49" class="m" font-size="14" fill="#a9bcae" text-anchor="middle" font-weight="600">1</text>
+<rect x="84.0" y="88" width="36" height="64" rx="7" fill="#0b130e" stroke="#e2ece5" stroke-width="1.6"/>
+<line x1="95.0" y1="144" x2="109.0" y2="144" stroke="#a9bcae" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="93.0" y1="104" x2="111.0" y2="104" stroke="#a9bcae" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="93.0" y1="114" x2="105.0" y2="114" stroke="#a9bcae" stroke-width="1.6" stroke-linecap="round"/>
+<text x="36" y="220" class="s" font-size="17" fill="#e2ece5" text-anchor="start" font-weight="600">Send a request</text>
+<text x="36" y="244" class="s" font-size="17" fill="#e2ece5" text-anchor="start" font-weight="600">from your phone</text>
+<line x1="36" y1="268" x2="168" y2="268" stroke="rgba(120,220,160,0.28)" stroke-width="1"/>
+<text x="36" y="294" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">telegram_daemon</text>
+<line x1="183" y1="120" x2="195" y2="120" stroke="#a9bcae" stroke-width="1.6" marker-end="url(#m-a)"/>
+<rect x="196" y="20" width="160" height="296" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<circle cx="220" cy="44" r="13" fill="none" stroke="#a9bcae" stroke-width="1.4"/>
+<text x="220" y="49" class="m" font-size="14" fill="#a9bcae" text-anchor="middle" font-weight="600">2</text>
+<path d="M276.0 106 V120 M250.0 132 V120 H302.0 V132 M276.0 120 V132" fill="none" stroke="#a9bcae" stroke-width="1.6"/>
+<rect x="262.0" y="88" width="28" height="18" rx="4" fill="#0b130e" stroke="#e2ece5" stroke-width="1.6"/>
+<rect x="240.0" y="132" width="20" height="18" rx="4" fill="#0b130e" stroke="#e2ece5" stroke-width="1.6"/>
+<rect x="266.0" y="132" width="20" height="18" rx="4" fill="#0b130e" stroke="#e2ece5" stroke-width="1.6"/>
+<rect x="292.0" y="132" width="20" height="18" rx="4" fill="#0b130e" stroke="#e2ece5" stroke-width="1.6"/>
+<text x="210" y="220" class="s" font-size="17" fill="#e2ece5" text-anchor="start" font-weight="600">Split into</text>
+<text x="210" y="244" class="s" font-size="17" fill="#e2ece5" text-anchor="start" font-weight="600">specialist tasks</text>
+<line x1="210" y1="268" x2="342" y2="268" stroke="rgba(120,220,160,0.28)" stroke-width="1"/>
+<text x="210" y="294" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">decomposer</text>
+<line x1="357" y1="120" x2="369" y2="120" stroke="#a9bcae" stroke-width="1.6" marker-end="url(#m-a)"/>
+<rect x="370" y="20" width="160" height="296" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<circle cx="394" cy="44" r="13" fill="none" stroke="#a9bcae" stroke-width="1.4"/>
+<text x="394" y="49" class="m" font-size="14" fill="#a9bcae" text-anchor="middle" font-weight="600">3</text>
+<line x1="418.0" y1="106" x2="482.0" y2="106" stroke="#a9bcae" stroke-width="1.6"/>
+<line x1="436.0" y1="88" x2="436.0" y2="152" stroke="#a9bcae" stroke-width="1.6"/>
+<line x1="418.0" y1="120" x2="482.0" y2="120" stroke="#a9bcae" stroke-width="1.6"/>
+<line x1="450.0" y1="88" x2="450.0" y2="152" stroke="#a9bcae" stroke-width="1.6"/>
+<line x1="418.0" y1="134" x2="482.0" y2="134" stroke="#a9bcae" stroke-width="1.6"/>
+<line x1="464.0" y1="88" x2="464.0" y2="152" stroke="#a9bcae" stroke-width="1.6"/>
+<rect x="426.0" y="96" width="48" height="48" rx="6" fill="#0b130e" stroke="#e2ece5" stroke-width="1.6"/>
+<rect x="438.0" y="108" width="24" height="24" rx="3" fill="none" stroke="#a9bcae" stroke-width="1.6"/>
+<text x="384" y="220" class="s" font-size="17" fill="#e2ece5" text-anchor="start" font-weight="600">Each task runs</text>
+<text x="384" y="244" class="s" font-size="17" fill="#e2ece5" text-anchor="start" font-weight="600">on a free model</text>
+<line x1="384" y1="268" x2="516" y2="268" stroke="rgba(120,220,160,0.28)" stroke-width="1"/>
+<text x="384" y="294" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">worker</text>
+<line x1="531" y1="120" x2="543" y2="120" stroke="#a9bcae" stroke-width="1.6" marker-end="url(#m-a)"/>
+<rect x="544" y="20" width="160" height="296" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<circle cx="568" cy="44" r="13" fill="none" stroke="#a9bcae" stroke-width="1.4"/>
+<text x="568" y="49" class="m" font-size="14" fill="#a9bcae" text-anchor="middle" font-weight="600">4</text>
+<line x1="588.0" y1="124" x2="660.0" y2="124" stroke="#a9bcae" stroke-width="1.6"/>
+<rect x="592.0" y="90" width="8" height="62" rx="2" fill="#e2ece5"/>
+<rect x="648.0" y="90" width="8" height="62" rx="2" fill="#e2ece5"/>
+<circle cx="596.0" cy="90" r="6" fill="#e2ece5"/>
+<line x1="586.0" y1="152" x2="606.0" y2="152" stroke="#e2ece5" stroke-width="3" stroke-linecap="round"/>
+<circle cx="652.0" cy="90" r="6" fill="#e2ece5"/>
+<line x1="642.0" y1="152" x2="662.0" y2="152" stroke="#e2ece5" stroke-width="3" stroke-linecap="round"/>
+<rect x="598.0" y="120" width="52" height="8" rx="2" fill="#e2ece5"/>
+<text x="558" y="220" class="s" font-size="17" fill="#e2ece5" text-anchor="start" font-weight="600">A test command</text>
+<text x="558" y="244" class="s" font-size="17" fill="#e2ece5" text-anchor="start" font-weight="600">checks the work</text>
+<line x1="558" y1="268" x2="690" y2="268" stroke="rgba(120,220,160,0.28)" stroke-width="1"/>
+<text x="558" y="294" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">verify_command</text>
+<line x1="705" y1="120" x2="717" y2="120" stroke="#a9bcae" stroke-width="1.6" marker-end="url(#m-a)"/>
+<rect x="718" y="20" width="160" height="296" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<circle cx="742" cy="44" r="13" fill="none" stroke="#a9bcae" stroke-width="1.4"/>
+<text x="742" y="49" class="m" font-size="14" fill="#a9bcae" text-anchor="middle" font-weight="600">5</text>
+<rect x="770.0" y="88" width="56" height="64" rx="6" fill="#0b130e" stroke="#e2ece5" stroke-width="1.6"/>
+<circle cx="786.0" cy="104.0" r="4" fill="#5fe0a0"/>
+<line x1="798.0" y1="104.0" x2="812.0" y2="104.0" stroke="#a9bcae" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="786.0" cy="120.0" r="4" fill="#e5675f"/>
+<line x1="798.0" y1="120.0" x2="812.0" y2="120.0" stroke="#a9bcae" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="786.0" cy="136.0" r="4" fill="#5fe0a0"/>
+<line x1="798.0" y1="136.0" x2="812.0" y2="136.0" stroke="#a9bcae" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M734.0 213.5 L738.5 218.0 L746.0 208.5" fill="none" stroke="#5fe0a0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="754" y="220" class="s" font-size="17" fill="#5fe0a0" text-anchor="start" font-weight="600">Pass: kept</text>
+<path d="M735.0 236.0 L745.0 246.0 M745.0 236.0 L735.0 246.0" fill="none" stroke="#e5675f" stroke-width="2.2" stroke-linecap="round"/>
+<text x="754" y="248" class="s" font-size="17" fill="#e5675f" text-anchor="start" font-weight="600">Fail: retried</text>
+<line x1="732" y1="268" x2="864" y2="268" stroke="rgba(120,220,160,0.28)" stroke-width="1"/>
+<text x="732" y="294" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">ledger.jsonl</text>
+</svg>

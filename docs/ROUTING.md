@@ -26,7 +26,9 @@ task-fit choices, not per-role benchmarks.
 
 **Escalation (private build).** When a task fails on its role's route, the worker relaunches it on
 the next step of an ordered chain — local and free hosted routes first, flat-rate subscriptions
-last. The order below comes from a one-build-per-route benchmark on 2026-10-05: one real
+last. A timeout counts as a failure here: since 2026-10-05 an agent that runs out of time also
+moves the task one step down, rather than retrying the same model. The order below comes from a
+one-build-per-route benchmark on 2026-10-05: one real
 single-file app build per route, one attempt, no escalation, in a fresh isolated workspace.
 
 | route | result | seconds |

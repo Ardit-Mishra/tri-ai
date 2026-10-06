@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="hero-dark-title hero-dark-desc">
+<title id="hero-dark-title">Tri-AI: free AI models do the work, a test decides whether it counts</title>
+<desc id="hero-dark-desc">A request from a phone runs on a free AI model; a verification command then decides: exit 0 keeps the work, any other exit code reverts it.</desc>
+<style>
+.s{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,Roboto,&quot;Helvetica Neue&quot;,Arial,sans-serif}
+.m{font-family:ui-monospace,SFMono-Regular,&quot;SF Mono&quot;,Menlo,Consolas,&quot;Liberation Mono&quot;,monospace}
+</style>
+<rect x="0.5" y="0.5" width="1279" height="639" rx="12" fill="#050a07" stroke="rgba(120,220,160,0.22)"/>
+<defs>
+<marker id="m-a" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#a9bcae"/></marker>
+<marker id="m-ok" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#5fe0a0"/></marker>
+<marker id="m-bad" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#e5675f"/></marker>
+<marker id="m-warn" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#dcaa4f"/></marker>
+</defs>
+<circle cx="76" cy="66" r="4" fill="#5fe0a0"/><circle cx="100" cy="66" r="4" fill="#5fe0a0"/><rect x="74" y="66" width="4" height="28" fill="#5fe0a0"/><rect x="98" y="66" width="4" height="28" fill="#5fe0a0"/><rect x="76" y="78" width="24" height="4" rx="1" fill="#5fe0a0"/><line x1="68" y1="94" x2="108" y2="94" stroke="#5fe0a0" stroke-width="3" stroke-linecap="round"/>
+<text x="118" y="92" class="m" font-size="28" fill="#e2ece5" text-anchor="start" font-weight="600">tri-ai</text>
+<text x="72" y="196" class="s" font-size="60" fill="#e2ece5" text-anchor="start" font-weight="650" letter-spacing="-0.5">Free AI models do the work.</text>
+<text x="72" y="268" class="s" font-size="60" fill="#a9bcae" text-anchor="start" font-weight="650" letter-spacing="-0.5">A test decides whether it counts.</text>
+<text x="72" y="320" class="s" font-size="24" fill="#a9bcae" text-anchor="start" font-weight="400">Multi-agent build system  ·  requests from a phone  ·  $0 metered model spend</text>
+<line x1="72" y1="356" x2="1208" y2="356" stroke="rgba(120,220,160,0.28)" stroke-width="1"/>
+<rect x="72" y="404" width="64" height="120" rx="10" fill="#0b130e" stroke="#e2ece5" stroke-width="1.6"/>
+<line x1="97.0" y1="516" x2="111.0" y2="516" stroke="#a9bcae" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="84" y1="428" x2="124" y2="428" stroke="#a9bcae" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="84" y1="444" x2="112" y2="444" stroke="#a9bcae" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M136 452 L152 444 L152 460 Z" fill="#101b14"/>
+<rect x="152" y="424" width="300" height="56" rx="10" fill="#101b14" stroke="rgba(120,220,160,0.28)"/>
+<text x="172" y="460" class="s" font-size="22" fill="#e2ece5" text-anchor="start" font-weight="400">add dark mode to the site</text>
+<line x1="452" y1="452" x2="512" y2="452" stroke="#a9bcae" stroke-width="1.6" marker-end="url(#m-a)"/>
+<rect x="520" y="396" width="244" height="44" rx="8" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="540" y="425" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">local</text>
+<text x="744" y="425" class="m" font-size="17" fill="#a9bcae" text-anchor="end" font-weight="400">Ornith 9B</text>
+<rect x="520" y="452" width="244" height="44" rx="8" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="540" y="481" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">free hosted</text>
+<text x="744" y="481" class="m" font-size="17" fill="#a9bcae" text-anchor="end" font-weight="400">Kimi K3</text>
+<rect x="520" y="508" width="244" height="44" rx="8" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="540" y="537" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">subscription</text>
+<text x="744" y="537" class="m" font-size="17" fill="#a9bcae" text-anchor="end" font-weight="400">last</text>
+<path d="M764 418 H788 V530 H764 M788 452 H836" fill="none" stroke="#a9bcae" stroke-width="1.6" marker-end="url(#m-a)"/>
+<line x1="836" y1="452" x2="932" y2="452" stroke="#a9bcae" stroke-width="1.6"/>
+<rect x="852" y="404" width="8" height="120" rx="2" fill="#e2ece5"/>
+<rect x="908" y="404" width="8" height="120" rx="2" fill="#e2ece5"/>
+<circle cx="856" cy="404" r="6" fill="#e2ece5"/>
+<line x1="846" y1="524" x2="866" y2="524" stroke="#e2ece5" stroke-width="3" stroke-linecap="round"/>
+<circle cx="912" cy="404" r="6" fill="#e2ece5"/>
+<line x1="902" y1="524" x2="922" y2="524" stroke="#e2ece5" stroke-width="3" stroke-linecap="round"/>
+<rect x="858" y="448" width="52" height="8" rx="2" fill="#e2ece5"/>
+<path d="M932 452 H952 V428 H988 M952 452 V500 H988" fill="none" stroke="#a9bcae" stroke-width="1.6"/>
+<rect x="988" y="404" width="220" height="48" rx="8" fill="rgba(95,224,160,0.13)" stroke="#5fe0a0"/>
+<path d="M1006.5 428.6 L1012.1 434.2 L1021.5 422.4" fill="none" stroke="#5fe0a0" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1036" y="435" class="m" font-size="20" fill="#5fe0a0" text-anchor="start" font-weight="600">exit 0  accepted</text>
+<rect x="988" y="476" width="220" height="48" rx="8" fill="rgba(229,103,95,0.13)" stroke="#e5675f"/>
+<path d="M1007.8 493.8 L1020.2 506.2 M1020.2 493.8 L1007.8 506.2" fill="none" stroke="#e5675f" stroke-width="2.6" stroke-linecap="round"/>
+<text x="1036" y="507" class="m" font-size="20" fill="#e5675f" text-anchor="start" font-weight="600">exit 1  reverted</text>
+<text x="72" y="576" class="s" font-size="20" fill="#e2ece5" text-anchor="start" font-weight="600">A request from my phone</text>
+<text x="72" y="604" class="m" font-size="17" fill="#a9bcae" text-anchor="start" font-weight="400">telegram</text>
+<text x="520" y="576" class="s" font-size="20" fill="#e2ece5" text-anchor="start" font-weight="600">Runs on a free model</text>
+<text x="520" y="604" class="m" font-size="17" fill="#a9bcae" text-anchor="start" font-weight="400">worker</text>
+<text x="836" y="576" class="s" font-size="20" fill="#e2ece5" text-anchor="start" font-weight="600">A test checks it</text>
+<text x="836" y="604" class="m" font-size="17" fill="#a9bcae" text-anchor="start" font-weight="400">verify_command</text>
+<text x="988" y="576" class="s" font-size="20" fill="#e2ece5" text-anchor="start" font-weight="600">Kept, or undone</text>
+<text x="988" y="604" class="m" font-size="17" fill="#a9bcae" text-anchor="start" font-weight="400">ledger.jsonl</text>
+</svg>

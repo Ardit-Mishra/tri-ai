@@ -14,6 +14,15 @@ The hosted dashboard runs with `--demo`. It serves a fixed, visibly labeled
 scenario only. It does not open the local runtime database, call a model
 provider, receive an agent task, or use deployment credentials.
 
+## How the boundary is enforced
+
+That is enforced, not promised. `tests/test_public_release_boundary.py` reads the Git index and
+fails on any tracked file carrying an operator identity, matched by shape: a machine-name pattern,
+a private address range, and a home-directory path derived from whoever runs the check. No real
+value is ever written down to search for. `scripts/release_guard.py` runs on `pre-push` (installed
+from `scripts/hooks/pre-push`) and refuses to push a branch to a public remote unless its
+`RELEASE_SCOPE` file declares it public.
+
 ## Reporting a vulnerability
 
 Do not open a public issue containing a secret, exploit payload, private URL,

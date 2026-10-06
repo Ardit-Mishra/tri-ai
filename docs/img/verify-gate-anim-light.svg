@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" width="900" height="400" role="img" aria-labelledby="verify-gate-anim-light-title verify-gate-anim-light-desc">
+<title id="verify-gate-anim-light-title">The verify gate</title>
+<desc id="verify-gate-anim-light-desc">A task leaves the board and stops at a gate. The agent's own report is ignored. A verification command runs: exit 0 lifts the bar and the work is kept in the ledger; exit 1 keeps the bar down, and the task is reverted and returned to the board for the next model.</desc>
+<style>
+.s{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,Roboto,&quot;Helvetica Neue&quot;,Arial,sans-serif}
+.m{font-family:ui-monospace,SFMono-Regular,&quot;SF Mono&quot;,Menlo,Consolas,&quot;Liberation Mono&quot;,monospace}
+
+.tA{animation:tA 8s infinite}
+.tB{animation:tB 8s infinite}
+.okA{animation:okA 8s infinite}
+.badB{animation:badB 8s infinite}
+.bar{transform-box:view-box;transform-origin:480px 182px;animation:bar 8s infinite}
+.r0{animation:r0 8s infinite}.r1{animation:r1 8s infinite}.r2{animation:r2 8s infinite}
+@keyframes tA{0%{transform:translate(0px,0px);opacity:1;animation-timing-function:ease-in-out}
+15%{transform:translate(212px,0px);opacity:1}
+27%{transform:translate(212px,0px);opacity:1;animation-timing-function:ease-in-out}
+40%{transform:translate(520px,0px);opacity:1}
+44%{transform:translate(520px,0px);opacity:0}
+99.5%{transform:translate(0px,0px);opacity:0}
+100%{transform:translate(0px,0px);opacity:1}}
+@keyframes okA{0%,25%{opacity:0}27%,100%{opacity:1}}
+@keyframes tB{0%,47%{transform:translate(0px,0px);opacity:0}
+50%{transform:translate(0px,0px);opacity:1;animation-timing-function:ease-in-out}
+63%{transform:translate(212px,0px);opacity:1}
+72%{transform:translate(212px,0px);opacity:1;animation-timing-function:ease-in}
+77%{transform:translate(212px,136px);opacity:1}
+94%{transform:translate(-108px,136px);opacity:1;animation-timing-function:ease-out}
+97%{transform:translate(-108px,64px);opacity:1}
+99%{transform:translate(-108px,64px);opacity:0}
+100%{transform:translate(0px,0px);opacity:0}}
+@keyframes badB{0%,70%{opacity:0}72%,100%{opacity:1}}
+@keyframes bar{0%,25%{transform:rotate(0deg)}29%,38%{transform:rotate(-78deg)}43%,100%{transform:rotate(0deg)}}
+@keyframes r0{0%,22%{opacity:1}23%,45%{opacity:0}46%,68%{opacity:1}69%,95%{opacity:0}96%,100%{opacity:1}}
+@keyframes r1{0%,22%{opacity:0}23%,45%{opacity:1}46%,100%{opacity:0}}
+@keyframes r2{0%,68%{opacity:0}69%,95%{opacity:1}96%,100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.tA,.tB,.okA,.badB,.bar,.r0,.r1,.r2{animation:none}.tB,.r1,.r2{opacity:0}}
+</style>
+<rect x="0.5" y="0.5" width="899" height="399" rx="12" fill="#f6f9f5" stroke="#cbd9cf"/>
+<defs>
+<marker id="m-a" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#3b5145"/></marker>
+<marker id="m-ok" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#11764a"/></marker>
+<marker id="m-bad" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#b3362d"/></marker>
+<marker id="m-warn" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#8a5a0b"/></marker>
+</defs>
+<text x="116" y="100" class="s" font-size="17" fill="#0e1f15" text-anchor="middle" font-weight="600">Task board</text>
+<text x="116" y="122" class="m" font-size="14" fill="#3b5145" text-anchor="middle" font-weight="400">board.py</text>
+<rect x="40" y="136" width="152" height="100" rx="8" fill="#ffffff" stroke="#0e1f15" stroke-width="1.6"/>
+<line x1="56" y1="160" x2="176" y2="160" stroke="#a9bdb0" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="56" y1="180" x2="176" y2="180" stroke="#a9bdb0" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="56" y1="200" x2="176" y2="200" stroke="#a9bdb0" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="56" y1="220" x2="176" y2="220" stroke="#a9bdb0" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="192" y1="184" x2="700" y2="184" stroke="#3b5145" stroke-width="1.6" marker-end="url(#m-a)"/>
+<path d="M436 200 V320 H116 V242" fill="none" stroke="#b3362d" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#m-bad)"/>
+<text x="276" y="354" class="s" font-size="15" fill="#b3362d" text-anchor="middle" font-weight="600">Fail: undo the change, try the next model</text>
+<text x="622" y="172" class="s" font-size="15" fill="#11764a" text-anchor="middle" font-weight="600">accepted</text>
+<text x="326" y="100" class="s" font-size="14" fill="#3b5145" text-anchor="middle" font-weight="400">the agent's own report</text>
+<rect x="246" y="112" width="160" height="34" rx="6" fill="#e9f0ea" stroke="#a9bdb0"/>
+<text x="326" y="134" class="m" font-size="15" fill="#566a5e" text-anchor="middle" font-weight="400">agent: &quot;done&quot;</text>
+<line x1="262" y1="129" x2="390" y2="129" stroke="#566a5e" stroke-width="1.6"/>
+<text x="326" y="162" class="s" font-size="14" fill="#566a5e" text-anchor="middle" font-weight="400">not counted</text>
+<line x1="504" y1="100" x2="504" y2="144" stroke="#a9bdb0" stroke-width="1.4" stroke-dasharray="3 4"/>
+<rect x="420" y="40" width="168" height="60" rx="8" fill="#ffffff" stroke="#a9bdb0"/>
+<text x="504" y="63" class="m" font-size="14" fill="#3b5145" text-anchor="middle" font-weight="400">verify_command</text>
+<text x="504" y="87" class="m r0" font-size="16" fill="#3b5145" text-anchor="middle" font-weight="600">running...</text>
+<text x="504" y="87" class="m r1" font-size="16" fill="#11764a" text-anchor="middle" font-weight="600" opacity="0">exit 0  pass</text>
+<text x="504" y="87" class="m r2" font-size="16" fill="#b3362d" text-anchor="middle" font-weight="600" opacity="0">exit 1  fail</text>
+<rect x="472" y="144" width="8" height="88" rx="2" fill="#0e1f15"/>
+<rect x="528" y="144" width="8" height="88" rx="2" fill="#0e1f15"/>
+<circle cx="476" cy="144" r="6" fill="#0e1f15"/>
+<line x1="466" y1="232" x2="486" y2="232" stroke="#0e1f15" stroke-width="3" stroke-linecap="round"/>
+<circle cx="532" cy="144" r="6" fill="#0e1f15"/>
+<line x1="522" y1="232" x2="542" y2="232" stroke="#0e1f15" stroke-width="3" stroke-linecap="round"/>
+<rect class="bar" x="476" y="178" width="56" height="8" rx="2" fill="#0e1f15"/>
+<text x="780" y="100" class="s" font-size="17" fill="#0e1f15" text-anchor="middle" font-weight="600">Ledger</text>
+<text x="780" y="122" class="m" font-size="14" fill="#3b5145" text-anchor="middle" font-weight="400">ledger.jsonl</text>
+<rect x="704" y="136" width="152" height="100" rx="6" fill="#ffffff" stroke="#0e1f15" stroke-width="1.6"/>
+<circle cx="720" cy="156.0" r="4" fill="#11764a"/>
+<line x1="732" y1="156.0" x2="842" y2="156.0" stroke="#3b5145" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="720" cy="176.0" r="4" fill="#b3362d"/>
+<line x1="732" y1="176.0" x2="842" y2="176.0" stroke="#3b5145" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="720" cy="196.0" r="4" fill="#11764a"/>
+<line x1="732" y1="196.0" x2="842" y2="196.0" stroke="#3b5145" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="720" cy="216.0" r="4" fill="#11764a"/>
+<line x1="732" y1="216.0" x2="842" y2="216.0" stroke="#3b5145" stroke-width="1.6" stroke-linecap="round"/>
+<g class="tA">
+<rect x="196" y="170" width="56" height="28" rx="6" fill="#e9f0ea" stroke="#3b5145" stroke-width="1.4"/>
+<g class="okA" opacity="0"><rect x="196" y="170" width="56" height="28" rx="6" fill="#f6f9f5"/><rect x="196" y="170" width="56" height="28" rx="6" fill="rgba(17,118,74,0.10)" stroke="#11764a" stroke-width="1.6"/></g>
+<text x="224" y="189" class="m" font-size="14" fill="#0e1f15" text-anchor="middle" font-weight="400">task</text>
+</g>
+<g class="tB" opacity="0">
+<rect x="196" y="170" width="56" height="28" rx="6" fill="#e9f0ea" stroke="#3b5145" stroke-width="1.4"/>
+<g class="badB" opacity="0"><rect x="196" y="170" width="56" height="28" rx="6" fill="#f6f9f5"/><rect x="196" y="170" width="56" height="28" rx="6" fill="rgba(179,54,45,0.08)" stroke="#b3362d" stroke-width="1.6"/></g>
+<text x="224" y="189" class="m" font-size="14" fill="#0e1f15" text-anchor="middle" font-weight="400">task</text>
+</g>
+<text x="450" y="388" class="s" font-size="16" fill="#0e1f15" text-anchor="middle" font-weight="600">The model's own “done” is ignored. Only the exit code counts.</text>
+</svg>

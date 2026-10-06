@@ -6,7 +6,60 @@ agent's own report never decides whether its work is accepted.
 
 Module names below are files in `src/`. Parts marked *private build* exist in the creator's
 private deployment and are described here so the diagrams are complete; they are not in this
-repository (see the [README](../README.md#this-repository-vs-the-private-system)).
+repository (see the [README](../README.md#this-repo-vs-the-private-build)).
+
+## Bird's-eye view
+
+One box per module in `src/`. This is the graph the README used to carry; the README now explains
+the same flow with an illustrated five-step strip, and this page keeps the exact modules.
+
+```mermaid
+flowchart TB
+    phone([Phone]) --> tg["Telegram intake<br/>interfaces/telegram_daemon.py<br/>telegram_control.py"]
+    tg --> interp["Message interpreter<br/>interpreter.py"]
+    interp --> decomp["Decomposer<br/>decomposer.py"]
+    decomp --> plan["Planner + route admission<br/>planner.py · route_admission.py"]
+    plan --> boardDB[("Task board<br/>board.py (SQLite)")]
+    boardDB --> worker["Worker<br/>worker_daemon.py · worker.py"]
+    worker --> exec["Agent runtime<br/>executor.py"]
+    exec --> hermes["Hermes → OmniRoute<br/>free hosted models"]
+    exec --> ollama["Ollama<br/>local model"]
+    exec --> subs["Claude / Codex CLI<br/>subscription, last"]
+    hermes --> verify{"Verify command<br/>exit 0?"}
+    ollama --> verify
+    subs --> verify
+    verify -- yes --> accept[Accept]
+    verify -- no --> revert["Revert workspace<br/>escalate route"]
+    revert -. retry .-> boardDB
+    accept --> ledgerF[("Ledger<br/>ledger.py")]
+    revert --> ledgerF
+    ledgerF --> brainM["Retained memory<br/>memory/brain.py"]
+    ledgerF --> cortex["Kaya / Cortex console<br/>dashboard/kaya_web.py (read-only)"]
+```
+
+## Codemap
+
+Where the thing that does X lives.
+
+| path | what |
+|---|---|
+| `src/board.py` | task board on the Hermes kanban kernel, plus `verify_command` |
+| `src/worker.py`, `src/worker_daemon.py` | claim → agent → verify → accept or revert |
+| `src/executor.py` | agent runtimes, process containment, verifier execution |
+| `src/route_admission.py`, `src/routing_probe.py`, `src/model_routes.py` | route registry and admission |
+| `src/decomposer.py`, `src/planner.py` | request → validated task graph |
+| `src/telegram_control.py`, `src/interfaces/telegram_daemon.py`, `src/interpreter.py` | phone intake |
+| `src/daemon_supervisor.py` | keeps the worker and Telegram daemons running |
+| `src/ledger.py`, `src/memory/` | append-only evidence and retained memory |
+| `src/dashboard/` | Kaya console and Cortex view (read-only) |
+| `public-demo/` | the sealed demo server and its synthetic snapshot |
+| `evidence/` | the published ledger and model sweep |
+| `config/` | example registries; real ones live outside the clone |
+| `docs/` | architecture, routing, setup, operations |
+
+Invariants worth knowing, stated as absences: the console never imports the board's write path;
+no task is accepted on an agent's report; no route is used before it is admitted; a revert never
+deletes (it stashes).
 
 ## Where things run
 

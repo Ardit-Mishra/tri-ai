@@ -186,6 +186,32 @@ a command that proves the task worked, it does not belong in the queue.
 
 ---
 
+## Running the test suite
+
+```powershell
+python tests/run.py        # full suite; exit 0 pass, 1 fail
+```
+
+Most of the suite needs a local [Hermes Agent](https://hermes-agent.nousresearch.com) install:
+`src/board.py` uses Hermes' kanban kernel as a library and adds the one thing that kernel lacks,
+a `verify_command` per task. Set `TRIAI_HERMES_HOME` if the checkout is not in the default
+location. The kernel is used, never edited. Hermes replaces whole package trees on update, so an
+in-place patch would be reverted silently, and the board would keep working while verification
+quietly stopped. The migration runs from this side, through the kernel's own
+`add_column_if_missing`.
+
+Several tests spawn real processes and kill them, because "exactly one of two concurrent
+claimants wins" and "a dead worker's lease is reclaimed, a live one's is not" are not observable
+in a single process. The suite therefore takes minutes.
+
+The public-release checks alone need nothing but Python:
+
+```powershell
+python -m unittest tests.test_public_release_boundary tests.test_public_cortex_demo
+```
+
+---
+
 ## Verification checklist
 
 Nothing is "set up" until every line passes:
