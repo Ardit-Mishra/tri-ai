@@ -1,5 +1,7 @@
 <p>
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="docs/img/hero-narrow-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/img/hero-narrow-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/hero-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/img/hero-light.svg">
   <img src="docs/img/hero-light.svg" width="100%" alt="Tri-AI: a request from a phone runs on a free AI model, then a test command decides. Exit 0 keeps the work; any other exit code reverts it.">
@@ -25,15 +27,25 @@ model. It keeps the result only if a verification command passes.
 
 ## Live demo
 
+[tri-ai.arditmishra.com](https://tri-ai.arditmishra.com) opens with two guided walkthroughs,
+*Build a landing page* and *Build an app from scratch*, that follow one request from my phone to a
+deploy on sample data.
+
+<p align="center">
+  <img src="docs/img/cortex-hero.jpg" width="100%" alt="The live demo console: a brain-like sphere where each coloured region is a data source, with Tri-AI's pipeline in the core. A green ring is sweeping out from the verify gate because a run just passed its check; the caption reads 'Run verified, Frame the product brief passed its check'.">
+</p>
+
 > [!NOTE]
-> **[tri-ai.arditmishra.com](https://tri-ai.arditmishra.com)** is a labelled simulation with
-> synthetic data. It never connects to a live model, task board or agent. Its *Private console*
-> option leads only to my passphrase login. [Screenshots below](#see-it-running).
+> The demo is a labelled simulation with synthetic data. It never connects to a live model, task
+> board or agent. Its *Private console* option leads only to my passphrase login.
+> [How to read the console](#see-it-running).
 
 ## Why this exists
 
 <p>
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="docs/img/said-vs-proved-narrow-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/img/said-vs-proved-narrow-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/said-vs-proved-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/img/said-vs-proved-light.svg">
   <img src="docs/img/said-vs-proved-light.svg" width="100%" alt="Same free model, same day. A prose rewrite with no check deleted 387 of 389 lines and reported success. A task that grep could check was correct, and exit 0 proved it.">
@@ -52,6 +64,8 @@ command can prove a task worked, the task does not go in the queue.**
 
 <p>
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="docs/img/flow-narrow-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/img/flow-narrow-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/flow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/img/flow-light.svg">
   <img src="docs/img/flow-light.svg" width="100%" alt="Five steps: send a request from a phone, split it into specialist tasks, run each task on a free model, check the work with a test command, then keep passing work and retry failing work.">
@@ -94,6 +108,8 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#task-lifecycle).
 
 <p>
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="docs/img/escalation-ladder-narrow-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/img/escalation-ladder-narrow-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/escalation-ladder-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/img/escalation-ladder-light.svg">
   <img src="docs/img/escalation-ladder-light.svg" width="100%" alt="An escalation ladder, cheapest first: a local Ollama model, then free hosted models, then a flat-rate Google AI Pro subscription, then the Claude subscription last. Nothing billed per token is ever called.">
@@ -113,6 +129,8 @@ provider must also serve the exact model that was asked for. That rule came from
 
 <p>
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="docs/img/proof-strip-narrow-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/img/proof-strip-narrow-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/proof-strip-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/img/proof-strip-light.svg">
   <img src="docs/img/proof-strip-light.svg" width="100%" alt="9 of 9 queued tasks passed their own test. $0 metered model spend. 574 models listed, 20 served as asked. 1,497 tests in this repository.">
@@ -228,11 +246,7 @@ public push unless the branch's `RELEASE_SCOPE` file says `public`. Details in
 
 ## See it running
 
-<p align="center">
-  <img src="docs/img/cortex-hero.jpg" width="100%" alt="The live demo console: a brain-like sphere where each coloured region is a data source, with Tri-AI's pipeline in the core. A green ring is sweeping out from the verify gate because a run just passed its check; the caption reads 'Run verified, Frame the product brief passed its check'.">
-</p>
-
-How to read it: each coloured region is one data source. The core is Tri-AI's pipeline, from planner to
+How to read the console [shown above](#live-demo): each coloured region is one data source. The core is Tri-AI's pipeline, from planner to
 verify gate. A moving dot is a task that is running right now. A green ring sweeping outward means a run
 passed its check, a red flash means one failed and was undone, and a burst in a region means new files
 were indexed there. Nothing on the brain moves on its own: every spark is a recorded event.

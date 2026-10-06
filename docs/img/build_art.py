@@ -14,6 +14,7 @@ accepted, crimson means reverted, amber means escalating, and nothing else.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent
@@ -121,7 +122,21 @@ def ledger_glyph(x, y, w, h, p, rows=4, marks=("ok", "bad", "ok", "ok")):
     return s
 
 
+def wordmark(p, dx=0, dy=0):
+    """The gate glyph and the name in mono; (dx, dy) shifts it from the wide hero's spot."""
+    g = (f'<g transform="translate({dx} {dy})">'
+         f'<circle cx="76" cy="66" r="4" fill="{p["ok"]}"/><circle cx="100" cy="66" r="4" fill="{p["ok"]}"/>'
+         f'<rect x="74" y="66" width="4" height="28" fill="{p["ok"]}"/><rect x="98" y="66" width="4" height="28" fill="{p["ok"]}"/>'
+         f'<rect x="76" y="78" width="24" height="4" rx="1" fill="{p["ok"]}"/>'
+         f'<line x1="68" y1="94" x2="108" y2="94" stroke="{p["ok"]}" stroke-width="3" stroke-linecap="round"/>\n')
+    g += t(118, 92, "tri-ai", 28, p["text"], "m", weight=600)
+    return g + "</g>\n"
+
+
 # 1. Hero ----------------------------------------------------------------------
+
+HERO_CHIPS = ("local model", "free hosted model", "next free model")
+
 
 def hero(p, slug):
     W, H = 1280, 640
@@ -129,12 +144,7 @@ def hero(p, slug):
              "A request from a phone runs on a free AI model; a verification command then decides: "
              "exit 0 keeps the work, any other exit code reverts it.", p)
     s += arrow_defs(p)
-    # Wordmark: a small gate glyph and the name in mono.
-    s += (f'<circle cx="76" cy="66" r="4" fill="{p["ok"]}"/><circle cx="100" cy="66" r="4" fill="{p["ok"]}"/>'
-          f'<rect x="74" y="66" width="4" height="28" fill="{p["ok"]}"/><rect x="98" y="66" width="4" height="28" fill="{p["ok"]}"/>'
-          f'<rect x="76" y="78" width="24" height="4" rx="1" fill="{p["ok"]}"/>'
-          f'<line x1="68" y1="94" x2="108" y2="94" stroke="{p["ok"]}" stroke-width="3" stroke-linecap="round"/>\n')
-    s += t(118, 92, "tri-ai", 28, p["text"], "m", weight=600)
+    s += wordmark(p)
     s += t(72, 196, "Free AI models do the work.", 60, p["text"], weight=650, extra=' letter-spacing="-0.5"')
     s += t(72, 268, "A test decides whether it counts.", 60, p["text2"], weight=650, extra=' letter-spacing="-0.5"')
     s += t(72, 320, "Multi-agent build system  ·  requests from a phone  ·  $0 metered model spend", 24, p["text2"])
@@ -152,12 +162,12 @@ def hero(p, slug):
     s += f'<line x1="452" y1="452" x2="512" y2="452" stroke="{p["text2"]}" stroke-width="1.6" marker-end="url(#m-a)"/>\n'
 
     # Column B: three model chips (cheapest first), joined by a bracket.
-    chips = [("local", "Ornith 9B"), ("free hosted", "Kimi K3"), ("free hosted", "Nemotron")]
-    for i, (k, v) in enumerate(chips):
+    # Generic on purpose: the named routes belong to the private build (see the README's comparison table).
+    for i, k in enumerate(HERO_CHIPS):
         y = 396 + i * 56
         s += f'<rect x="520" y="{y}" width="244" height="44" rx="8" fill="{p["s1"]}" stroke="{p["line"]}"/>\n'
-        s += t(540, y + 29, k, 19, p["text"])
-        s += t(744, y + 29, v, 17, p["text2"], "m", anchor="end")
+        s += t(540, y + 29, str(i + 1), 17, p["text2"], "m", weight=600)
+        s += t(566, y + 29, k, 19, p["text"])
     s += f'<path d="M764 418 H788 V530 H764 M788 452 H836" fill="none" stroke="{p["text2"]}" stroke-width="1.6" marker-end="url(#m-a)"/>\n'
 
     # Column C: the gate on the path.
@@ -435,19 +445,21 @@ def compare(p, slug):
 
 # 6. Proof strip ---------------------------------------------------------------
 
+PROOF_CELLS = [
+    ("9 / 9", "ok", "tasks passed", "their own test", "ledger.jsonl"),
+    ("$0", "text", "metered model", "spend", "ledger.jsonl"),
+    ("574 → 20", "text", "models listed vs.", "served as asked", "MODEL_SWEEP.md"),
+    ("1,497", "text", "tests in", "this repository", "tests/run.py"),
+]
+
+
 def proof(p, slug):
     W, H = 900, 212
     s = head(slug, W, H, "What is proven",
              "Nine of nine queued tasks passed their own test; zero dollars of metered spend; 574 models listed "
              "but only 20 answered as themselves; 1,497 tests in this repository.", p)
-    cells = [
-        ("9 / 9", "ok", "tasks passed", "their own test", "ledger.jsonl"),
-        ("$0", "text", "metered model", "spend", "ledger.jsonl"),
-        ("574 → 20", "text", "models listed vs.", "served as asked", "MODEL_SWEEP.md"),
-        ("1,497", "text", "tests in", "this repository", "tests/run.py"),
-    ]
     cw, gap, x0 = 204, 12, 24
-    for i, (big, tone, l1, l2, src) in enumerate(cells):
+    for i, (big, tone, l1, l2, src) in enumerate(PROOF_CELLS):
         x = x0 + i * (cw + gap)
         s += f'<rect x="{x}" y="20" width="{cw}" height="172" rx="10" fill="{p["s1"]}" stroke="{p["line"]}"/>\n'
         s += t(x + 18, 76, big, 40, p[tone], weight=650, extra=' letter-spacing="-0.5"')
@@ -458,6 +470,186 @@ def proof(p, slug):
     return s + "</svg>\n"
 
 
+# 7. Phone-width variants -------------------------------------------------------
+#
+# The wide figures scale a 900-1280 canvas into the README column, so on a
+# 390px phone their labels shrink to 5-7px. These redraw the dense figures on a
+# 400-wide canvas: stacked, not side by side, and no text under 18 units, which
+# keeps every label at 14px or more in a phone-sized README column. The README
+# picks them with <picture> media queries below 600px.
+
+NW = 400
+NARROW_MIN_FONT = 18
+
+
+def icon_at(i, cx, cy, p, k):
+    """A flow icon (64x64 at scale 1) drawn at (cx, cy), scaled by k."""
+    return f'<g transform="translate({cx} {cy}) scale({k})">\n{flow_icon(i, 0, 0, p)}</g>\n'
+
+
+def hero_narrow(p, slug):
+    H = 668
+    s = head(slug, NW, H, "Tri-AI: free AI models do the work, a test decides whether it counts",
+             "A request from a phone runs on a free AI model, cheapest first; a verification command then "
+             "decides: exit 0 keeps the work, any other exit code reverts it.", p)
+    s += arrow_defs(p)
+    s += wordmark(p, -44, -30)
+    for i, (line, col) in enumerate((("Free AI models", "text"), ("do the work.", "text"),
+                                     ("A test decides", "text2"), ("whether it counts.", "text2"))):
+        y = 124 + i * 42 + (12 if i >= 2 else 0)
+        s += t(24, y, line, 34, p[col], weight=650, extra=' letter-spacing="-0.4"')
+    for i, line in enumerate(("Multi-agent build system", "Requests from a phone", "$0 metered model spend")):
+        s += t(24, 310 + i * 26, line, 18, p["text2"])
+    s += f'<line x1="24" y1="382" x2="376" y2="382" stroke="{p["line"]}" stroke-width="1"/>\n'
+    cols = [(72, 0, "Request", "by phone"), (200, 2, "Free model", "cheapest first"),
+            (328, 3, "Test", "decides")]
+    for cx, icon, cap, sub in cols:
+        s += icon_at(icon, cx, 444, p, 0.85)
+        s += t(cx, 520, cap, 19, p["text"], anchor="middle", weight=600)
+        s += t(cx, 544, sub, 18, p["text2"], anchor="middle")
+    for x1, x2 in ((100, 164), (236, 288)):
+        s += f'<line x1="{x1}" y1="444" x2="{x2}" y2="444" stroke="{p["text2"]}" stroke-width="1.6" marker-end="url(#m-a)"/>\n'
+    for y, tone, mark, label in ((568, "ok", check, "exit 0  accepted"), (616, "bad", cross, "exit 1  reverted")):
+        s += f'<rect x="24" y="{y}" width="352" height="40" rx="8" fill="{p[tone + "Soft"]}" stroke="{p[tone]}"/>\n'
+        s += mark(42, y + 11, p[tone], 18, 2.4)
+        s += t(72, y + 26, label, 18, p[tone], "m", weight=600)
+    return s + "</svg>\n"
+
+
+def flow_narrow(p, slug):
+    card, gap, top = 104, 16, 16
+    H = top * 2 + card * len(FLOW) + gap * (len(FLOW) - 1)
+    s = head(slug, NW, H, "How a request flows through Tri-AI",
+             "Five steps: a request is sent from a phone, split into specialist tasks, each task runs on a "
+             "free model, a test command checks the work, and passing work is kept while failing work is undone and tried on the next model.", p)
+    s += arrow_defs(p)
+    for i, (c1, c2, m) in enumerate(FLOW):
+        y = top + i * (card + gap)
+        s += f'<rect x="16" y="{y}" width="368" height="{card}" rx="10" fill="{p["s1"]}" stroke="{p["line"]}"/>\n'
+        s += f'<circle cx="40" cy="{y + 26}" r="14" fill="none" stroke="{p["text2"]}" stroke-width="1.4"/>\n'
+        s += t(40, y + 32, str(i + 1), 18, p["text2"], "m", anchor="middle", weight=600)
+        s += icon_at(i, 104, y + card / 2, p, 0.8)
+        if i == 4:
+            s += check(152, y + 17, p["ok"], 18, 2.4)
+            s += t(178, y + 32, c1, 19, p["ok"], weight=600)
+            s += cross(152, y + 41, p["bad"], 18, 2.4)
+            s += t(178, y + 56, c2, 19, p["bad"], weight=600)
+        else:
+            s += t(152, y + 32, c1, 19, p["text"], weight=600)
+            s += t(152, y + 56, c2, 19, p["text"], weight=600)
+        s += t(152, y + 86, m, 18, p["text2"], "m")
+        if i < len(FLOW) - 1:
+            s += (f'<line x1="104" y1="{y + card + 1}" x2="104" y2="{y + card + gap - 1}" '
+                  f'stroke="{p["text2"]}" stroke-width="1.6" marker-end="url(#m-a)"/>\n')
+    return s + "</svg>\n"
+
+
+def ladder_narrow(p, slug):
+    # (caption, tag, mono lines); a line starting with "+" continues the previous route list.
+    rungs = [
+        ("Local model, on my own GPU", "free", ["Ollama: Ornith 9B"]),
+        ("Free hosted models", "free tier", ["NVIDIA: Nemotron 3 Super,", "+Kimi K3, Laguna XS 2.1",
+                                             "OpenRouter: Qwen 3.8 27B", "Mistral: Mistral Code",
+                                             "Google AI Studio:", "+Gemini 3.5 Flash Lite"]),
+        ("Flat-rate subscription", "flat fee", ["Google AI Pro, through", "+Antigravity"]),
+        ("Claude subscription, last", "flat fee", ["claude-subscription"]),
+    ]
+    gap = 40
+    heights = [104 + 24 * len(lines) for _, _, lines in rungs]
+    note_h = 228
+    H = 16 + sum(heights) + gap * (len(rungs) - 1) + 24 + note_h + 16
+    s = head(slug, NW, H, "Escalation ladder: cheapest model first",
+             "A failed or timed-out task moves down one rung: a local Ollama model, then free hosted models, "
+             "then a flat-rate Google AI Pro subscription, then the Claude subscription last. Nothing billed "
+             "per token is ever called, and a route is admitted only after an agentic probe and a served-model match.", p)
+    s += arrow_defs(p)
+    y = 16
+    for k, ((cap, tag, lines), h) in enumerate(zip(rungs, heights)):
+        s += f'<rect x="16" y="{y}" width="368" height="{h}" rx="10" fill="{p["s1"]}" stroke="{p["line"]}"/>\n'
+        s += t(36, y + 36, cap, 19, p["text"], weight=600)
+        tw = len(tag) * 10.8 + 24
+        s += f'<rect x="36" y="{y + 50}" width="{tw:.0f}" height="28" rx="14" fill="none" stroke="{p["line"]}"/>\n'
+        s += t(48, y + 70, tag, 18, p["text2"], "m")
+        for j, line in enumerate(lines):
+            x = 56 if line.startswith("+") else 36
+            s += t(x, y + 112 + j * 24, line.lstrip("+"), 18, p["text2"], "m")
+        y += h
+        if k < len(rungs) - 1:
+            s += f'<line x1="40" y1="{y + 3}" x2="40" y2="{y + gap - 3}" stroke="{p["warn"]}" stroke-width="2" marker-end="url(#m-warn)"/>\n'
+            if k == 0:
+                s += t(56, y + 26, "fails or times out: next rung", 18, p["warn"], weight=600)
+            y += gap
+    y += 24
+    s += f'<rect x="16" y="{y}" width="368" height="{note_h}" rx="10" fill="none" stroke="{p["line"]}"/>\n'
+    s += t(36, y + 36, "A model gets a rung only", 19, p["text"], weight=600)
+    s += t(36, y + 62, "after it proves itself:", 19, p["text"], weight=600)
+    s += check(36, y + 82, p["text2"], 18, 2)
+    s += t(64, y + 97, "agentic probe passes", 18, p["text2"], "m")
+    s += check(36, y + 112, p["text2"], 18, 2)
+    s += t(64, y + 127, "served model ==", 18, p["text2"], "m")
+    s += t(64, y + 151, "requested model", 18, p["text2"], "m")
+    s += t(36, y + 186, "Probe: a throwaway repo,", 18, p["muted"])
+    s += t(36, y + 210, "a real file write, a check.", 18, p["muted"])
+    return s + "</svg>\n"
+
+
+def compare_narrow(p, slug):
+    card_h, gap, top = 336, 16, 96
+    H = top + card_h * 2 + gap + 76
+    s = head(slug, NW, H, "Agent said done versus verifier proved it",
+             "Same free model, same day. A prose rewrite with no check deleted 387 of 389 lines and was reported "
+             "as a success. A task whose result grep could check was correct, and exit 0 proved it.", p)
+    s += t(24, 44, "Same model, same day.", 22, p["text"], weight=650)
+    s += t(24, 72, "The difference was a test.", 22, p["text"], weight=650)
+    cards = [
+        ("No check", [("Task", "Rewrite three prose strings", "s"), ("Check", "none", "m"),
+                      ("Agent said", "success", "m"), ("Reality", "−387 of 389 lines", "m")],
+         "bad", "Wrong, and reported as done"),
+        ("With a check", [("Task", "Delete two project entries", "s"), ("Check", "grep returns empty", "m"),
+                          ("Agent said", "success", "m"), ("Verifier", "exit 0", "m")],
+         "ok", "Proved by a command"),
+    ]
+    for n, (hdr, rows, tone, foot) in enumerate(cards):
+        y = top + n * (card_h + gap)
+        x, w = 16, 368
+        s += f'<rect x="{x}" y="{y}" width="{w}" height="{card_h}" rx="10" fill="{p["s1"]}" stroke="{p["line"]}"/>\n'
+        s += f'<path d="M{x} {y + 46} V{y + 10} a10 10 0 0 1 10 -10 H{x + w - 10} a10 10 0 0 1 10 10 V{y + 46} Z" fill="{p["s2"]}"/>\n'
+        s += f'<line x1="{x}" y1="{y + 46}" x2="{x + w}" y2="{y + 46}" stroke="{p["line"]}"/>\n'
+        s += t(x + 20, y + 30, hdr, 18, p["text"], weight=600)
+        for j, (k, v, cls) in enumerate(rows):
+            ry = y + 80 + j * 52
+            s += t(x + 20, ry, k, 18, p["text2"])
+            col = p[tone] if j == 3 else p["text"]
+            s += t(x + 20, ry + 24, v, 18, col, cls, weight=600 if j == 3 else 400)
+        fy = y + card_h - 52
+        s += f'<path d="M{x} {fy} H{x + w} V{y + card_h - 10} a10 10 0 0 1 -10 10 H{x + 10} a10 10 0 0 1 -10 -10 Z" fill="{p[tone + "Soft"]}"/>\n'
+        s += f'<line x1="{x}" y1="{fy}" x2="{x + w}" y2="{fy}" stroke="{p[tone]}" stroke-opacity="0.6"/>\n'
+        s += (check if tone == "ok" else cross)(x + 20, fy + 17, p[tone], 18, 2.4)
+        s += t(x + 48, fy + 33, foot, 19, p[tone], weight=600)
+    fy = top + card_h * 2 + gap
+    s += t(24, fy + 34, "If no command can prove a task worked,", 18, p["text2"])
+    s += t(24, fy + 58, "the task does not go in the queue.", 18, p["text2"])
+    return s + "</svg>\n"
+
+
+def proof_narrow(p, slug):
+    cw, ch, gap, x0 = 178, 172, 12, 16
+    H = x0 * 2 + ch * 2 + gap
+    s = head(slug, NW, H, "What is proven",
+             "Nine of nine queued tasks passed their own test; zero dollars of metered spend; 574 models listed "
+             "but only 20 answered as themselves; 1,497 tests in this repository.", p)
+    for i, (big, tone, l1, l2, src) in enumerate(PROOF_CELLS):
+        x = x0 + (i % 2) * (cw + gap)
+        y = x0 + (i // 2) * (ch + gap)
+        s += f'<rect x="{x}" y="{y}" width="{cw}" height="{ch}" rx="10" fill="{p["s1"]}" stroke="{p["line"]}"/>\n'
+        s += t(x + 14, y + 50, big, 32, p[tone], weight=650, extra=' letter-spacing="-0.5"')
+        s += t(x + 14, y + 84, l1, 18, p["text"])
+        s += t(x + 14, y + 106, l2, 18, p["text"])
+        s += f'<line x1="{x + 14}" y1="{y + 124}" x2="{x + cw - 14}" y2="{y + 124}" stroke="{p["line"]}"/>\n'
+        s += t(x + 12, y + 152, src, 18, p["text2"], "m")
+    return s + "</svg>\n"
+
+
 VISUALS = {
     "hero": hero,
     "flow": flow_wide,
@@ -465,6 +657,11 @@ VISUALS = {
     "escalation-ladder": ladder,
     "said-vs-proved": compare,
     "proof-strip": proof,
+    "hero-narrow": hero_narrow,
+    "flow-narrow": flow_narrow,
+    "escalation-ladder-narrow": ladder_narrow,
+    "said-vs-proved-narrow": compare_narrow,
+    "proof-strip-narrow": proof_narrow,
 }
 
 
@@ -472,7 +669,12 @@ def main() -> None:
     for name, fn in VISUALS.items():
         for theme, pal in PALETTES.items():
             slug = f"{name}-{theme}"
-            (OUT / f"{slug}.svg").write_text(fn(pal, slug), encoding="utf-8", newline="\n")
+            svg = fn(pal, slug)
+            if name.endswith("-narrow"):
+                small = [f for f in re.findall(r'font-size="([\d.]+)"', svg) if float(f) < NARROW_MIN_FONT]
+                if small:
+                    raise SystemExit(f"{slug}: text below {NARROW_MIN_FONT} units: {sorted(set(small))}")
+            (OUT / f"{slug}.svg").write_text(svg, encoding="utf-8", newline="\n")
             print(f"wrote docs/img/{slug}.svg")
 
 

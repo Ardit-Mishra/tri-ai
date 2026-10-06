@@ -12,8 +12,9 @@
 <marker id="m-bad" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#e5675f"/></marker>
 <marker id="m-warn" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#dcaa4f"/></marker>
 </defs>
-<circle cx="76" cy="66" r="4" fill="#5fe0a0"/><circle cx="100" cy="66" r="4" fill="#5fe0a0"/><rect x="74" y="66" width="4" height="28" fill="#5fe0a0"/><rect x="98" y="66" width="4" height="28" fill="#5fe0a0"/><rect x="76" y="78" width="24" height="4" rx="1" fill="#5fe0a0"/><line x1="68" y1="94" x2="108" y2="94" stroke="#5fe0a0" stroke-width="3" stroke-linecap="round"/>
+<g transform="translate(0 0)"><circle cx="76" cy="66" r="4" fill="#5fe0a0"/><circle cx="100" cy="66" r="4" fill="#5fe0a0"/><rect x="74" y="66" width="4" height="28" fill="#5fe0a0"/><rect x="98" y="66" width="4" height="28" fill="#5fe0a0"/><rect x="76" y="78" width="24" height="4" rx="1" fill="#5fe0a0"/><line x1="68" y1="94" x2="108" y2="94" stroke="#5fe0a0" stroke-width="3" stroke-linecap="round"/>
 <text x="118" y="92" class="m" font-size="28" fill="#e2ece5" text-anchor="start" font-weight="600">tri-ai</text>
+</g>
 <text x="72" y="196" class="s" font-size="60" fill="#e2ece5" text-anchor="start" font-weight="650" letter-spacing="-0.5">Free AI models do the work.</text>
 <text x="72" y="268" class="s" font-size="60" fill="#a9bcae" text-anchor="start" font-weight="650" letter-spacing="-0.5">A test decides whether it counts.</text>
 <text x="72" y="320" class="s" font-size="24" fill="#a9bcae" text-anchor="start" font-weight="400">Multi-agent build system  ·  requests from a phone  ·  $0 metered model spend</text>
@@ -27,14 +28,14 @@
 <text x="172" y="460" class="s" font-size="22" fill="#e2ece5" text-anchor="start" font-weight="400">add dark mode to the site</text>
 <line x1="452" y1="452" x2="512" y2="452" stroke="#a9bcae" stroke-width="1.6" marker-end="url(#m-a)"/>
 <rect x="520" y="396" width="244" height="44" rx="8" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
-<text x="540" y="425" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">local</text>
-<text x="744" y="425" class="m" font-size="17" fill="#a9bcae" text-anchor="end" font-weight="400">Ornith 9B</text>
+<text x="540" y="425" class="m" font-size="17" fill="#a9bcae" text-anchor="start" font-weight="600">1</text>
+<text x="566" y="425" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">local model</text>
 <rect x="520" y="452" width="244" height="44" rx="8" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
-<text x="540" y="481" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">free hosted</text>
-<text x="744" y="481" class="m" font-size="17" fill="#a9bcae" text-anchor="end" font-weight="400">Kimi K3</text>
+<text x="540" y="481" class="m" font-size="17" fill="#a9bcae" text-anchor="start" font-weight="600">2</text>
+<text x="566" y="481" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">free hosted model</text>
 <rect x="520" y="508" width="244" height="44" rx="8" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
-<text x="540" y="537" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">free hosted</text>
-<text x="744" y="537" class="m" font-size="17" fill="#a9bcae" text-anchor="end" font-weight="400">Nemotron</text>
+<text x="540" y="537" class="m" font-size="17" fill="#a9bcae" text-anchor="start" font-weight="600">3</text>
+<text x="566" y="537" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">next free model</text>
 <path d="M764 418 H788 V530 H764 M788 452 H836" fill="none" stroke="#a9bcae" stroke-width="1.6" marker-end="url(#m-a)"/>
 <line x1="836" y1="452" x2="932" y2="452" stroke="#a9bcae" stroke-width="1.6"/>
 <rect x="852" y="404" width="8" height="120" rx="2" fill="#e2ece5"/>

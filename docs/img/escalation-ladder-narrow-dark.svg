@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 1060" width="400" height="1060" role="img" aria-labelledby="escalation-ladder-narrow-dark-title escalation-ladder-narrow-dark-desc">
+<title id="escalation-ladder-narrow-dark-title">Escalation ladder: cheapest model first</title>
+<desc id="escalation-ladder-narrow-dark-desc">A failed or timed-out task moves down one rung: a local Ollama model, then free hosted models, then a flat-rate Google AI Pro subscription, then the Claude subscription last. Nothing billed per token is ever called, and a route is admitted only after an agentic probe and a served-model match.</desc>
+<style>
+.s{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,Roboto,&quot;Helvetica Neue&quot;,Arial,sans-serif}
+.m{font-family:ui-monospace,SFMono-Regular,&quot;SF Mono&quot;,Menlo,Consolas,&quot;Liberation Mono&quot;,monospace}
+</style>
+<rect x="0.5" y="0.5" width="399" height="1059" rx="12" fill="#050a07" stroke="rgba(120,220,160,0.22)"/>
+<defs>
+<marker id="m-a" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#a9bcae"/></marker>
+<marker id="m-ok" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#5fe0a0"/></marker>
+<marker id="m-bad" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#e5675f"/></marker>
+<marker id="m-warn" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 4 L0 8 Z" fill="#dcaa4f"/></marker>
+</defs>
+<rect x="16" y="16" width="368" height="128" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="36" y="52" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="600">Local model, on my own GPU</text>
+<rect x="36" y="66" width="67" height="28" rx="14" fill="none" stroke="rgba(120,220,160,0.28)"/>
+<text x="48" y="86" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">free</text>
+<text x="36" y="128" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">Ollama: Ornith 9B</text>
+<line x1="40" y1="147" x2="40" y2="181" stroke="#dcaa4f" stroke-width="2" marker-end="url(#m-warn)"/>
+<text x="56" y="170" class="s" font-size="18" fill="#dcaa4f" text-anchor="start" font-weight="600">fails or times out: next rung</text>
+<rect x="16" y="184" width="368" height="248" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="36" y="220" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="600">Free hosted models</text>
+<rect x="36" y="234" width="121" height="28" rx="14" fill="none" stroke="rgba(120,220,160,0.28)"/>
+<text x="48" y="254" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">free tier</text>
+<text x="36" y="296" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">NVIDIA: Nemotron 3 Super,</text>
+<text x="56" y="320" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">Kimi K3, Laguna XS 2.1</text>
+<text x="36" y="344" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">OpenRouter: Qwen 3.8 27B</text>
+<text x="36" y="368" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">Mistral: Mistral Code</text>
+<text x="36" y="392" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">Google AI Studio:</text>
+<text x="56" y="416" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">Gemini 3.5 Flash Lite</text>
+<line x1="40" y1="435" x2="40" y2="469" stroke="#dcaa4f" stroke-width="2" marker-end="url(#m-warn)"/>
+<rect x="16" y="472" width="368" height="152" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="36" y="508" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="600">Flat-rate subscription</text>
+<rect x="36" y="522" width="110" height="28" rx="14" fill="none" stroke="rgba(120,220,160,0.28)"/>
+<text x="48" y="542" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">flat fee</text>
+<text x="36" y="584" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">Google AI Pro, through</text>
+<text x="56" y="608" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">Antigravity</text>
+<line x1="40" y1="627" x2="40" y2="661" stroke="#dcaa4f" stroke-width="2" marker-end="url(#m-warn)"/>
+<rect x="16" y="664" width="368" height="128" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="36" y="700" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="600">Claude subscription, last</text>
+<rect x="36" y="714" width="110" height="28" rx="14" fill="none" stroke="rgba(120,220,160,0.28)"/>
+<text x="48" y="734" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">flat fee</text>
+<text x="36" y="776" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">claude-subscription</text>
+<rect x="16" y="816" width="368" height="228" rx="10" fill="none" stroke="rgba(120,220,160,0.28)"/>
+<text x="36" y="852" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="600">A model gets a rung only</text>
+<text x="36" y="878" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="600">after it proves itself:</text>
+<path d="M38.2 907.6 L43.3 912.6 L51.8 901.9" fill="none" stroke="#a9bcae" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="913" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">agentic probe passes</text>
+<path d="M38.2 937.6 L43.3 942.6 L51.8 931.9" fill="none" stroke="#a9bcae" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="943" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">served model ==</text>
+<text x="64" y="967" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">requested model</text>
+<text x="36" y="1002" class="s" font-size="18" fill="#7f9787" text-anchor="start" font-weight="400">Probe: a throwaway repo,</text>
+<text x="36" y="1026" class="s" font-size="18" fill="#7f9787" text-anchor="start" font-weight="400">a real file write, a check.</text>
+</svg>

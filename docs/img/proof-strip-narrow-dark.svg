@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 388" width="400" height="388" role="img" aria-labelledby="proof-strip-narrow-dark-title proof-strip-narrow-dark-desc">
+<title id="proof-strip-narrow-dark-title">What is proven</title>
+<desc id="proof-strip-narrow-dark-desc">Nine of nine queued tasks passed their own test; zero dollars of metered spend; 574 models listed but only 20 answered as themselves; 1,497 tests in this repository.</desc>
+<style>
+.s{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,Roboto,&quot;Helvetica Neue&quot;,Arial,sans-serif}
+.m{font-family:ui-monospace,SFMono-Regular,&quot;SF Mono&quot;,Menlo,Consolas,&quot;Liberation Mono&quot;,monospace}
+</style>
+<rect x="0.5" y="0.5" width="399" height="387" rx="12" fill="#050a07" stroke="rgba(120,220,160,0.22)"/>
+<rect x="16" y="16" width="178" height="172" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="30" y="66" class="s" font-size="32" fill="#5fe0a0" text-anchor="start" font-weight="650" letter-spacing="-0.5">9 / 9</text>
+<text x="30" y="100" class="s" font-size="18" fill="#e2ece5" text-anchor="start" font-weight="400">tasks passed</text>
+<text x="30" y="122" class="s" font-size="18" fill="#e2ece5" text-anchor="start" font-weight="400">their own test</text>
+<line x1="30" y1="140" x2="180" y2="140" stroke="rgba(120,220,160,0.28)"/>
+<text x="28" y="168" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">ledger.jsonl</text>
+<rect x="206" y="16" width="178" height="172" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="220" y="66" class="s" font-size="32" fill="#e2ece5" text-anchor="start" font-weight="650" letter-spacing="-0.5">$0</text>
+<text x="220" y="100" class="s" font-size="18" fill="#e2ece5" text-anchor="start" font-weight="400">metered model</text>
+<text x="220" y="122" class="s" font-size="18" fill="#e2ece5" text-anchor="start" font-weight="400">spend</text>
+<line x1="220" y1="140" x2="370" y2="140" stroke="rgba(120,220,160,0.28)"/>
+<text x="218" y="168" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">ledger.jsonl</text>
+<rect x="16" y="200" width="178" height="172" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="30" y="250" class="s" font-size="32" fill="#e2ece5" text-anchor="start" font-weight="650" letter-spacing="-0.5">574 → 20</text>
+<text x="30" y="284" class="s" font-size="18" fill="#e2ece5" text-anchor="start" font-weight="400">models listed vs.</text>
+<text x="30" y="306" class="s" font-size="18" fill="#e2ece5" text-anchor="start" font-weight="400">served as asked</text>
+<line x1="30" y1="324" x2="180" y2="324" stroke="rgba(120,220,160,0.28)"/>
+<text x="28" y="352" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">MODEL_SWEEP.md</text>
+<rect x="206" y="200" width="178" height="172" rx="10" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
+<text x="220" y="250" class="s" font-size="32" fill="#e2ece5" text-anchor="start" font-weight="650" letter-spacing="-0.5">1,497</text>
+<text x="220" y="284" class="s" font-size="18" fill="#e2ece5" text-anchor="start" font-weight="400">tests in</text>
+<text x="220" y="306" class="s" font-size="18" fill="#e2ece5" text-anchor="start" font-weight="400">this repository</text>
+<line x1="220" y1="324" x2="370" y2="324" stroke="rgba(120,220,160,0.28)"/>
+<text x="218" y="352" class="m" font-size="18" fill="#a9bcae" text-anchor="start" font-weight="400">tests/run.py</text>
+</svg>
