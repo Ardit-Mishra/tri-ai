@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 336" width="900" height="336" role="img" aria-labelledby="flow-dark-title flow-dark-desc">
 <title id="flow-dark-title">How a request flows through Tri-AI</title>
-<desc id="flow-dark-desc">Five steps: a request is sent from a phone, split into specialist tasks, each task runs on a free model, a test command checks the work, and passing work is kept while failing work is retried.</desc>
+<desc id="flow-dark-desc">Five steps: a request is sent from a phone, split into specialist tasks, each task runs on a free model, a test command checks the work, and passing work is kept while failing work is undone and tried on the next model.</desc>
 <style>
 .s{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,Roboto,&quot;Helvetica Neue&quot;,Arial,sans-serif}
 .m{font-family:ui-monospace,SFMono-Regular,&quot;SF Mono&quot;,Menlo,Consolas,&quot;Liberation Mono&quot;,monospace}
@@ -82,7 +82,7 @@
 <path d="M734.0 213.5 L738.5 218.0 L746.0 208.5" fill="none" stroke="#5fe0a0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="754" y="220" class="s" font-size="17" fill="#5fe0a0" text-anchor="start" font-weight="600">Pass: kept</text>
 <path d="M735.0 236.0 L745.0 246.0 M745.0 236.0 L735.0 246.0" fill="none" stroke="#e5675f" stroke-width="2.2" stroke-linecap="round"/>
-<text x="754" y="248" class="s" font-size="17" fill="#e5675f" text-anchor="start" font-weight="600">Fail: retried</text>
+<text x="754" y="248" class="s" font-size="17" fill="#e5675f" text-anchor="start" font-weight="600">Fail: undone</text>
 <line x1="732" y1="268" x2="864" y2="268" stroke="rgba(120,220,160,0.28)" stroke-width="1"/>
 <text x="732" y="294" class="m" font-size="14" fill="#a9bcae" text-anchor="start" font-weight="400">ledger.jsonl</text>
 </svg>

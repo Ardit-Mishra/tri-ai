@@ -33,8 +33,8 @@
 <text x="540" y="481" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">free hosted</text>
 <text x="744" y="481" class="m" font-size="17" fill="#a9bcae" text-anchor="end" font-weight="400">Kimi K3</text>
 <rect x="520" y="508" width="244" height="44" rx="8" fill="#0b130e" stroke="rgba(120,220,160,0.28)"/>
-<text x="540" y="537" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">subscription</text>
-<text x="744" y="537" class="m" font-size="17" fill="#a9bcae" text-anchor="end" font-weight="400">last</text>
+<text x="540" y="537" class="s" font-size="19" fill="#e2ece5" text-anchor="start" font-weight="400">free hosted</text>
+<text x="744" y="537" class="m" font-size="17" fill="#a9bcae" text-anchor="end" font-weight="400">Nemotron</text>
 <path d="M764 418 H788 V530 H764 M788 452 H836" fill="none" stroke="#a9bcae" stroke-width="1.6" marker-end="url(#m-a)"/>
 <line x1="836" y1="452" x2="932" y2="452" stroke="#a9bcae" stroke-width="1.6"/>
 <rect x="852" y="404" width="8" height="120" rx="2" fill="#e2ece5"/>

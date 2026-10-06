@@ -152,7 +152,7 @@ def hero(p, slug):
     s += f'<line x1="452" y1="452" x2="512" y2="452" stroke="{p["text2"]}" stroke-width="1.6" marker-end="url(#m-a)"/>\n'
 
     # Column B: three model chips (cheapest first), joined by a bracket.
-    chips = [("local", "Ornith 9B"), ("free hosted", "Kimi K3"), ("subscription", "last")]
+    chips = [("local", "Ornith 9B"), ("free hosted", "Kimi K3"), ("free hosted", "Nemotron")]
     for i, (k, v) in enumerate(chips):
         y = 396 + i * 56
         s += f'<rect x="520" y="{y}" width="244" height="44" rx="8" fill="{p["s1"]}" stroke="{p["line"]}"/>\n'
@@ -189,7 +189,7 @@ FLOW = [
     ("Split into", "specialist tasks", "decomposer"),
     ("Each task runs", "on a free model", "worker"),
     ("A test command", "checks the work", "verify_command"),
-    ("Pass: kept", "Fail: retried", "ledger.jsonl"),
+    ("Pass: kept", "Fail: undone", "ledger.jsonl"),
 ]
 
 
@@ -223,7 +223,7 @@ def flow_wide(p, slug):
     W, H = 900, 336
     s = head(slug, W, H, "How a request flows through Tri-AI",
              "Five steps: a request is sent from a phone, split into specialist tasks, each task runs on a "
-             "free model, a test command checks the work, and passing work is kept while failing work is retried.", p)
+             "free model, a test command checks the work, and passing work is kept while failing work is undone and tried on the next model.", p)
     s += arrow_defs(p)
     pw, gap, x0 = 160, 14, 22
     for i, (c1, c2, m) in enumerate(FLOW):

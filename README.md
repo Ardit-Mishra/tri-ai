@@ -121,7 +121,7 @@ provider must also serve the exact model that was asked for. That rule came from
 
 Sources: [9/9 and $0, from the run ledger](evidence/README.md) ·
 [574 → 20, from the model sweep](evidence/MODEL_SWEEP.md) · 1,497 tests from `python tests/run.py`
-on this revision (0 skipped, 364 s).
+on this revision (0 skipped, 381 s).
 
 <details>
 <summary><b>All evidence, including the private build</b></summary>
@@ -133,7 +133,7 @@ on this revision (0 skipped, 364 s).
 | Aliases that served a different model | all 22 `auto/*` aliases, at HTTP 200; `auto/claude-opus` returned `google/gemma-4-31b-it` | same sweep |
 | Wider free-route sweep (private) | 2,372 catalogued, 724 free candidates, 54 answered as themselves; 13 coding candidates ran the agentic probe and 9 passed | private sweep, 2026-10-04 |
 | First fully free verified build (private) | a complete app build passed its verifier (10 of 10 promises) on Kimi K3, NVIDIA free tier, after Mistral Codestral failed and one Kimi K3 attempt timed out; no subscription involved | private ledger, 2026-10-04 |
-| Test suite, this repository | 1,497 tests, 0 skipped, 364 s | `python tests/run.py` on this revision, 2026-10-05 |
+| Test suite, this repository | 1,497 tests, 0 skipped, 381 s | `python tests/run.py` on this revision, 2026-10-05 |
 | Test suite, private build | 1,700+ tests | private `trunk`, 2026-10-05 |
 
 The alias finding mattered in practice. Three roles had been pinned to `auto/best-coding` for 29
@@ -146,7 +146,7 @@ evidence of which model ran. The route registry was rebuilt from measurement, no
 
 Python · SQLite · [Hermes Agent](https://hermes-agent.nousresearch.com) (kanban kernel) · Ollama ·
 OmniRoute · NVIDIA, OpenRouter, Mistral and Google AI Studio free tiers · Telegram Bot API · Windows
-Job Objects · Three.js (Cortex console) · Render
+Job Objects · HTML Canvas (Cortex console) · Vercel (live demo)
 
 ## Engineering details
 
@@ -228,20 +228,20 @@ public push unless the branch's `RELEASE_SCOPE` file says `public`. Details in
 
 ## See it running
 
-<table>
-  <tr>
-    <td colspan="2"><img src="docs/img/cortex-hero.png" alt="The Kaya console in the sealed public demo: a sphere of synthetic source regions with planner, specialist and human-gate nodes, labelled Demo data and Sealed demo." width="100%"></td>
-  </tr>
-  <tr>
-    <td width="62%" valign="top"><img src="docs/img/cortex-sphere.webp" alt="The Cortex sphere rotating; bright traces mark the running synthetic task." width="100%"></td>
-    <td width="38%" valign="top"><img src="docs/img/cortex-mobile.png" alt="The same console at phone width, 390 pixels." width="100%"></td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="docs/img/cortex-stats.png" alt="Console summary: task counts, the running task's claim, workspace, agent and verify stages, and lane load across local, free API and subscription routes." width="100%"></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/img/cortex-hero.jpg" width="100%" alt="The live demo console: a brain-like sphere where each coloured region is a data source, with Tri-AI's pipeline in the core. A green ring is sweeping out from the verify gate because a run just passed its check; the caption reads 'Run verified, Frame the product brief passed its check'.">
+</p>
 
-*Captured from the live sealed demo. Every task, source and route in it is synthetic.*
+How to read it: each coloured region is one data source. The core is Tri-AI's pipeline, from planner to
+verify gate. A moving dot is a task that is running right now. A green ring sweeping outward means a run
+passed its check, a red flash means one failed and was undone, and a burst in a region means new files
+were indexed there. Nothing on the brain moves on its own: every spark is a recorded event.
+
+<p align="center">
+  <img src="docs/img/cortex-mobile.jpg" width="300" alt="The same console on a phone: the sphere fills the screen, with the latest signal shown above it.">
+</p>
+
+*Captured from the live demo, which runs on synthetic data and labels every replayed event.*
 
 ## Quickstart
 
