@@ -119,8 +119,8 @@ Two constraints that override the table:
 
 ### The Hermes fallback chain (superseded by escalation)
 
-Four levels deep, checked with `hermes fallback list`. Tried in order when the level above fails
-with a rate limit, a 5xx, or a connection error.
+This is a historical configuration, not a setup recommendation. It was four levels deep and
+tried the next level when the one above failed with a rate limit, a 5xx, or a connection error.
 
 ```
 primary   github/gpt-4o        hosted, free tier, large context
@@ -151,9 +151,10 @@ position. That model was retired and began returning **410 Gone**. Nothing surfa
 because a fallback is only exercised when the primary fails — so the system had *no working
 fallback at all* for weeks, and looked healthy the entire time.
 
-A lane (`auto/best-free`) is resolved by the router at call time against what is actually working.
-Prefer lanes wherever one exists. And **test a fallback deliberately** rather than waiting for it
-to be needed: stop the primary and confirm the next level answers.
+That was the original reason for the lane. Later measurements found that `auto/*` aliases can
+return HTTP 200 while serving a different model. Current routes require a concrete free model,
+a served-model identity check, and an agentic probe. **Test a fallback deliberately** rather than
+waiting for it to be needed: stop the primary and confirm the next level answers.
 
 ---
 
@@ -161,7 +162,7 @@ to be needed: stop the primary and confirm the next level answers.
 
 These are different settings and they are set in different places.
 
-**Bob's chat model** (the Telegram gateway) lives in the Hermes config's `default` /
+**The chat model** (the Telegram gateway) lives in the Hermes config's `default` /
 `fallback_model`. It handles conversational requests from a phone.
 
 **The queue's model** is whatever the fallback chain resolves to when `hermes -z` runs.
