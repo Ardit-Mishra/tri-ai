@@ -28,16 +28,18 @@ model. It keeps the result only if a verification command passes.
 ## Live demo
 
 [tri-ai.arditmishra.com](https://tri-ai.arditmishra.com) opens with two guided walkthroughs,
-*Build a landing page* and *Build an app from scratch*, that follow one request from my phone to a
-deploy on sample data.
+*Build a landing page* and *Build an app from scratch*, that follow a request through the
+pipeline on sample data. The hosted site also offers a limited real build when its separate
+public gateway is healthy; the walkthroughs do not depend on that gateway.
 
 <p align="center">
   <img src="docs/img/cortex-hero.jpg" width="100%" alt="The live demo console: a brain-like sphere where each coloured region is a data source, with Tri-AI's pipeline in the core. A green ring is sweeping out from the verify gate because a run just passed its check; the caption reads 'Run verified, Frame the product brief passed its check'.">
 </p>
 
 > [!NOTE]
-> The demo is a labelled simulation with synthetic data. It never connects to a live model, task
-> board or agent. Its *Private console* option leads only to my passphrase login.
+> The Cortex walkthrough is a labelled simulation with synthetic data. It never connects to the
+> private board, source index, or agents. A hosted live-build request is a separate, limited path;
+> the cloned local demo has no execution API. Private data is not part of this repository.
 > [How to read the console](#see-it-running).
 
 ## Why this exists
@@ -268,7 +270,8 @@ cd tri-ai
 .\scripts\run_public_demo.ps1
 ```
 
-Open `http://127.0.0.1:3018`. The header reads `Demo data` and `Sealed demo`. The public-release
+Open `http://127.0.0.1:3018`. The header reads `Demo data` and `Sealed demo`. The local copy
+contains walkthroughs only; its live-build control opens the hosted service. The public-release
 checks need nothing but Python:
 
 ```powershell

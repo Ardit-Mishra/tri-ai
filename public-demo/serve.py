@@ -12,6 +12,29 @@ from urllib.parse import urlsplit
 
 
 INDEX = Path(__file__).with_name("index.html")
+OFFLINE_CONTROLS = b"""<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const hosted = 'https://tri-ai.arditmishra.com/';
+  const live = document.querySelector('.gate-live');
+  live.querySelector('h2').textContent = 'Build live on the hosted demo';
+  live.querySelector('p').textContent = 'The local copy is a sealed walkthrough. Open the hosted demo to submit a limited public build.';
+  live.addEventListener('click', (event) => {
+    event.stopPropagation();
+    location.assign(hosted);
+  });
+  document.querySelector('[data-choice="private"]').closest('p').remove();
+  document.getElementById('chatHeading').textContent = 'Hosted live build';
+  document.getElementById('chatMessages').textContent = 'This local copy is a sealed simulation. Open the hosted demo to request a limited public build.';
+  document.getElementById('chatInput').disabled = true;
+  document.getElementById('chatCodeRow').hidden = true;
+  const send = document.getElementById('chatSend');
+  send.textContent = 'Open hosted demo';
+  send.addEventListener('click', (event) => {
+    event.stopImmediatePropagation();
+    location.assign(hosted);
+  }, true);
+});
+</script>"""
 
 
 class _SnapshotParser(HTMLParser):
@@ -56,8 +79,11 @@ def sealed_snapshot(page: bytes) -> dict:
 
 
 def make_server(host: str, port: int) -> ThreadingHTTPServer:
-    page = INDEX.read_bytes()
-    snapshot = sealed_snapshot(page)
+    source = INDEX.read_bytes()
+    snapshot = sealed_snapshot(source)
+    if source.count(b"</body>") != 1:
+        raise ValueError("Public Cortex requires one body closing tag")
+    page = source.replace(b"</body>", OFFLINE_CONTROLS + b"</body>")
     payload = json.dumps(snapshot, separators=(",", ":")).encode("utf-8")
 
     class Handler(BaseHTTPRequestHandler):

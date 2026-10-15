@@ -23,7 +23,9 @@ cd tri-ai
 
 Open `http://127.0.0.1:3018`. The Kaya header should read `Demo data` and
 `Sealed demo`; the brain and details should show seven synthetic source
-regions and four example tasks. Press `Ctrl+C` in the terminal to stop it.
+regions and four example tasks. The local page offers the two guided
+walkthroughs; its live-build control links to the separately hosted public
+service. Press `Ctrl+C` in the terminal to stop it.
 
 To use a different loopback port:
 
@@ -51,6 +53,12 @@ and the same embedded synthetic snapshot at `/api/snapshot`. It does not import
 the private dashboard, read a runtime database, or expose file, artifact,
 credential, model-provider, or agent-execution routes. Its content security
 policy also forbids network connections from the page.
+
+The hosted site may offer a limited real build through a dedicated public
+gateway. This local server intentionally does not. The hosted gateway must be
+deployed and healthy for that feature; the walkthroughs remain usable when it
+is unavailable. No private source index, board, or operator credential is
+needed to run this repository's demo.
 
 ## Deploy the same sealed demo to Render
 

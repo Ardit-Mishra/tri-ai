@@ -35,7 +35,7 @@ class PublicCortexDemoTests(unittest.TestCase):
             page = response.read().decode("utf-8")
             self.assertEqual(response.status, 200)
             self.assertIn("connect-src 'none'", response.headers["Content-Security-Policy"])
-        self.assertIn("Kaya Cortex Lab", page)
+        self.assertIn("Tri-AI: verified builds on free models", page)
         self.assertIn('id="demoSnapshot"', page)
         with urlopen(self.base + "/api/snapshot") as response:
             snapshot = json.load(response)

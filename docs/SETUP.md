@@ -47,10 +47,13 @@ ssh desktop 'hostname'    # must return the desktop's name
 
 ## 2. Local inference
 
-Install [Ollama](https://ollama.com) on both machines. Bind it so the other machine can reach it:
+Install [Ollama](https://ollama.com) on both machines. Keep it on localhost by
+default. If a second machine must call it, bind only to the tailnet interface
+and restrict the port with host firewall rules and tailnet ACLs. Do not expose
+an unauthenticated Ollama API to the public network.
 
 ```
-OLLAMA_HOST=0.0.0.0:11434
+OLLAMA_HOST=127.0.0.1:11434
 ```
 
 Pull models sized to the hardware. **Check VRAM before pulling anything large** — a model that
@@ -91,9 +94,10 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:20128/models   # expec
 > a naive health check reports it down when it is fine. This exact mistake produced a false
 > "router is down" diagnosis once already.
 
-Prefer its **semantic lanes** (`auto/best-free`, `auto/coding:free`, `auto/cheap`, `auto/offline`)
-over hardcoded model names. Free hosted models get renamed and retired constantly; a lane survives
-that, a pinned name does not.
+Do not admit a semantic `auto/*` lane merely because it returns HTTP 200. In the
+measured sweep, those aliases often served a different model from the one
+requested. Probe a concrete free model with an agentic file-write task and
+check the provider's served-model identity before admitting the route.
 
 ---
 
@@ -123,8 +127,8 @@ Then build the fallback chain so a lane never dead-ends — descend through *ind
 domains*: hosted, then a dynamically-chosen hosted lane, then another machine, then this machine.
 
 ```bash
-hermes fallback add auto/best-free --base-url http://localhost:20128/v1
-hermes fallback add <local-model>  --base-url http://<desktop>:11434/v1
+hermes fallback add <admitted-named-free-model> --base-url http://localhost:20128/v1
+hermes fallback add <local-model> --base-url http://<desktop-tailnet-address>:11434/v1
 hermes fallback add <local-model>  --base-url http://localhost:11434/v1
 hermes fallback list
 ```
