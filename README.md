@@ -27,20 +27,23 @@ model. It keeps the result only if a verification command passes.
 
 ## Live demo
 
-[tri-ai.arditmishra.com](https://tri-ai.arditmishra.com) opens with two guided walkthroughs,
-*Build a landing page* and *Build an app from scratch*, that follow a request through the
-pipeline on sample data. The hosted site also offers a limited real build when its separate
-public gateway is healthy; the walkthroughs do not depend on that gateway.
+[tri-ai.arditmishra.com](https://tri-ai.arditmishra.com): send one task, get back one link.
+Type a small task in the box (a tip splitter, a pomodoro timer, a codon usage calculator). A
+local model plans it, free hosted models build and review it, and you get a preview link that
+lasts 24 hours. Free models only, one build a day without an invite code, about three minutes a
+run. The box pauses itself when the build host is offline.
 
-<p align="center">
-  <img src="docs/img/cortex-hero.jpg" width="100%" alt="The live demo console: a brain-like sphere where each coloured region is a data source, with Tri-AI's pipeline in the core. A green ring is sweeping out from the verify gate because a run just passed its check; the caption reads 'Run verified, Frame the product brief passed its check'.">
-</p>
+The same page replays one real run step by step and shows counts read live from the private
+workspace: runs attempted, runs that passed the separate check, models used. Most runs do not
+pass, and the numbers say so. [tri-ai.arditmishra.com/models](https://tri-ai.arditmishra.com/models)
+works out which free local models fit your own machine.
 
 > [!NOTE]
-> The Cortex walkthrough is a labelled simulation with synthetic data. It never connects to the
-> private board, source index, or agents. A hosted live-build request is a separate, limited path;
-> the cloned local demo has no execution API. Private data is not part of this repository.
-> [How to read the console](#see-it-running).
+> A public build gets none of my files and never touches the private board or agents. This
+> repository contains the sealed demo console and the verification core, not private data.
+> The older Cortex walkthrough (a labelled simulation on synthetic data) is still at
+> [tri-ai-demo.onrender.com](https://tri-ai-demo.onrender.com/), and runs locally from the
+> [Quickstart](#quickstart). [How to read the console](#see-it-running).
 
 ## Why this exists
 
@@ -248,7 +251,8 @@ public push unless the branch's `RELEASE_SCOPE` file says `public`. Details in
 
 ## See it running
 
-How to read the console [shown above](#live-demo): each coloured region is one data source. The core is Tri-AI's pipeline, from planner to
+How to read the sealed Cortex console (from the [Quickstart](#quickstart) or
+[tri-ai-demo.onrender.com](https://tri-ai-demo.onrender.com/)): each coloured region is one data source. The core is Tri-AI's pipeline, from planner to
 verify gate. A moving dot is a task that is running right now. A green ring sweeping outward means a run
 passed its check, a red flash means one failed and was undone, and a burst in a region means new files
 were indexed there. Nothing on the brain moves on its own: every spark is a recorded event.
@@ -257,7 +261,7 @@ were indexed there. Nothing on the brain moves on its own: every spark is a reco
   <img src="docs/img/cortex-mobile.jpg" width="300" alt="The same console on a phone: the sphere fills the screen, with the latest signal shown above it.">
 </p>
 
-*Captured from the live demo, which runs on synthetic data and labels every replayed event.*
+*Captured from the sealed demo, which runs on synthetic data and labels every replayed event.*
 
 ## Quickstart
 
